@@ -1,10 +1,12 @@
 "use server"
 
+import { ObjectProps } from "@/app/utils/util";
 import { GoogleGenAI, createPartFromUri, createUserContent, Modality, ContentListUnion } from "@google/genai"
 import * as fs from "node:fs"
 
 type GeminaAiFunProps = {
-  text: string
+  text: string;
+  chatPdf:ObjectProps
 }
 
 console.log("Gen ai:- ", process.env.GOOGLE_GEMINA_API);
@@ -166,24 +168,10 @@ async function PdfUpload(path: string,fileName?:string) {
   return file
 }
 
-async function PdfAnswerWithAi({ text }: GeminaAiFunProps) {
+async function PdfAnswerWithAi({ text,chatPdf }: GeminaAiFunProps) {
 
-  const userPreviousUploaded = {
-    name: 'files/0kjywbkwjzwj',
-    displayName: 'MCO05_Block_1.pdf',
-    mimeType: 'application/pdf',
-    sizeBytes: '1273242',
-    createTime: '2025-07-13T08:03:53.489844Z',
-    expirationTime: '2025-07-15T08:03:53.404517667Z',
-    updateTime: '2025-07-13T08:03:53.489844Z',
-    sha256Hash: 'MGY4ZDY2MmVlMjQ3ZDZkZTNkOTRhMjFlMzliOWUzNDQ0ZTQ5NmZmYzQ2NjY3ZTFjMzNmNzQ2MzQ4ZjY2MTUyNg==',
-    uri: 'https://generativelanguage.googleapis.com/v1beta/files/0kjywbkwjzwj',
-    state: 'ACTIVE',
-    source: 'UPLOADED'
-  }
-
-  const fileObje = userPreviousUploaded ?? await PdfUpload('public/pdf/Block-1.pdf');
-  console.log("fileObje:- ", fileObje);
+  const fileObje = chatPdf 
+  // console.log("fileObje:- ", fileObje);
 
   /*
     {
@@ -208,7 +196,7 @@ async function PdfAnswerWithAi({ text }: GeminaAiFunProps) {
 
   if (fileObje.uri && fileObje.mimeType) {
     const fileContent = createPartFromUri(fileObje.uri, fileObje.mimeType);
-    console.log("fileContent:- ", fileContent);
+    // console.log("fileContent:- ", fileContent);
 
     /*  
     {
@@ -226,8 +214,8 @@ async function PdfAnswerWithAi({ text }: GeminaAiFunProps) {
     contents: content
   });
 
-  console.log(result.text);
-
+  // console.log(result.text);
+  return result.text
 }
 
 export { geminaAiText, geminaAiImage, ImageGenerateWithAi, PdfAnswerWithAi,PdfUpload }

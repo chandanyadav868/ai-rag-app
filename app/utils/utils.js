@@ -3,6 +3,7 @@ import path from "path"
 
 const folderPath  = path.join(process.cwd(),"aiapp","public","uploaded_pdf.json")
 
+
 export async function fileReading() {
     let datas = [];    
 

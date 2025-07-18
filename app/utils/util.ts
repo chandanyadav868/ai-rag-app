@@ -15,7 +15,7 @@ export interface ObjectProps {
     source: string
 }
 
-const folderPath  = path.join(process.cwd(),"aiapp","public","uploaded_pdf.json")
+const folderPath  = path.join(process.cwd(),"public","uploaded_pdf.json")
 
 
 export async function fileReading() {
