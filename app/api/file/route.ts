@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import fs from "fs"
 import path from "path";
 import { PdfUpload } from "@/Gemina_Api/genAi";
-import { fileUpdate, ObjectProps } from "@/app/utils/util";
+import { fileUpdate, ObjectProps } from "@/utils/util";
 
 export async function POST(req: NextRequest) {
     try {

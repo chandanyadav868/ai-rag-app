@@ -1,4 +1,4 @@
-import { fileReading } from "@/app/utils/util";
+import { fileReading } from "@/utils/util";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(req:NextRequest) {

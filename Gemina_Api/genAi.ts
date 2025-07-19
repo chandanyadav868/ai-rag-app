@@ -1,12 +1,12 @@
 "use server"
 
-import { ObjectProps } from "@/app/utils/util";
+import { ObjectProps } from "@/utils/util";
 import { GoogleGenAI, createPartFromUri, createUserContent, Modality, ContentListUnion } from "@google/genai"
 import * as fs from "node:fs"
 
 type GeminaAiFunProps = {
   text: string;
-  chatPdf:ObjectProps
+  chatPdf?:ObjectProps
 }
 
 console.log("Gen ai:- ", process.env.GOOGLE_GEMINA_API);
@@ -84,17 +84,17 @@ function readingFile(imagePathL: string) {
   return base64Image
 }
 
-async function ImageGenerateWithAi({ text }: GeminaAiFunProps) {
+async function ImageGenerateWithAi({ text }: GeminaAiFunProps):Promise<Buffer<ArrayBuffer> | undefined> {
 
   // Load the image from the local file system
-  const base64Image = readingFile("app/public/images/image1.png");
+  const base64Image = readingFile("public/images/image.png");
   // const base64Image1  = readingFile("app/public/images/image.png");
   // console.log("base64Image:- ",imageData);
 
 
   // Prepare the content parts
   const contents = [
-    { text: 'remove the car' },
+    { text: text },
     {
       inlineData: {
         mimeType: "image/png",
@@ -134,6 +134,7 @@ async function ImageGenerateWithAi({ text }: GeminaAiFunProps) {
       const buffer = Buffer.from(imageData, "base64");
       fs.writeFileSync("gemini-native-image.png", buffer);
       console.log("Image saved as gemini-native-image.png");
+      return buffer
     }
   }
 
@@ -194,7 +195,7 @@ async function PdfAnswerWithAi({ text,chatPdf }: GeminaAiFunProps) {
     text,
   ];
 
-  if (fileObje.uri && fileObje.mimeType) {
+  if (fileObje?.uri && fileObje?.mimeType) {
     const fileContent = createPartFromUri(fileObje.uri, fileObje.mimeType);
     // console.log("fileContent:- ", fileContent);
 
