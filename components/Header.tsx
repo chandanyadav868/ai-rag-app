@@ -31,7 +31,7 @@ function Headers() {
   }, [profileBox])
 
   return (
-    <div className='flex bg-gray-300 px-2 py-2 justify-around items-center'>
+    <div className='flex bg-gray-300 px-2 py-2 justify-around items-center sticky z-50'>
       <header>
         <nav className='flex gap-4'>
           {HeaderList.map((nav, i) => (

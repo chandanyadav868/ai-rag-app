@@ -81,10 +81,10 @@ function PDFViewer({fileData}:PDFViewerProps) {
 
     return (
         <>
-            <div style={{ height: "90%", width: "100%" }}>
+            <div style={{ height: "92%", width: "100%" }}>
                 {pdfUrl && (
                     <iframe
-                        className='mt-4 flex-1'
+                        className='mt-1 flex-1 rounded-md'
                         src={pdfUrl}
                         width="100%"
                         height="90%"

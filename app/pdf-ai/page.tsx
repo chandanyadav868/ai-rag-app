@@ -9,6 +9,7 @@ import markdownit from 'markdown-it'
 import hljs from 'highlight.js'
 import PDFViewer from '@/components/PDFVIEWER';
 import { History, Loader2 } from "lucide-react"
+import Link from 'next/link';
 
 export interface chatHistoryReportProps {
   user: {
@@ -58,9 +59,9 @@ function Home() {
     highlight: function (str, lang) {
       if (lang && hljs.getLanguage("js")) {
         try {
-          return '<div style="position: relative;"> <span class="copy">Copy</span> <pre><code class="hljs">' +
-            `${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}` +
-            '</code></pre></div>';;
+          return `<div style="position: relative;"> <span class="copy" onClick=${copy}>Copy</span> <pre><code class="hljs">' +
+            ${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value} +
+            '</code></pre></div>`;;
         } catch (__) { }
       }
 
@@ -200,24 +201,23 @@ function Home() {
 
 
   return (
-    <div className='w-full max-h-screen overflow-x-auto overflow-y-hidden'>
-      <h1 className="text-3xl font-bold underline text-center">
+    <div className='w-full flex flex-col h-screen'>
+      <h1 className="text-3xl text-white font-bold mb-2 text-center">
         PDF Question Answer
       </h1>
 
+      <div className='flex-1 flex flex-wrap justify-between bg-red-300 p-1'>
 
-
-      <div className='flex gap-4 justify-between p-2 h-full'>
-        <div className='flex-1 h-[93vh]'>
+        <div className='p-1 lg:w-[50%] w-full'>
           <span className='flex gap-2 items-center justify-center'>
             <span className='w-[400px]'>
-              <Input onChange={fileUploader} type='file' accept='application/pdf' name='pdfFile' placeholder='pdf file uploader' className='cursor-pointer block mx-auto w-fit' />
+              <Input onChangeValue={fileUploader} type='file' accept='application/pdf' name='pdfFile' placeholder='pdf file uploader' className='cursor-pointer block mx-auto w-fit' />
             </span>
             {fileUploading && <Loader2 color='black' className='animate-spin' />}
 
           </span>
 
-          <div className='flex gap-4 mt-4 overflow-x-auto px-4'>
+          <div className='flex gap-4 mt-2 overflow_styling overflow-x-auto px-4'>
             {pdfUploadedData.map((v, i) => (
               <div key={i} className='flex gap-2 rounded-md shadow-md p-2 bg-white mb-2'>
                 <input onChange={(e) => setUserSelectedPdfFn(e.target.value)} type="checkbox" name="pdf" id="pdf" value={v.uri} />
@@ -229,25 +229,29 @@ function Home() {
           <PDFViewer fileData={userSelectedPdf} />
         </div>
 
-        <div className='flex-1 flex flex-col gap-2 bg-gray-50 p-2 rounded-md justify-center h-full shrink-0 max-lg:min-w-full px-2'>
-          {/* conversion history */}
+        <div className='flex-1 flex flex-col gap-2 bg-gray-50 p-2 rounded-md justify-between h-[790px] px-2'>
+          {/* conversion history  */}
+
           <div>
             <button onClick={() => setChatHistoryResport([])}>
               <History className='cursor-pointer' />
             </button>
           </div>
-          <div className='h-[75vh] overflow-y-auto p-2 rounded-md'>
-            {chatHistoryReport.map((v, i) => (
-              <div key={i}>
-                <div className='bg-gray-600 text-white rounded-md p-2 mb-2'>
-                  <span></span>
-                  <span>{v.user.message}</span>
+
+          <div className='flex-1 h-[600px] p-2 rounded-md'>
+            <div className='h-full overflow-y-auto'>
+              {chatHistoryReport.map((v, i) => (
+                <div key={i}>
+                  <div className='bg-gray-600 text-white rounded-md p-2 mb-2 mr-2'>
+                    <span></span>
+                    <span>{v.user.message}</span>
+                  </div>
+                  <div ref={containerRef}>
+                    <p className='prose' dangerouslySetInnerHTML={{ __html: md.render(v.computer.message) }}></p>
+                  </div>
                 </div>
-                <div ref={containerRef}>
-                  <p className='prose' dangerouslySetInnerHTML={{ __html: md.render(v.computer.message) }}></p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <form className='flex gap-4' onSubmit={(e) => {
@@ -255,11 +259,12 @@ function Home() {
             aiResponse()
           }
           }>
-            <Input value={chatInputText} ref={chatInputRef} name='chatInput' placeholder='Enter Your Text' className='w-full' onChange={(e) => setChatInputText(e.value)}></Input>
-            <Button loader={buttonState} disabled={chatInputText.trim() === ""} type="submit" className='' name='Send' />
+            <Input value={chatInputText} ref={chatInputRef} name='chatInput' placeholder='Enter Your Text' className='w-full' onChangeValue={(e) => setChatInputText(e.value)}></Input>
+            <Button loader={buttonState} disabled={chatInputText.trim() === ""} type="submit" className='text-white' name='Send' />
           </form>
 
         </div>
+        
       </div>
 
     </div>

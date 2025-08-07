@@ -8,7 +8,22 @@ const nextConfig: NextConfig = {
         hostname:"rasterweb.net",
         protocol:"https",
         port:""
-      }
+      },
+      {
+        hostname:"**",
+        protocol:"https",
+        port:""
+      },
+      {
+        hostname:"images.piclumen.com",
+        protocol:"https",
+        port:""
+      },
+      {
+        hostname:"lh3.googleusercontent.com",
+        protocol:"https",
+        port:""
+      },
     ]
   }
 };

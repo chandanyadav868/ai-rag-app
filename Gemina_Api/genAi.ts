@@ -4,18 +4,18 @@ import { ObjectProps } from "@/utils/util";
 import { GoogleGenAI, createPartFromUri, createUserContent, Modality, ContentListUnion } from "@google/genai"
 import * as fs from "node:fs"
 
-type GeminaAiFunProps = {
+export interface GeminaAiFunProps {
   text: string;
-  chatPdf?:ObjectProps
+  chatPdf?: ObjectProps
 }
 
 console.log("Gen ai:- ", process.env.GOOGLE_GEMINA_API);
 
 // set up googlegenai with api for backend talk
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINA_API });
+export const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINA_API });
 
 
-async function geminaAiText({ text }: GeminaAiFunProps) {
+async function geminaAiUploadImage({ text }: GeminaAiFunProps) {
 
   const files = await ai.files.upload({
     file: "./app/public/images/image.png"
@@ -72,6 +72,7 @@ async function geminaAiImage({ text }: GeminaAiFunProps) {
       const buffer = Buffer.from(imageData, "base64")
       fs.writeFileSync("gemini-native-image.png", buffer);
       console.log("Image saved as gemini-native-image.png");
+      return buffer; // Return the image buffer
     }
   }
 
@@ -84,27 +85,18 @@ function readingFile(imagePathL: string) {
   return base64Image
 }
 
-async function ImageGenerateWithAi({ text }: GeminaAiFunProps):Promise<Buffer<ArrayBuffer> | undefined> {
+export async function ImageGenerateWithAi({ text }: GeminaAiFunProps): Promise<Buffer<ArrayBuffer> | undefined> {
 
   // Load the image from the local file system
   const base64Image = readingFile("public/images/image.png");
-  // const base64Image1  = readingFile("app/public/images/image.png");
-  // console.log("base64Image:- ",imageData);
-
 
   // Prepare the content parts
   const contents = [
     { text: text },
-    {
-      inlineData: {
-        mimeType: "image/png",
-        data: base64Image,
-      },
-    },
     // {
     //   inlineData: {
     //     mimeType: "image/png",
-    //     data: base64Image1,
+    //     data: base64Image,
     //   },
     // },
   ];
@@ -115,6 +107,8 @@ async function ImageGenerateWithAi({ text }: GeminaAiFunProps):Promise<Buffer<Ar
     contents: contents,
     config: {
       responseModalities: [Modality.TEXT, Modality.IMAGE],
+      temperature: 0.4,
+
     },
   });
 
@@ -140,12 +134,11 @@ async function ImageGenerateWithAi({ text }: GeminaAiFunProps):Promise<Buffer<Ar
 
 }
 
-
-async function PdfUpload(path: string,fileName?:string) {
+async function PdfUpload(path: string, fileName?: string) {
   const file = await ai.files.upload({
     file: path,
     config: {
-      displayName: fileName??"text_book",
+      displayName: fileName ?? "text_book",
     },
   });
 
@@ -169,9 +162,9 @@ async function PdfUpload(path: string,fileName?:string) {
   return file
 }
 
-async function PdfAnswerWithAi({ text,chatPdf }: GeminaAiFunProps) {
+async function PdfAnswerWithAi({ text, chatPdf }: GeminaAiFunProps) {
 
-  const fileObje = chatPdf 
+  const fileObje = chatPdf
   // console.log("fileObje:- ", fileObje);
 
   /*
@@ -219,6 +212,25 @@ async function PdfAnswerWithAi({ text,chatPdf }: GeminaAiFunProps) {
   return result.text
 }
 
-export { geminaAiText, geminaAiImage, ImageGenerateWithAi, PdfAnswerWithAi,PdfUpload }
+async function geminaAiText({ text }: GeminaAiFunProps) {
+ const response = await ai.models.generateContentStream({
+    model: "gemini-2.5-flash",
+    contents: text,
+    config: {
+      responseModalities: [Modality.TEXT],
+      temperature: 0.4,
+      maxOutputTokens: 1000,
+    }
+  });
+
+  for await (const chunk of response) {
+    console.log(chunk);
+    
+    }
+  
+
+}
+
+export { geminaAiText, geminaAiImage, PdfAnswerWithAi, PdfUpload, geminaAiUploadImage }
 
 

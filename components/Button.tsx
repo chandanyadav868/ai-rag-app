@@ -13,12 +13,12 @@ const Button = React.forwardRef<HTMLButtonElement,ButtonProps>(({className,name,
   return (
     <>
     {loader?
-    <span className={`bg-black text-white py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 ${className}`}>
+    <span className={`bg-black text-black py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 ${className}`}>
       Loading...
     </span>
     :
     <>
-    <button  disabled={disabled} className={`bg-black text-white py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 ${className}`} onClick={onClick} type={type} >{name} </button>
+    <button  disabled={disabled} className={`bg-black py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 cursor-pointer ${className}`} onClick={onClick} type={type} >{name} </button>
     </>    
   }
     </>

@@ -1,19 +1,29 @@
-import React, { forwardRef } from 'react'
+import React, { forwardRef, TextareaHTMLAttributes } from 'react';
 
-interface TextareaProps {
-    name: string;
-    placeholder: string;
-    className?: string;
-    value?: string;
-    onChange?: (e: string) => void
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  name: string;
+  placeholder: string;
+  className?: string;
+  value?: string;
+  onValueChange?: (value: string) => void; // ✅ Custom handler
 }
 
-const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ name, placeholder, className, onChange = () => { }, ...props }, ref) => {
+const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ name, placeholder, className = '', onValueChange, onChange, ...props }, ref) => {
     return (
-        <textarea {...props} name={name} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={`p-4 rounded-md focus:ring-1 focus:ring-blue-800 shadow-md outline-none bg-gray-300 placeholder:font-bold ${className}`} ref={ref}>
+      <textarea
+        {...props}
+        name={name}
+        placeholder={placeholder}
+        onChange={(e) => {
+          onChange?.(e); // 🧠 Keep native onChange behavior
+          onValueChange?.(e.target.value); // 🧠 Also call your string handler
+        }}
+        className={`p-4 focus:ring-1 focus:ring-blue-800 shadow-md outline-none resize-none placeholder:font-bold ${className}`}
+        ref={ref}
+      />
+    );
+  }
+);
 
-        </textarea>
-    )
-})
-
-export default Textarea
+export default Textarea;

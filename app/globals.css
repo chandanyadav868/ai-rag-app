@@ -1,10 +1,215 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-body{
-    background-color: #737272;
+body {
+    min-height: 100vh;
+    background: radial-gradient(#020029, #02012b);
 }
 
-span.copy{
+span.copy {
     @apply cursor-pointer top-0 block bg-gray-400 absolute text-white rounded-md p-2
+}
+
+.overflow_styling::-webkit-scrollbar {
+    height: 10px;
+    /* Width of the entire scrollbar */
+}
+
+.overflow_styling::-webkit-scrollbar-track {
+    /* background: #f20909; Color of the track */
+}
+
+.overflow_styling::-webkit-scrollbar-thumb {
+    background: #ed9393;
+    /* Color of the thumb */
+    border-radius: 5px;
+    /* Adds roundness to the thumb */
+}
+
+.overflow_styling::-webkit-scrollbar-button {
+    background: transparent;
+    /* Color of the scrollbar buttons */
+    /* width: 5px; */
+    /* You may also want to set height for vertical scrollbar buttons */
+}
+
+.overflow_styling::-webkit-scrollbar-thumb:hover {
+    background: #555;
+    /* Darker color on hover */
+}
+
+button {
+    transform: scale(1);
+    transition: transform 0.5s ease-in-out;
+}
+
+button:active {
+    transform: scale(0.8);
+}
+
+
+.setting {
+    transform-origin: top;
+    transition: all 0.2s cubic-bezier(.47, 1.64, .41, .8);
+    /* transform-origin: top left;
+    transform: translate(0,0); */
+    transform: scale(1);
+    transform-origin: 0 0;
+    opacity: 1;
+}
+
+.settingfalse {
+    transition: all 0.2s ease-in;
+    /* transform-origin: top;
+    transform: translate(0, -50%); */
+    transform: scale(0.8);
+    transform-origin: 0 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bouncing_Effect {
+    transform: scale(1);
+}
+
+.bouncing_Effect:active {
+    transform: tranform 0.2s ease-in;
+    transform: scale(0.8);
+
+}
+
+
+.textarea_overflow_styling::-webkit-scrollbar {
+    height: 2px;
+    width: 10px;
+    /* Width of the entire scrollbar */
+}
+
+.textarea_overflow_styling::-webkit-scrollbar-track {
+    /* background: #f20909;  */
+    /* Color of the track */
+}
+
+.textarea_overflow_styling::-webkit-scrollbar-thumb {
+    background: #abaaaa;
+    /* Color of the thumb */
+    border-radius: 15px;
+    /* Adds roundness to the thumb */
+}
+
+.textarea_overflow_styling::-webkit-scrollbar-button {
+    /* background: rgb(243, 10, 10); */
+    /* Color of the scrollbar buttons */
+    width: 5px;
+    height: 2px;
+    /* You may also want to set height for vertical scrollbar buttons */
+}
+
+.textarea_overflow_styling::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+    /* Darker color on hover */
+}
+
+
+.historyScrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: #727272 #f2090900;
+    /* thumb color and track color */
+}
+
+
+.prose {
+    --tw-prose-links: #489dee;
+    --tw-prose-pre-code:#000;
+    --tw-prose-body: oklch(97.969% 0.00275 285.748);
+    --tw-prose-headings: oklch(91.83% 0.00885 264.605);
+    --tw-prose-lead: oklch(86.28% 0.00362 248.485);
+    --tw-prose-links: oklch(93.987% 0.003 264.783);
+    --tw-prose-bold: oklch(86.588% 0.00361 248.488);
+    --tw-prose-counters: oklch(55.1% 0.027 264.364);
+    --tw-prose-bullets: oklch(87.2% 0.01 258.338);
+    --tw-prose-hr: oklch(92.8% 0.006 264.531);
+    --tw-prose-quotes: oklch(88.175% 0.00185 249.079);
+    --tw-prose-quote-borders: oklch(92.8% 0.006 264.531);
+    --tw-prose-captions: oklch(55.1% 0.027 264.364);
+    --tw-prose-kbd: oklch(91.259% 0.00302 264.775);
+    --tw-prose-kbd-shadows: NaN NaN NaN;
+    --tw-prose-code: oklch(88.156% 0.00475 258.602);
+    --tw-prose-pre-bg: oklch(90.955% 0.00302 264.774);
+    --tw-prose-th-borders: oklch(87.2% 0.01 258.338);
+    --tw-prose-td-borders: oklch(92.8% 0.006 264.531);
+    --tw-prose-invert-body: oklch(87.2% 0.01 258.338);
+    --tw-prose-invert-headings: #fff;
+    --tw-prose-invert-lead: oklch(70.7% 0.022 261.325);
+    --tw-prose-invert-links: #fff;
+    --tw-prose-invert-bold: #fff;
+    --tw-prose-invert-counters: oklch(70.7% 0.022 261.325);
+    --tw-prose-invert-bullets: oklch(44.6% 0.03 256.802);
+    --tw-prose-invert-hr: oklch(37.3% 0.034 259.733);
+    --tw-prose-invert-quotes: oklch(96.7% 0.003 264.542);
+    --tw-prose-invert-quote-borders: oklch(37.3% 0.034 259.733);
+    --tw-prose-invert-captions: oklch(70.7% 0.022 261.325);
+    --tw-prose-invert-kbd: #fff;
+    --tw-prose-invert-kbd-shadows: 255 255 255;
+    --tw-prose-invert-code: #fff;
+    --tw-prose-invert-pre-code: oklch(87.2% 0.01 258.338);
+    --tw-prose-invert-pre-bg: rgba(222, 216, 216, 0.5);
+    --tw-prose-invert-th-borders: oklch(44.6% 0.03 256.802);
+    --tw-prose-invert-td-borders: oklch(37.3% 0.034 259.733);
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+.prose:where(a):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+        color:var(--tw-prose-links);
+        text-decoration: underline;
+        font-weight: 500;
+    }
+
+
+
+.customeSelectUlli{
+    @apply hover:bg-gray-400 rounded-md p-2
+}
+
+.customeSelectDiv{
+    transition: all 0.2s cubic-bezier(.47, 1.64, .41, .8);
+    /* transform-origin: top left;
+    transform: translate(0,0); */
+    transform: scale(1);
+    transform-origin: 0 0;
+    opacity: 1;
+}
+
+.customeSelectDivFalse{
+    transition: all 0.2s cubic-bezier(.47, 1.64, .41, .8) ;
+    /* transform-origin: top;
+    transform: translate(0, -50%); */
+    transform: scale(0.8);
+    height: 0px;
+    transform-origin: 0 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.inputNumStyle{
+    background-color: gray;
+    font-weight: 500;
+    text-align: center;
+    padding: 2px 2px;
+    border-radius: 5px;
+    width: 60px;
+}
+
+.spanStyle{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

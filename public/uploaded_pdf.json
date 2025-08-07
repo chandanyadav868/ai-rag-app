@@ -63,5 +63,18 @@
     "uri": "https://generativelanguage.googleapis.com/v1beta/files/t8xd1d9lk90i",
     "state": "ACTIVE",
     "source": "UPLOADED"
+  },
+  {
+    "name": "files/cru5h8tvcjn0",
+    "displayName": "12_Editted_Financial-Planning-for-SMEs-3rd-edition-drrrge.pdf",
+    "mimeType": "application/pdf",
+    "sizeBytes": "242461",
+    "createTime": "2025-07-20T10:44:36.254457Z",
+    "expirationTime": "2025-07-22T10:44:36.122959805Z",
+    "updateTime": "2025-07-20T10:44:36.254457Z",
+    "sha256Hash": "ZGQ1YWYwMWI4ZmE4ZWViN2IxZTY5ZDM5YmJlNWQ4Nzk3ZjRlYmM3MmYyZjQ5NzYwMzhhNzAyNzk2ZjAyNzE4NA==",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/cru5h8tvcjn0",
+    "state": "ACTIVE",
+    "source": "UPLOADED"
   }
 ]

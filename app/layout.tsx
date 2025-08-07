@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import LocalFont from "next/font/local";
 import './globals.css'
 import Headers from "@/components/Header";
+import 'highlight.js/styles/github.css'; // or any other style
+
 
 const geistMono = LocalFont({
   src: './fonts/GeistMonoVF.woff',
