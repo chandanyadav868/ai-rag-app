@@ -3,7 +3,6 @@ import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import mongodbConnection from "./mongodb/connection";
 import UserSchemaModel, { UserSchemaProp } from "./mongodb/schema/User.Schema";
-import { compare, hash } from 'bcryptjs';
 
 /* {
     authorization: {
@@ -40,7 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         avatar: picture,
         plan: "Free"
       } as UserSchemaProp
-      await userCreating(userData);
+      // await userCreating(userData);
       return true
     },
 
@@ -72,20 +71,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 
 
-const userCreating = async (data: UserSchemaProp) => {
-  try {
-    await mongodbConnection();
-    // Always use lean() so it's plain
-    let user = await UserSchemaModel.findOne({ email: data.email }).lean();
+// const userCreating = async (data: UserSchemaProp) => {
+//   try {
+//     await mongodbConnection();
+//     // Always use lean() so it's plain
+//     let user = await UserSchemaModel.findOne({ email: data.email }).lean();
 
-    if (!user) {
-      const createdUser = await UserSchemaModel.create({ ...data });
-      user = createdUser.toObject(); // ✅ Convert mongoose doc → plain object
-    }
+//     if (!user) {
+//       const createdUser = await UserSchemaModel.create({ ...data });
+//       user = createdUser.toObject(); // ✅ Convert mongoose doc → plain object
+//     }
 
-    return user;
-  } catch (error) {
-    console.log("dataSavingResponse error:- ", error);
-    throw new Error(String(error))
-  }
-}
+//     return user;
+//   } catch (error) {
+//     console.log("dataSavingResponse error:- ", error);
+//     throw new Error(String(error))
+//   }
+// }
