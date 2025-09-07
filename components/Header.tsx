@@ -1,14 +1,18 @@
 "use client"
 import { HeaderList } from '@/constant'
-import { CircleUser } from 'lucide-react'
+import { CircleUser, LogOut } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
+import { useSession, signOut } from "next-auth/react"
 
 function Headers() {
-  const [userProfile, setUserProfile] = useState({ name: "Chandan Yadav", email: "chandanyadavg2@gmail.com", account: "Free", image: "" });
   const [profileBox, setProfileBox] = useState(false);
-  const profileBoxRef = useRef<HTMLDivElement>(null)
+  const profileBoxRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const session = useSession();
+
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -26,33 +30,50 @@ function Headers() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
-
-
   }, [profileBox])
 
   return (
-    <div className='flex bg-gray-300 px-2 py-2 justify-around items-center sticky z-50'>
-      <header>
-        <nav className='flex gap-4'>
-          {HeaderList.map((nav, i) => (
-            <Link key={i} className='font-semibold text-xl' href={nav.link}>{nav.name}</Link>
-          ))}
-        </nav>
-      </header>
-      <div ref={profileBoxRef}>
-        <span onClick={()=>setProfileBox((prev=> !prev))} className='bg-black p-2 rounded-full w-[44px] h-[44px] flex justify-center items-center relative'>
-          {userProfile.image ? <Image src="" alt="" height={34} width={34} /> : <CircleUser color='white' />}
-        </span>
-        {profileBox &&
-          <div className='p-2 bg-gray-300 font-semibold rounded-md absolute mt-4 flex flex-col gap-2 transform -translate-x-1/2'>
-            <span>{userProfile.name}</span>
-            <span>{userProfile.email}</span>
-            <span>{userProfile.account}</span>
-            <span className='text-red-400 font-bold hover:bg-gray-400/40 cursor-pointer py-0.5 px-1 rounded-md w-fit'>Log out</span>
+    <>
+      {pathname === "/login" ?
+        <></>
+        :
+        <>
+          <div className='flex bg-gray-300 px-2 py-2 justify-around items-center sticky z-50'>
+            <header>
+              <nav className='flex gap-4'>
+                {HeaderList.map((nav, i) => (
+                  <Link key={i} className='font-semibold text-xl' href={nav.link}>{nav.name}</Link>
+                ))}
+              </nav>
+            </header>
+            <div ref={profileBoxRef} className='relative'>
+              <span onClick={() => setProfileBox((prev => !prev))} className='flex justify-center items-center relative cursor-pointer'>
+                {session.data?.user?.image ? <Image src={session.data?.user?.image} alt="user avatar" height={34} width={34} className='rounded-full' /> : <CircleUser color='white' className='bg-black p-2 rounded-full w-[44px] h-[44px] ' />}
+              </span>
+              {profileBox && session &&
+                <div className={`p-2 bg-gray-300 font-semibold rounded-md absolute mt-4 flex flex-col gap-2 transform ${session.data?.user? "-translate-x-1/2":""}`}>
+                  <span>{session.data?.user?.name}</span>
+                  <span>{session.data?.user?.email}</span>
+                  <span className='text-red-400 font-bold cursor-pointer py-0.5 px-1 rounded-md w-fit'>
+                    {
+                      session.data?.user?.email?
+                      <>
+                        <LogOut onClick={()=>{
+                          signOut()
+                        }} size={22}/>
+                      </>
+                      :
+                      <>
+                       <Link href={"/login"} className='font-black'>Login</Link>
+                      </>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
           </div>
-        }
-      </div>
-    </div>
+        </>}
+    </>
   )
 }
 

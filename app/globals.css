@@ -3,8 +3,12 @@
 
 body {
     min-height: 100vh;
-    background: radial-gradient(#020029, #02012b);
 }
+body{
+    /* @apply bg-[#575763] */
+    @apply bg-amber-50
+}
+
 
 span.copy {
     @apply cursor-pointer top-0 block bg-gray-400 absolute text-white rounded-md p-2
@@ -117,6 +121,11 @@ button:active {
     /* thumb color and track color */
 }
 
+.showSectionScrollbar{
+    scrollbar-width: auto;
+    scrollbar-color: #727272 #f2090900;
+}
+
 
 .prose {
     --tw-prose-links: #489dee;
@@ -169,7 +178,7 @@ button:active {
 
 
 .customeSelectUlli{
-    @apply hover:bg-gray-400 rounded-md p-2
+    @apply hover:bg-gray-400/20 rounded-md p-2
 }
 
 .customeSelectDiv{
@@ -204,8 +213,6 @@ button:active {
 .spanStyle{
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -214,3 +221,166 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
+
+.zoomingOutIn{
+    cursor: pointer;
+    /* background-color: red; */
+    transform: scale(1);
+    transition: transform 0.5s ease-in-out;
+}
+
+.zoomingOutIn:active{
+    /* background-color: blue; */
+    transform: scale(0.8);
+}
+
+
+
+
+
+.carousel {
+  /* width: 100%;               visible area */
+  overflow: hidden;           /* hide overflow so images slide out of view */
+  white-space: nowrap;        /* keep images in one line */
+  border: 2px solid #ccc;     /* just for demo */
+}
+
+.carousel-track {
+  display: inline-flex;       /* images next to each other */
+  animation: scroll 20s linear infinite;
+}
+
+.carousel-track img {
+  width: 200px;
+  height: auto;
+  flex-shrink: 0;             /* don’t shrink images */
+}
+
+/* Track going upward */
+.carousel-track-up {
+  animation: scrollUp 20s linear infinite;
+}
+
+@keyframes scrollUp {
+  from {
+    transform: translateY(0) ;
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* Track going upward */
+.carousel-track-up-second {
+  animation: scrollUpSecond 20s linear infinite;
+}
+
+@keyframes scrollUpSecond {
+  from {
+    transform: translateY(0) translateX(200%);
+  }
+  to {
+    transform: translateY(-50%) translateX(200%);
+  }
+}
+
+/* Track going upward */
+.carousel-track-up-third {
+  animation: scrollUpThird 20s linear infinite;
+}
+
+@keyframes scrollUpThird {
+  from {
+    transform: translateY(0) translateX(400%);
+  }
+  to {
+    transform: translateY(-50%) translateX(400%);
+  }
+}
+
+
+
+/* Track going downward */
+.carousel-track-down {
+  animation: scrollDown 20s linear infinite;
+}
+
+@keyframes scrollDown {
+  from {
+    transform: translateY(-50%) translateX(100%);
+  }
+  to {
+    transform: translateY(0) translateX(100%);
+  }
+}
+/* Track going downward */
+.carousel-track-down-second {
+  animation: scrollDownSecond 20s linear infinite;
+}
+
+@keyframes scrollDownSecond {
+  from {
+    transform: translateY(-50%) translateX(300%);
+  }
+  to {
+    transform: translateY(0) translateX(300%);
+  }
+}
+
+
+
+
+
+
+/* testomonialShadow */
+.testomonialShadow{
+  cursor: pointer;
+  box-shadow:#1a19196e 0px 0px 2px 0px
+}
+
+.testomonialShadow:hover{
+  box-shadow:#1a19196e 0px 0px 4px 2px
+}
+
+
+
+
+
+.errorBox {
+  transition: transform 13s ease-in-out, opacity 13s ease-in-out;
+}
+
+.topUpComponentsCLosed {
+  opacity: 0;
+  transform: translateX(calc(100% + 8px));
+}
+
+.topUpComponentsUpon {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* layer sliding */
+
+.slidingLayer {
+  transition: transform 1s ease-in-out;
+}
+.slidingLayerCLosed {
+  transform: translateX(calc(100% + 8px));
+}
+
+.slidingLayerUpon {
+  transform: translateX(0);
+}
+
+/* left side sliding */
+.slidingGenerate {
+  transition: transform 1s ease-in-out;
+}
+.slidingGenerateCLosed {
+  transform: translateX(calc(-100% ));
+}
+
+.slidingGenerateUpon {
+  transform: translateX(0);
+}

@@ -1,17 +1,16 @@
 "use client"
-import Button from '@/components/Button'
 import Input from '@/components/Input';
 import Textarea from '@/components/Textarea';
-import { geminaAiText } from '@/Gemina_Api/genAi';
-import { Ellipsis, FilePlus, FileUser, Loader2, PenLine, Send, SquarePen, Trash2 } from 'lucide-react';
-import { ObjectProps } from "@/utils/util";
-import { GoogleGenAI, createPartFromUri, createUserContent, Modality, ContentListUnion } from "@google/genai"
+import { Ellipsis, Loader2, PenLine, Send, SquarePen, Trash2 } from 'lucide-react';
+import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai"
 
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import Markdown from '@/components/Markdown';
 import ImageUpload from '@/components/ImageUpload';
 import { FileUploadResponseProps } from '../image-ai/page';
+import SelectSpecial from '@/components/SelectSpecial';
+import { Models } from '@/constant';
 
 
 interface DeletePositionProps {
@@ -42,8 +41,7 @@ interface HistoryProps {
 export const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
 
 
-function page() {
-  const [settingView, setSettingView] = useState(false);
+function Page() {
   const containerRef = useRef<HTMLDivElement>(null);
   const deleteBoxRef = useRef<HTMLDivElement>(null);
   const mainBoxRef = useRef<HTMLDivElement>(null);
@@ -58,10 +56,11 @@ function page() {
     sizeBytes: "",
     createTime: "",
     uri: "",
-    downloadUri: "",
+    downloadUri: "", 
   });
 
   const [history, setHistory] = useState<string[]>(Array.from({ length: 50 }, (v, i) => `Text ${i}`));
+  const [selectedModel, setSelectedModel] = useState<string>("Gemini 2.5 Flash");
   const [rename, setRename] = useState<{ view: boolean; classNumber: number, text: string }>({ view: false, classNumber: 0, text: "" });
 
   const [userData, setUserData] = useState<HistoryProps[]>(
@@ -102,7 +101,7 @@ function page() {
   );
 
   function onlyTitle(array: HistoryProps[]) {
-    const titleArray = array.reduce((acc, curValue, currentIndex) => {
+    const titleArray = array.reduce((acc, curValue) => {
       acc.push(curValue.title)
       return acc
     }, [] as string[]);
@@ -113,7 +112,7 @@ function page() {
   useEffect(() => {
     const data = onlyTitle(userData);
     setHistory(data);
-  }, [])
+  },[userData])
 
 
   const [deletePosition, setDeletePosition] = useState<DeletePositionProps>({ clientX: 0, clientY: 0, classNumber: 0, view: false, top: 0 });
@@ -153,7 +152,7 @@ function page() {
     if (deleteBoxRef.current && deleteBoxRef.current.contains(e.target as Node)) {
       console.log("Yes");
     } else {
-      setDeletePosition((prev) => {
+      setDeletePosition(() => {
         return { clientX: 0, clientY: 0, classNumber: 0, view: false }
       })
 
@@ -174,13 +173,13 @@ function page() {
   const deleteHistory = () => {
     console.log("deletePosition:- ", deletePosition.classNumber);
 
-    const filteredHistory = history.filter((v, i) => i !== deletePosition.classNumber);
-    const modifiedDatat = userData.filter((v, i) => i !== deletePosition.classNumber);
+    const filteredHistory = history.filter((_, i) => i !== deletePosition.classNumber);
+    const modifiedDatat = userData.filter((_, i) => i !== deletePosition.classNumber);
 
     console.log("filteredHistory:- ", filteredHistory);
     setHistory(filteredHistory);
     setUserData(modifiedDatat);
-    setDeletePosition((prev) => {
+    setDeletePosition(() => {
       return { clientX: 0, clientY: 0, classNumber: 0, view: false }
     })
   }
@@ -209,7 +208,7 @@ function page() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const textareaTextFn = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const textareaTextFn = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -272,8 +271,11 @@ function page() {
 
       }
 
+      const textGenerationModel = Models.find((v)=> v.name === selectedModel)
+      if(!textGenerationModel) throw new Error("Your selected Model Not present");
+
       const response = await ai.models.generateContentStream({
-        model: "gemini-2.5-flash",
+        model: textGenerationModel.value,
         contents: content,
       });
 
@@ -333,7 +335,7 @@ function page() {
     // 1. Calculate the new userData array
     const updatedUserData = [newChat, ...userData,];
 
-    let data: string[] = onlyTitle(updatedUserData);
+    const data: string[] = onlyTitle(updatedUserData);
 
     setUserData((prev) => {
       return [newChat, ...prev]
@@ -347,12 +349,12 @@ function page() {
     <main>
       <div ref={mainBoxRef} className='flex' style={{ height: 'calc(100vh - 60px)' }}>
 
-        <div onScroll={() => setDeletePosition((prev) => { return { clientX: 0, clientY: 0, classNumber: 0, view: false } })} className='basis-[350px] bg-gray-700 p-2 px-4 overflow-y-auto flex flex-col gap-2 historyScrollbar' ref={containerRef}>
+        <div onScroll={() => setDeletePosition(() => { return { clientX: 0, clientY: 0, classNumber: 0, view: false } })} className='basis-[350px] bg-gray-700 p-2 px-4 overflow-y-auto flex flex-col gap-2 historyScrollbar' ref={containerRef}>
           <div className='bg-white rounded-md p-2 select-none'>
             <span onClick={newConversation} className='flex gap-2'><SquarePen size={24} /> Create</span>
           </div>
           {history.map((v, i) => (
-            <span onClick={() => setActiveTab(i)} key={i} className={`w-full bg-black cursor-pointer p-2 text-white rounded-md flex justify-between relative group/item history${i} ${activeTab === i ? "bg-gray-400/10" : ""}`}>
+            <span onClick={() => setActiveTab(i)} key={i} className={`w-full   cursor-pointer p-2 text-white rounded-md flex justify-between relative group/item history${i} ${activeTab === i ? "bg-black" : "bg-gray-400/10"}`}>
               {rename.view && rename.classNumber === i ?
                 <>
                   <Input onBlur={handleRenameBlur} className='bg-black text-white w-full ' name='text' placeholder='' value={rename.text} onChangeValue={(e) => setRename((prev) => { return { ...prev, text: e?.value } })} />
@@ -389,7 +391,7 @@ function page() {
                   </div>
                   {/* response message */}
                   <div>
-                    {v.computer.loading ? <p className='text-white bg-gray-800 rounded-md p-2'>Loading...</p> :
+                    {v.computer.loading ? <p className='text-white bg-gray-700 rounded-md p-2'>Loading...</p> :
                       //  <p className='text-white bg-gray-800 rounded-md p-2 whitespace-pre-wrap'>
                       //    {v.computer.message} 
                       //    </p>
@@ -406,10 +408,14 @@ function page() {
               <Textarea ref={textareaRef} onChange={textareaTextFn} name='chat_generate' placeholder='Ask your query' className='bg-black text-white w-full textarea_overflow_styling max-h-[160px]' style={{ borderRadius: "10px 10px 0px 0px" }} />
 
               <div className='flex justify-between p-2 bg-black' style={{ borderRadius: "0px 0px 10px 10px" }}>
-                <div>
+                <div className='flex gap-4 items-center'>
                   {/* <FilePlus color='white' className='bouncing_Effect' /> */}
-                  <ImageUpload setUploadedImageData={setUploadedImageData} />
+                  <SelectSpecial CustomeArray={Models} selectedText={selectedModel} className='bottom-[100%]  bg-gray-600 text-black' setAspectRation={(e: string)=>{
+                    setSelectedModel(()=>{
+                    return e
+                  })}}/>
                 </div>
+                  <ImageUpload setUploadedImageData={setUploadedImageData} />
                 <div>
                   {submitLoading ? <Loader2 className='animate-spin text-white' />
                     :
@@ -427,7 +433,7 @@ function page() {
   )
 }
 
-export default page
+export default Page
 
 
 

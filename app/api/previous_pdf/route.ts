@@ -1,7 +1,7 @@
 import { fileReading } from "@/utils/util";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req:NextRequest) {
+export async function GET() {
     try {
         const pdfUploadData = await fileReading();
         return NextResponse.json({status:200,message:"Successfully got data",data:pdfUploadData})

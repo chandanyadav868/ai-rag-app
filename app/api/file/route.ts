@@ -54,11 +54,9 @@ export async function GET(req: NextRequest) {
 
         console.log("Files:- ", files);
 
-        realFile = files.find((v, i) => v.includes(fileFind)) ?? "";
+        realFile = files.find((v) => v.includes(fileFind)) ?? "";
 
         console.log("realFile:- ",realFile);
-        
-
 
         const filePath = path.join(process.cwd(), "public", "pdf", `${realFile}`);
 
@@ -80,7 +78,6 @@ export async function GET(req: NextRequest) {
 
     } catch (error) {
         console.log("Error in file reading:- ", error);
-
         return Response.json({ status: 500, message: error })
     }
 }

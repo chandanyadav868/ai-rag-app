@@ -1,15 +1,13 @@
-import React from 'react'
+import React, { HTMLAttributes } from 'react'
 
-interface ButtonProps {
-    name:string;
-    className?:string;
-    type?:"submit" | "reset" | "button";
-    disabled?:boolean;
-    onClick?:()=>void;
+interface ButtonProps extends HTMLAttributes<HTMLButtonElement> {
+    text:string;
     loader?:boolean;
+    disabled?:boolean;
+    type:"submit" | "reset" | "button" | undefined
 }
 
-const Button = React.forwardRef<HTMLButtonElement,ButtonProps>(({className,name,type="button",disabled,onClick,loader},ref)=>{
+const Button = React.forwardRef<HTMLButtonElement,ButtonProps>(({className,loader,onClick,disabled,text,type,...props},ref)=>{
   return (
     <>
     {loader?
@@ -18,7 +16,7 @@ const Button = React.forwardRef<HTMLButtonElement,ButtonProps>(({className,name,
     </span>
     :
     <>
-    <button  disabled={disabled} className={`bg-black py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 cursor-pointer ${className}`} onClick={onClick} type={type} >{name} </button>
+    <button {...props}  disabled={disabled} className={`bg-black py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 cursor-pointer ${className}`} onClick={onClick} type={type} >{text} </button>
     </>    
   }
     </>

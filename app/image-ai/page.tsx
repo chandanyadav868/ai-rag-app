@@ -2,13 +2,11 @@
 import Button from '@/components/Button';
 import CustomeSelect from '@/components/CustomeSelect';
 
-import ImageShower from '@/components/ImageShower';
 import Input from '@/components/Input';
-import SelectSpecial from '@/components/SelectSpecial';
 import Textarea from '@/components/Textarea'
-import { artistList, aspectRatioImage, AtmosphericEffects, colorPalette, Composition, LightingEffects } from '@/constant';
-import { GeminaAiFunProps, geminaAiImage, ImageGenerateWithAi } from '@/Gemina_Api/genAi';
-import { GoogleGenAI, Modality, Files, createUserContent, createPartFromUri } from '@google/genai';
+import { aspectRatioImage } from '@/constant';
+import { GeminaAiFunProps } from '@/Gemina_Api/genAi';
+import { GoogleGenAI, Modality, createUserContent, createPartFromUri } from '@google/genai';
 import { Bot, Loader2, UploadCloudIcon } from 'lucide-react';
 import Image from 'next/image';
 import React, { ChangeEvent, useEffect, useRef, useState } from 'react'
@@ -28,7 +26,7 @@ export interface FileUploadResponseProps {
     blob?: Blob;
 }
 
-function page() {
+function Page() {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const textareaBackgroundRef = useRef<HTMLTextAreaElement>(null);
     const [textareaString, setTextareaString] = useState<string>("");
@@ -59,12 +57,11 @@ function page() {
     const [aiGeneratedImageBuffer, setAiGeneratedImageBuffer] = useState<Buffer<ArrayBuffer>[]>([])
 
     const convertingImages = async (data: FileList) => {
-        console.log(await data[0].arrayBuffer())
+        // console.log(await data[0].arrayBuffer())
         const binaryData = await data[0].arrayBuffer();
         const notAllowed = ["image/avif"]
         if (notAllowed.includes(data[0].type)) {
             console.log("Not allowed Image");
-
             return
         }
         const contentShowingBlob = new Blob([binaryData], { type: data[0].type });
@@ -94,7 +91,7 @@ function page() {
         if (uploadedImageData.length > 0) {
             const fileDataUploaded = uploadedImageData
                 .filter((v): v is typeof v & { uri: string; mimeType: string } => !!v && !!v.uri && !!v.mimeType && !!v.isChecked)
-                .map((v, i) => createPartFromUri(v.uri, v.mimeType));
+                .map((v) => createPartFromUri(v.uri, v.mimeType));
 
             console.log("fileDataUploaded:- ", { ...fileDataUploaded });
 
@@ -180,7 +177,7 @@ function page() {
             setAiGeneratedImageBuffer(reponse)
 
             const arrayResponse = reponse
-                .map((v, i) => {
+                .map((v) => {
                     console.log("ArrayBufferData:- ", v);
                     if (!v) {
                         return
@@ -189,7 +186,7 @@ function page() {
                     const imageUrl = URL.createObjectURL(imageBLob)
                     console.log("imageBLob:- ", imageBLob);
                     return imageUrl
-                }).filter((v, i) => v !== undefined)
+                }).filter((v,_) => v !== undefined)
 
 
             setImageSrc(arrayResponse);
@@ -254,7 +251,7 @@ function page() {
         console.log(e.target.value, e.target.checked);
         console.log(uploadedImageData);
         setUploadedImageData((prev) => {
-            const newValu = prev.map((v, i) => {
+            const newValu = prev.map((v, _) => {
                 if (v.previewUrl === e.target.value) {
                     v.isChecked = e.target.checked
                 }
@@ -310,7 +307,7 @@ function page() {
             if (uploadedImageData.length > 0) {
                 const fileDataUploaded = uploadedImageData
                     .filter((v): v is typeof v & { uri: string; mimeType: string } => !!v && !!v.uri && !!v.mimeType && !!v.isChecked)
-                    .map((v, i) => createPartFromUri(v.uri, v.mimeType));
+                    .map((v, _) => createPartFromUri(v.uri, v.mimeType));
 
                 console.log("fileDataUploaded:- ", { ...fileDataUploaded });
 
@@ -387,7 +384,7 @@ function page() {
                             </span>
                         </div>
                         <Textarea name='imageText' placeholder='Enter Your text..' className='resize-none w-full min-h-[96px] text-white bg-black rounded-md textarea_overflow_styling max-h-[260px]' value={textareaString} onChange={setTextareaText} ref={textareaRef} />
-                        <Button disabled={textareaString.trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' name='Submit' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
+                        <Button disabled={textareaString.trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' text='Submit' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
                     </div>
                 </form>
 
@@ -418,34 +415,34 @@ function page() {
                 </div>
 
                 {/* artist */}
-                <div className='w-full mb-2'>
+                {/* <div className='w-full mb-2'>
                     <label className='font-bold text-xl block mb-2' htmlFor="artistList">Artist List</label>
                     <SelectSpecial CustomeArray={artistList} setAspectRation={(e) => setSelectedArtist(e.currentTarget.textContent ?? "")} selectedText={selectedArtist} />
-                </div>
+                </div> */}
 
                 {/* colorPalette */}
-                <div className='w-full mb-2'>
+                {/* <div className='w-full mb-2'>
                     <label className='font-bold text-xl block mb-2' htmlFor="artistList">ColorPalette List</label>
                     <SelectSpecial CustomeArray={colorPalette} setAspectRation={(e) => setSelectedColorPallete(e.currentTarget.textContent ?? "")} selectedText={selectedColorPallete} />
-                </div>
+                </div> */}
 
                 {/* AtmosphericEffects */}
-                <div className='w-full mb-2'>
+                {/* <div className='w-full mb-2'>
                     <label className='font-bold text-xl block mb-2' htmlFor="artistList">AtmosphericEffects List</label>
                     <SelectSpecial CustomeArray={AtmosphericEffects} setAspectRation={(e) => setSelectedAtmosphericEffects(e.currentTarget.textContent ?? "")} selectedText={selectedAtmosphericEffects} />
-                </div>
+                </div> */}
 
                 {/* LightingEffects */}
-                <div className='w-full mb-2'>
+                {/* <div className='w-full mb-2'>
                     <label className='font-bold text-xl block mb-2' htmlFor="artistList">LightingEffects List</label>
                     <SelectSpecial CustomeArray={LightingEffects} setAspectRation={(e) => setSelectedLightingEffects(e.currentTarget.textContent ?? "")} selectedText={selectedLightingEffects} />
-                </div>
+                </div> */}
 
                 {/* Composition */}
-                <div className='w-full mb-2'>
+                {/* <div className='w-full mb-2'>
                     <label className='font-bold text-xl block mb-2' htmlFor="artistList">Composition List</label>
                     <SelectSpecial CustomeArray={Composition} setAspectRation={(e) => setSelectedComposition(e.currentTarget.textContent ?? "")} selectedText={selectedComposition} />
-                </div>
+                </div> */}
 
                 <div>
                     <label htmlFor="imageText" id='imageText' className='font-bold text-xl'>Background description</label>
@@ -457,28 +454,28 @@ function page() {
                 {imageSrc.length > 0 ?
                     <div className='m-auto flex gap-2 flex-wrap overflow-y-auto'>
                         {imageSrc.map((v, i) => (
-                                <div className='flex flex-wrap relative'>
-                                    {uploadAiImage ?
-                                        <>
-                                            {uploadAiImageIndex === i &&
-                                                <>
-                                                    <span className='absolute top-2 right-2 gap-2 text-white cursor-pointer flex'>
-                                                        <Loader2 className='text-white animate-spin' size={22} /> Loading...
-                                                    </span>
-                                                </>
-                                            }
-                                        </>
-                                        :
-                                        <>
-                                            <span className='mb-2 gap-2 text-white cursor-pointer absolute top-2 right-2'>
-                                                <UploadCloudIcon className='text-white' size={22} onClick={() => uploadOnCloud(i)} />
-                                            </span>
-                                        </>}
+                            <div key={i} className='flex flex-wrap relative'>
+                                {uploadAiImage ?
+                                    <>
+                                        {uploadAiImageIndex === i &&
+                                            <>
+                                                <span className='absolute top-2 right-2 gap-2 text-white cursor-pointer flex'>
+                                                    <Loader2 className='text-white animate-spin' size={22} /> Loading...
+                                                </span>
+                                            </>
+                                        }
+                                    </>
+                                    :
+                                    <>
+                                        <span className='mb-2 gap-2 text-white cursor-pointer absolute top-2 right-2'>
+                                            <UploadCloudIcon className='text-white' size={22} onClick={() => uploadOnCloud(i)} />
+                                        </span>
+                                    </>}
 
-                                    <img src={v} width={1000} height={1000} alt='ai generated image' className='rounded-md object-scale-down w-[700px]  m-auto' />
+                                <Image src={v} width={1000} height={1000} alt='ai generated image' className='rounded-md object-scale-down w-[700px]  m-auto' />
 
-                                </div>
-                            
+                            </div>
+
                         ))}
                     </div>
                     :
@@ -491,4 +488,4 @@ function page() {
     )
 }
 
-export default page
+export default Page

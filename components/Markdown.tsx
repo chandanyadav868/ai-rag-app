@@ -64,7 +64,7 @@ function Markdown({ text, runCopy }: { text: string, runCopy?: boolean }) {
 
 
   return (
-    <div ref={containerRef} className='prose prose-strong:text-[#bc9e85] mx-auto bg-gray-300/10 text-white rounded-md p-2 max-w-[100ch]'
+    <div ref={containerRef} className='prose prose-strong:text-[#bc9e85] mx-auto bg-gray-800 text-white rounded-md p-2 max-w-[100ch]'
       dangerouslySetInnerHTML={{ __html: md.render(text) }} />
   )
 }

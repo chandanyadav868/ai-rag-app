@@ -3,6 +3,8 @@ import LocalFont from "next/font/local";
 import './globals.css'
 import Headers from "@/components/Header";
 import 'highlight.js/styles/github.css'; // or any other style
+import ContextProvider from "@/components/CreateContext";
+import { SessionProvider } from "next-auth/react";
 
 
 const geistMono = LocalFont({
@@ -24,12 +26,17 @@ export const metadata: Metadata = {
 
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+
   return (
     <html lang="en">
       <body>
         {/* header */}
-        <Headers />
-        <div className={`${geistMono.variable} ${geistSans.variable} antialiased`}>{children}</div>
+        <SessionProvider>
+          <ContextProvider>
+            <Headers />
+            <div className={`${geistMono.variable} ${geistSans.variable} antialiased`}>{children}</div>
+          </ContextProvider>
+        </SessionProvider>
       </body>
     </html>
   )
