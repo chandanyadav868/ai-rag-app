@@ -1,8 +1,8 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
-import mongodbConnection from "./mongodb.ts/connection";
-import UserSchemaModel, { UserSchemaProp } from "./mongodb.ts/schema/User.Schema";
+import mongodbConnection from "./mongodb/connection";
+import UserSchemaModel, { UserSchemaProp } from "./mongodb/schema/User.Schema";
 import { compare, hash } from 'bcryptjs';
 
 /* {
