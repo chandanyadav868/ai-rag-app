@@ -292,7 +292,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     return (
         <>
             <div id="imageEditor" className='flex'>
-                <div className='bg-amber-300/10 historyScrollbar text-black overflow-y-auto overflow-x-hidden max-w-[500px]'>
+                <div className='bg-amber-300/10 historyScrollbar text-black overflow-y-auto overflow-x-hidden max-md:w-full max-w-[500px]'>
 
                     <SelectSpecial CustomeArray={ImageModels} selectedText={selectedModel} className='bg-gray-600 text-black' setAspectRation={(e: string) => {
                         setSelectedModel(prev => {

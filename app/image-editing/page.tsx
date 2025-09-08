@@ -33,20 +33,43 @@ function ProImageEditor() {
   const fabricJs = useRef<Canvas | null>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) {
-      return
-    }
+    if (!canvasRef.current) return;
 
-    const newAspectration = aspectRatioImage.find((v, _) => v.orientation === canvasOrientation);
+    const container = canvasRef.current.parentElement; // jo div canvas ko wrap karta hai
+    if (!container) return;
 
-    if (!newAspectration?.height || !newAspectration?.width) {
-      return
-    }
+    const newAspect = aspectRatioImage.find(v => v.orientation === canvasOrientation);
+    if (!newAspect) return;
 
-    fabricJs.current?.setHeight(newAspectration?.height)
-    fabricJs.current?.setWidth(newAspectration?.width)
+    // container width le lo
+    const containerWidth = container.clientWidth;
 
-  }, [canvasOrientation])
+    // aspect ratio se height calculate karo
+    const newWidth = containerWidth;
+    const newHeight = containerWidth * (newAspect.height / newAspect.width);
+
+    // update canvas size
+    fabricJs.current?.setWidth(newWidth);
+    fabricJs.current?.setHeight(newHeight);
+
+    // window resize hone pe canvas ko adjust karo
+    const handleResize = () => {
+      const containerWidth = container.clientWidth;
+      const newWidth = containerWidth;
+      const newHeight = containerWidth * (newAspect.height / newAspect.width);
+
+      fabricJs.current?.setWidth(newWidth);
+      fabricJs.current?.setHeight(newHeight);
+      fabricJs.current?.renderAll();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [canvasOrientation]);
+
 
 
 
@@ -837,15 +860,15 @@ function ProImageEditor() {
       {/* <ImageKitUploader/> */}
 
       <main className='flex gap-2'>
-        <div className={`bg-amber-200 flex fixed left-0 w-[400px] basis-[400px]  p-1 slidingGenerate ${slidingGenerateImage ? "slidingGenerateUpon" : "slidingGenerateCLosed"}`} style={{ height: `calc(-50px + 100vh)`, zIndex: 9 }}>
+        <div className={`bg-amber-200 flex max-md:w-[85%] fixed left-0 w-[400px] basis-[400px]  p-1 slidingGenerate ${slidingGenerateImage ? "slidingGenerateUpon" : "slidingGenerateCLosed"}`} style={{ height: `calc(-62px + 100vh)`, zIndex: 9 }}>
 
           {slidingGenerateImage ?
             <>
-                <ArrowLeftSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-2 left-[438px] text-white rounded-md tansform -translate-x-1/1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
+              <ArrowLeftSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 text-white rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
             </>
             :
             <>
-            <ArrowRightSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-2 left-[438px] text-white rounded-md tansform -translate-x-1/1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
+              <ArrowRightSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 text-white rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
             </>}
 
           <div className='flex-1 flex flex-col gap-4 overflow-auto historyScrollbar'>
@@ -928,7 +951,7 @@ function ProImageEditor() {
         </div>
 
         {/* layer div */}
-        <div className={`slidingLayer bg-gray-600/50 flex flex-col backdrop-blur-3xl w-[400px] fixed right-0 transform ${slidingLayer ? "slidingLayerUpon" : "slidingLayerCLosed"}`} style={{ height: `calc(-50px + 100vh)` }}>
+        <div className={`slidingLayer bg-gray-600/50 flex flex-col backdrop-blur-3xl max-md:w-[80%] w-[400px] fixed right-0 transform ${slidingLayer ? "slidingLayerUpon" : "slidingLayerCLosed"}`} style={{ height: `calc(-50px + 100vh)` }}>
 
           <Layers onClick={() => setSlidingLayer((prev) => !prev)} className='bg-gray-500 p-2 absolute top-2 -left-2 text-white rounded-md tansform -translate-x-1/1 cursor-pointer' size={35} />
 
