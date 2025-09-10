@@ -292,7 +292,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     return (
         <>
             <div id="imageEditor" className='flex'>
-                <div className='bg-amber-300/10 historyScrollbar text-black overflow-y-auto overflow-x-hidden max-md:w-full max-w-[500px]'>
+                <div className='bg-amber-300/10 historyScrollbar text-black overflow-y-auto overflow-x-hidden max-md:w-full w-[500px]'>
 
                     <SelectSpecial CustomeArray={ImageModels} selectedText={selectedModel} className='bg-gray-600 text-black' setAspectRation={(e: string) => {
                         setSelectedModel(prev => {
@@ -359,6 +359,10 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                 </span>
 
                             </div>
+                            <div>
+                                
+                            </div>
+                            <div className='flex justify-between items-center w-full'>
                             <BrushCleaning
                                 onMouseEnter={(e) => getBoundingBox(e, "Clear Prompt", "left")}
                                 type='button'
@@ -377,6 +381,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                     });
                                 }} className='text-red-600  font-black cursor-pointer' />
 
+                            <Button disabled={Object.values(promptStructure).join(" ").trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' text='Generate' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
+                            </div>
+
                             {(Object.entries(promptStructure) as [keyof PromptStuctureProps, string][]).map(([key, value], i) => (
                                 <div key={key} className='w-full'>
                                     <label className='font-bold' htmlFor={key}>{key.split("_").join(" ").toUpperCase()}</label>
@@ -384,7 +391,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                 </div>
                             ))}
                             
-                            <Button disabled={Object.values(promptStructure).join(" ").trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' text='Generate' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
+                            
                         </div>
                     </form>
                 </div>

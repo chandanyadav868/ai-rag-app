@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, RefObject, useContext, useState } from 'react';
+import React, { createContext, RefObject, useContext, useEffect, useState } from 'react';
 
 export interface StoreProps {
   portalElement: BoundingBoxProps | null | undefined;
@@ -50,8 +50,47 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<ErrorProps | undefined>();
 
   const [portalElement, setPortalElement] = useState<BoundingBoxProps | null>();
-  const [systemInstruction, setSystemInstruction] = useState<SystemInstructionProps[]>([]);
-  const [apiKey, setApiKey] = useState<SystemInstructionProps[]>([]);
+  const [systemInstruction, setSystemInstruction] = useState<SystemInstructionProps[]>(()=>{
+     if (typeof window === "undefined") {
+    return []; // server pe empty state
+  }
+
+  try {
+    const saved = localStorage.getItem("systemInstructions");
+    if (!saved) return [];
+    
+    const parsed: SystemInstructionProps[] = JSON.parse(saved);
+    return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
+  } catch (err) {
+    console.error("Error reading localStorage:", err);
+    return [];
+  }
+  });
+
+  const [apiKey, setApiKey] = useState<SystemInstructionProps[]>(()=>{
+     if (typeof window === "undefined") {
+    return []; // server pe empty state
+  }
+
+  try {
+    const saved = localStorage.getItem("apiKeys");
+    if (!saved) return [];
+    
+    const parsed: SystemInstructionProps[] = JSON.parse(saved);
+    return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
+  } catch (err) {
+    console.error("Error reading localStorage:", err);
+    return [];
+  }
+  });
+
+  useEffect(()=>{
+    localStorage.setItem("apiKeys",JSON.stringify(apiKey)); 
+  },[apiKey])
+
+  useEffect(()=>{
+    localStorage.setItem("systemInstructions",JSON.stringify(systemInstruction)); 
+  },[systemInstruction])
 
   // setting function of imageEditing
   const [state, setState] = useState<StateProps[]>([]);

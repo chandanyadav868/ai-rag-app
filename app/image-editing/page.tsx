@@ -32,47 +32,6 @@ function ProImageEditor() {
   // ye function run hata hai first time jab aap ka components mounts hota hai
   const fabricJs = useRef<Canvas | null>(null);
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const container = canvasRef.current.parentElement; // jo div canvas ko wrap karta hai
-    if (!container) return;
-
-    const newAspect = aspectRatioImage.find(v => v.orientation === canvasOrientation);
-    if (!newAspect) return;
-
-    // container width le lo
-    const containerWidth = container.clientWidth;
-
-    // aspect ratio se height calculate karo
-    const newWidth = containerWidth;
-    const newHeight = containerWidth * (newAspect.height / newAspect.width);
-
-    // update canvas size
-    fabricJs.current?.setWidth(newWidth);
-    fabricJs.current?.setHeight(newHeight);
-
-    // window resize hone pe canvas ko adjust karo
-    const handleResize = () => {
-      const containerWidth = container.clientWidth;
-      const newWidth = containerWidth;
-      const newHeight = containerWidth * (newAspect.height / newAspect.width);
-
-      fabricJs.current?.setWidth(newWidth);
-      fabricJs.current?.setHeight(newHeight);
-      fabricJs.current?.renderAll();
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [canvasOrientation]);
-
-
-
-
 
   useEffect(() => {
     if (!canvasRef.current) {
@@ -161,6 +120,36 @@ function ProImageEditor() {
     }
 
   }, []);
+
+  useEffect(() => {
+  if (!canvasRef.current) return;
+
+  const newAspect = aspectRatioImage.find(v => v.orientation === canvasOrientation);
+  if (!newAspect) return;
+
+  let { width, height } = newAspect;
+  const offset = 140;
+
+  // Available screen space (header/footer ke liye offset minus karke)
+  const availableWidth = window.innerWidth;
+  const availableHeight = window.innerHeight - offset;
+
+  // Scale ratio calculate karo (jo bhi chhota hoga usko use karna hoga taaki pura image fit ho jaye)
+  const widthRatio = availableWidth / width;
+  const heightRatio = availableHeight / height;
+  const scale = Math.min(widthRatio, heightRatio);
+
+  // Final scaled size
+  width = width * scale;
+  height = height * scale;
+
+  console.log("Final width:", width, "Final height:", height);
+
+  // Update fabric.js canvas dimensions
+  fabricJs.current?.setDimensions({ width, height });
+  fabricJs.current?.renderAll();
+}, [canvasOrientation]);
+
 
 
   // random data
@@ -937,7 +926,7 @@ function ProImageEditor() {
         </div>
 
         {/* CANVAS AREA */}
-        <div ref={canvasDivRef} className='bg-black flex-1 flex justify-center items-center relative overflow-hidden flex-col' style={{ height: `calc(-50px + 100vh)`, overflow: "auto", scale: 1, }}>
+        <div ref={canvasDivRef} className='bg-black flex-1 flex justify-center items-center relative overflow-hidden flex-col' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
 
           <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4'>
             <Plus onClick={() => zoomingInOut("zoomedIn")} size={22} className='font-bold text-black' />
@@ -945,7 +934,7 @@ function ProImageEditor() {
           </div>
 
 
-          <canvas onClick={(e) => e.stopPropagation()} id='fabricJsCanvas' className='outline-2 outline-dashed outline-amber-200' style={{ scale: 0.6, }} ref={canvasRef}>
+          <canvas onClick={(e) => e.stopPropagation()} id='fabricJsCanvas' className='outline-2 outline-dashed outline-amber-200' style={{ scale: 1, }} ref={canvasRef}>
 
           </canvas>
         </div>
@@ -957,7 +946,7 @@ function ProImageEditor() {
 
           <div className='bg-white text-black font-bold flex p-0.5 justify-center items-center gap-2 rounded-md mt-1'>
             {["Layer", "Property"].map((v, i) => (
-              <span key={v} onClick={() => setLayerMenu(v)} className='font-bold hover:bg-gray-400/50 p-1 rounded-md cursor-pointer'>{v}</span>
+              <span key={v} onClick={() => setLayerMenu(v)} className={`font-bold hover:bg-gray-400/50 p-1 rounded-md cursor-pointer ${layerMenu===v?"underline underline-offset-2":""}`}>{v}</span>
             ))}
           </div>
 
@@ -969,7 +958,7 @@ function ProImageEditor() {
                 <div className='flex w-full flex-col gap-2 mt-2 p-2 overflow-auto historyScrollbar'>
                   {/* slice is being use for shallow copy other wise sort will mutate the state  */}
                   {state.length > 0 && state.slice().sort((s, b) => b.order - s.order).map((v, i) => (
-                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md ${v.id === activeId ? "outline-1 outline-blue-400 bg-white hover:bg-white/70" : "bg-white hover:bg-white/50"}`}>
+                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md bg-white hover:bg-gray-300 ${v.id === activeId ? "outline-1 outline-blue-400":""}`}>
                       <div>
                         <div className='flex justify-between'>
                           <input className='cursor-pointer' value={String(v.refrenceAiCheckBox)} type="checkbox" id='checkBox' onClick={(e) => {
@@ -1048,9 +1037,8 @@ function ProImageEditor() {
                       </div>
 
                       {v.src && v.type === "image" &&
-                        <div>
-                          <span className='font-bold'>Image Preview</span>
-                          <Image src={v.src} alt='preview' width={100} height={100}></Image>
+                        <div className='flex '>
+                          <Image src={v.src} alt='preview' width={100} height={100} className='w-[50px] h-auto'></Image>
                         </div>}
 
                     </div>

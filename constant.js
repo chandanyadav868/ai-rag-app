@@ -428,6 +428,7 @@ export const HeaderList = [
     // },
 ]
 
+
 export const aspectRatioImage = [
     {
         orientation: "1/1",
