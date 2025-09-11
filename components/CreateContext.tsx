@@ -21,6 +21,7 @@ export interface StoreProps {
   setError: React.Dispatch<React.SetStateAction<ErrorProps | undefined>>
   error: ErrorProps | undefined
   ai: GoogleGenAI | undefined
+  apiSetup: () => GoogleGenAI
   // setDemiState: React.Dispatch<React.SetStateAction<StateProps[]>>
   // demiState: StateProps[]
 }
@@ -89,15 +90,39 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   const [ai,setAi] = useState<GoogleGenAI | undefined>()
 
   useEffect(()=>{
-    localStorage.setItem("apiKeys",JSON.stringify(apiKey)); 
-    const usingApi = apiKey.find((v,i)=> !!v.systemInstructionActive)
-    if(!usingApi) return
-    // console.log("that is api i am using", usingApi.text,process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API);
+    console.log("apiKeys changes");
     
-    const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API ?? usingApi.text });
-    
-    setAi(ai)
+    localStorage.setItem("apiKeys",JSON.stringify(apiKey));
+    apiSetup();
+    setAi(undefined);
   },[apiKey])
+  
+  const apiSetup = ()=>{
+    // select from api which user want to give from list of apikeus
+    const usingApi = apiKey.find((v,i)=> !!v.systemInstructionActive)
+    // this is for holding
+    console.log("usingApi", usingApi);
+    
+    let apiMethods 
+
+    // if user setup then use that 
+    if (ai) return ai
+  
+    // extract apikeys from user true list then attach all methods in apiMethods variable
+    if(usingApi?.text) {
+      apiMethods = new GoogleGenAI({ apiKey: usingApi.text });
+      
+    }else{
+      // if user did not have apikeys then use my own keys
+      apiMethods = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
+    }
+
+    // set in useState api methods
+    setAi(apiMethods)
+    // return apiMethods holding class intialided methods
+    return apiMethods;
+
+  }
 
   useEffect(()=>{
     localStorage.setItem("systemInstructions",JSON.stringify(systemInstruction)); 
@@ -197,7 +222,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
   // all methods which are going to be send to used in useContext
   const storeSendingData = {
-    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError,ai
+    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError,ai,apiSetup
     // demiState,setDemiState
   }
 

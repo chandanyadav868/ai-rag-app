@@ -14,6 +14,14 @@ import SettingComponents from './SettingComponents';
 import { createPortal } from 'react-dom';
 import ErrorComponents from './ErrorComponents';
 
+interface ErrorPropsGeminaProps {
+    error: {
+        code: number,
+        message: string,
+        status: string,
+    }
+
+}
 
 export const PromptComponencts = React.memo(function ({ imageSetting, state, canvasOrientation, fabricJs }: ImageSettingProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -33,9 +41,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         quality_enhancers: "",
         negative_prompts: "",
     });
-    
+
     // createContext 
-    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError,ai } = useContextStore();
+    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup } = useContextStore();
 
 
     const [uploadedWholeCanvasData, setUploadedWholeCanvasData] = useState<FileUploadResponseProps>({
@@ -63,9 +71,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         const file = new File([data], "image.png", { type: data.type || "image/png" });
         console.log("file:- ", file);
 
-         if (!ai) throw new Error("ai not setup properly")
-            
-        
+        const ai = apiSetup()
+
         const myfile = await ai.files.upload({
             file: file,
             config: {
@@ -83,9 +90,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
     // this generate image and return buffer or error 
     async function geminaAiImage({ text }: GeminaAiFunProps) {
-         
-        if (!ai) throw new Error("ai not setup properly")
 
+        const ai = apiSetup();
 
         let content = createUserContent([text]);
         console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
@@ -143,8 +149,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                     return res as Buffer<ArrayBuffer>[]
                 }) // if error come then it throw error
                 .catch((err) => {
-                    // console.log("Error in Promise All", err);
-                    throw new Error(err)
+                    // jo error bheja hai wo err ke message ke pass hota hai n ki err ke pass, pura object
+                    console.log("Error in Promise All", err.message);
+                    throw new Error(err.message)
                 });
 
             // response is holding buffer number inside the array, make new blob object for storeing temporary inside the browser, take buffer value and make a image from it 
@@ -157,10 +164,14 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             })
 
         } catch (err) {
-            console.log("err:--- ----", err);
+            // jo wha se bheja hai wo message mai hota hai
+            const catchError = err as {message:string,name:string}
+            const { error:{message,code,status} } = JSON.parse(catchError.message) as ErrorPropsGeminaProps
+            console.log("Parsed error:", error);
+
             setError({
                 type: "error",
-                message: "Error occured please try again"
+                message: message
             });
 
         } finally {
@@ -223,8 +234,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             // this methods collect the instruction which user selected from setting if not then a empty
             const systemPromptSelected = systemInstruction.find((v, i) => !!v.systemInstructionActive)?.text ?? "";
             console.log("systemPromptSelected:- ", systemPromptSelected);
-            if (!ai) throw new Error("ai not setup properly")
 
+            const ai = apiSetup()
 
             // make api call, comeback with response or error
             const aiPromptRefine = await ai.models.generateContent({
@@ -366,28 +377,28 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
                             </div>
                             <div>
-                                
+
                             </div>
                             <div className='flex justify-between items-center w-full'>
-                            <BrushCleaning
-                                onMouseEnter={(e) => getBoundingBox(e, "Clear Prompt", "left")}
-                                type='button'
-                                onClick={() => {
-                                    setPromptStructure({
-                                        main_subject: "",
-                                        action_context: "",
-                                        detailed_description: "",
-                                        artistic_style: "",
-                                        mood: "",
-                                        lighting: "",
-                                        composition: "",
-                                        color_palette: "",
-                                        quality_enhancers: "",
-                                        negative_prompts: "",
-                                    });
-                                }} className='text-red-600  font-black cursor-pointer' />
+                                <BrushCleaning
+                                    onMouseEnter={(e) => getBoundingBox(e, "Clear Prompt", "left")}
+                                    type='button'
+                                    onClick={() => {
+                                        setPromptStructure({
+                                            main_subject: "",
+                                            action_context: "",
+                                            detailed_description: "",
+                                            artistic_style: "",
+                                            mood: "",
+                                            lighting: "",
+                                            composition: "",
+                                            color_palette: "",
+                                            quality_enhancers: "",
+                                            negative_prompts: "",
+                                        });
+                                    }} className='text-red-600  font-black cursor-pointer' />
 
-                            <Button disabled={Object.values(promptStructure).join(" ").trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' text='Generate' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
+                                <Button disabled={Object.values(promptStructure).join(" ").trim()?.length > 0 ? false : true} loader={imageGenerate} type='submit' text='Generate' className='py-2 text-black bg-white font-black disabled:cursor-not-allowed' />
                             </div>
 
                             {(Object.entries(promptStructure) as [keyof PromptStuctureProps, string][]).map(([key, value], i) => (
@@ -396,8 +407,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                     <Textarea id={key} name='imageText' placeholder='Enter Your text..' className='resize-none w-full min-h-[196px] text-white bg-black rounded-md textarea_overflow_styling max-h-[260px]' value={value} onChange={(e) => setPromptStructure((prev) => ({ ...prev, [key]: e.target.value }))} ref={textareaRef} />
                                 </div>
                             ))}
-                            
-                            
+
+
                         </div>
                     </form>
                 </div>
