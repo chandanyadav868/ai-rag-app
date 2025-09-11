@@ -63,7 +63,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         const file = new File([data], "image.png", { type: data.type || "image/png" });
         console.log("file:- ", file);
 
-         if (!ai) return 
+         if (!ai) throw new Error("ai not setup properly")
             
         
         const myfile = await ai.files.upload({
@@ -84,9 +84,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     // this generate image and return buffer or error 
     async function geminaAiImage({ text }: GeminaAiFunProps) {
          
-        if (!ai) {
-               return 
-            }
+        if (!ai) throw new Error("ai not setup properly")
+
 
         let content = createUserContent([text]);
         console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
@@ -224,9 +223,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             // this methods collect the instruction which user selected from setting if not then a empty
             const systemPromptSelected = systemInstruction.find((v, i) => !!v.systemInstructionActive)?.text ?? "";
             console.log("systemPromptSelected:- ", systemPromptSelected);
-            if (!ai) {
-               return 
-            }
+            if (!ai) throw new Error("ai not setup properly")
+
 
             // make api call, comeback with response or error
             const aiPromptRefine = await ai.models.generateContent({
