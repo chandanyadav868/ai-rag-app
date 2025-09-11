@@ -14,7 +14,6 @@ import SettingComponents from './SettingComponents';
 import { createPortal } from 'react-dom';
 import ErrorComponents from './ErrorComponents';
 
-export const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
 
 export const PromptComponencts = React.memo(function ({ imageSetting, state, canvasOrientation, fabricJs }: ImageSettingProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -34,9 +33,10 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         quality_enhancers: "",
         negative_prompts: "",
     });
-
+    
     // createContext 
-    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError } = useContextStore();
+    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError,ai } = useContextStore();
+
 
     const [uploadedWholeCanvasData, setUploadedWholeCanvasData] = useState<FileUploadResponseProps>({
         uploaded: false,
@@ -63,7 +63,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         const file = new File([data], "image.png", { type: data.type || "image/png" });
         console.log("file:- ", file);
 
-
+         if (!ai) return 
+            
+        
         const myfile = await ai.files.upload({
             file: file,
             config: {
@@ -81,6 +83,10 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
     // this generate image and return buffer or error 
     async function geminaAiImage({ text }: GeminaAiFunProps) {
+         
+        if (!ai) {
+               return 
+            }
 
         let content = createUserContent([text]);
         console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
@@ -218,7 +224,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             // this methods collect the instruction which user selected from setting if not then a empty
             const systemPromptSelected = systemInstruction.find((v, i) => !!v.systemInstructionActive)?.text ?? "";
             console.log("systemPromptSelected:- ", systemPromptSelected);
-
+            if (!ai) {
+               return 
+            }
 
             // make api call, comeback with response or error
             const aiPromptRefine = await ai.models.generateContent({

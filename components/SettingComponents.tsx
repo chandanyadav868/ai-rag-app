@@ -25,16 +25,16 @@ function SettingComponents() {
       {/* Modal Box */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className='w-[60%] min-h-[70%] max-h-[80%] bg-gray-700 text-white rounded-xl relative flex flex-col'
+        className='max-md:w-[96%] w-[80%] h-[80%] min-lg:w-4xl bg-gray-700 text-white rounded-xl relative flex flex-col'
       >
         {/* close button */}
         <CloseComponents onClick={() => setSetting(false)} />
 
         {/* Modal inner content */}
-        <div className='w-full flex flex-1 min-h-0 p-2 py-7 gap-4'>
+        <div className='w-full flex flex-1 min-h-0 p-2 py-7 gap-4 max-md:flex-col'>
 
           {/* setting Menu */}
-          <div className='shrink-0 flex flex-col'>
+          <div className='shrink-0 flex flex-col max-md:flex-row'>
             {settingMenu.map((v, i) => (
               <span key={i} onClick={() => {
                 setSettingActiveTab(v.name)
@@ -45,8 +45,8 @@ function SettingComponents() {
             ))}
           </div>
 
-          {/* seperate line */}
-          <hr className='w-[2px] bg-white h-full my-auto' />
+          {/* seperate line
+          <hr className='w-[2px] bg-white h-full my-auto' /> */}
 
           {/* menu data , important if you are making any childer overflow scrollable then give min-h-0, min-w-0,*/}
           <div className='w-full flex flex-col flex-1 min-h-0 min-w-0'>

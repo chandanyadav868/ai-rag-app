@@ -24,7 +24,8 @@ function ProImageEditor() {
   const [aiEdit, setAiEdit] = useState<boolean>(false);
   const [slidingLayer, setSlidingLayer] = useState<boolean>(true);
   const [slidingGenerateImage, setSlidingGenerateImage] = useState<boolean>(true);
-  const [layerMenu, setLayerMenu] = useState<string>("Layer")
+  const [layerMenu, setLayerMenu] = useState<string>("Layer");
+  const [scale, setScale] = useState<number>(1)
 
   console.log("state:- ", state);
 
@@ -122,33 +123,45 @@ function ProImageEditor() {
   }, []);
 
   useEffect(() => {
-  if (!canvasRef.current) return;
+    if (!canvasRef.current) return;
 
-  const newAspect = aspectRatioImage.find(v => v.orientation === canvasOrientation);
-  if (!newAspect) return;
+    const newAspect = aspectRatioImage.find(v => v.orientation === canvasOrientation);
+    if (!newAspect) return;
 
-  let { width, height } = newAspect;
-  const offset = 140;
+    let { width, height } = newAspect;
+    const offset = 140;
 
-  // Available screen space (header/footer ke liye offset minus karke)
-  const availableWidth = window.innerWidth;
-  const availableHeight = window.innerHeight - offset;
+    // Available screen space (header/footer ke liye offset minus karke)
+    const availableWidth = window.innerWidth;
+    const availableHeight = window.innerHeight - offset;
 
-  // Scale ratio calculate karo (jo bhi chhota hoga usko use karna hoga taaki pura image fit ho jaye)
-  const widthRatio = availableWidth / width;
-  const heightRatio = availableHeight / height;
-  const scale = Math.min(widthRatio, heightRatio);
+    // Scale ratio calculate karo (jo bhi chhota hoga usko use karna hoga taaki pura image fit ho jaye)
+    const widthRatio = availableWidth / width;
+    const heightRatio = availableHeight / height;
+    const scaling = Math.min(widthRatio, heightRatio);
+    console.log(scaling);
 
-  // Final scaled size
-  width = width * scale;
-  height = height * scale;
 
-  console.log("Final width:", width, "Final height:", height);
+    // Final scalingd size
+    if ((newAspect.width > availableWidth || newAspect.height > availableHeight) && canvasDivRef.current) {
+      console.log("Scaling methods");
 
-  // Update fabric.js canvas dimensions
-  fabricJs.current?.setDimensions({ width, height });
-  fabricJs.current?.renderAll();
-}, [canvasOrientation]);
+      console.log("Zooming", +scaling);
+      resizeCanvas("intial",scaling)
+      width = newAspect.width
+      height = newAspect.height
+      setScale(scaling)
+    } else {
+      width = newAspect.width
+      height = newAspect.height
+    }
+
+    console.log("Final width:", width, "Final height:", height);
+
+    // Update fabric.js canvas dimensions
+    fabricJs.current?.setDimensions({ width, height });
+    fabricJs.current?.renderAll();
+  }, [canvasOrientation]);
 
 
 
@@ -470,8 +483,20 @@ function ProImageEditor() {
 
   const exporting = async () => {
     if (!fabricJs.current) return;
-    const exportWidth = aspectRatioImage.find((v, i) => v.orientation === canvasOrientation)
-    const data = fabricJs.current.toDataURL({ format: "png", quality: 1, multiplier: 1, enableRetinaScaling: true, height: exportWidth?.height, width: exportWidth?.width });
+    const exportWidth = aspectRatioImage.find((v, i) => v.orientation === canvasOrientation);
+    if (!exportWidth) {
+      return
+    }
+
+    console.log("Scalling:- ", scale);
+    const height = exportWidth?.height;
+    const width = exportWidth?.width;
+
+    const data = fabricJs.current.toDataURL({ format: "png", quality: 1, multiplier: 0.5, enableRetinaScaling: true, height, width });
+
+    console.log("data ", data, "height:- ", height, "width:- ", width);
+
+
     const a = document.createElement("a");
     a.href = data;
     a.download = "canvas-export.png";
@@ -842,6 +867,25 @@ function ProImageEditor() {
   }
 
 
+  const resizeCanvas = (str: string,num:number) => {
+
+    if (!canvasDivRef.current) {
+      return
+    }
+
+    if (str === "ZoomIn") {
+      console.log("ZoomingIN", +canvasDivRef.current?.style.scale, num);
+      canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale + num)
+    } else if(str === "ZoomOut"){
+      console.log("ZoomingOUT", +canvasDivRef.current?.style.scale, num);
+      canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale - num)
+    }else {
+      canvasDivRef.current.style.scale = String(num)
+    }
+
+  }
+
+
 
   return (
     <div id='imageEdittingContainer'  >
@@ -926,17 +970,19 @@ function ProImageEditor() {
         </div>
 
         {/* CANVAS AREA */}
-        <div ref={canvasDivRef} className='bg-black flex-1 flex justify-center items-center relative overflow-hidden flex-col' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
+        <div
+          className='bg-black flex-1 relative overflow-auto' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
 
-          <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4'>
-            <Plus onClick={() => zoomingInOut("zoomedIn")} size={22} className='font-bold text-black' />
-            <Minus onClick={() => zoomingInOut("zoomedOut")} size={22} className='font-bold text-black' />
+          <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4' style={{ zIndex: 999 }}>
+            <Plus onClick={() => resizeCanvas("ZoomIn",0.1)} size={22} className='font-bold text-black' />
+            <Minus onClick={() => resizeCanvas("ZoomOut",0.1)} size={22} className='font-bold text-black' />
           </div>
 
+          <div ref={canvasDivRef} className=' w-full h-full relative flex justify-center items-center' style={{scale:1}}>
+            <canvas onClick={(e) => e.stopPropagation()} id='fabricJsCanvas' className='outline-2 outline-dashed outline-amber-200' style={{ scale: 1, }} ref={canvasRef}>
+            </canvas>
+          </div>
 
-          <canvas onClick={(e) => e.stopPropagation()} id='fabricJsCanvas' className='outline-2 outline-dashed outline-amber-200' style={{ scale: 1, }} ref={canvasRef}>
-
-          </canvas>
         </div>
 
         {/* layer div */}
@@ -946,7 +992,7 @@ function ProImageEditor() {
 
           <div className='bg-white text-black font-bold flex p-0.5 justify-center items-center gap-2 rounded-md mt-1'>
             {["Layer", "Property"].map((v, i) => (
-              <span key={v} onClick={() => setLayerMenu(v)} className={`font-bold hover:bg-gray-400/50 p-1 rounded-md cursor-pointer ${layerMenu===v?"underline underline-offset-2":""}`}>{v}</span>
+              <span key={v} onClick={() => setLayerMenu(v)} className={`font-bold hover:bg-gray-400/50 p-1 rounded-md cursor-pointer ${layerMenu === v ? "underline underline-offset-2" : ""}`}>{v}</span>
             ))}
           </div>
 
@@ -958,7 +1004,7 @@ function ProImageEditor() {
                 <div className='flex w-full flex-col gap-2 mt-2 p-2 overflow-auto historyScrollbar'>
                   {/* slice is being use for shallow copy other wise sort will mutate the state  */}
                   {state.length > 0 && state.slice().sort((s, b) => b.order - s.order).map((v, i) => (
-                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md bg-white hover:bg-gray-300 ${v.id === activeId ? "outline-1 outline-blue-400":""}`}>
+                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md bg-white hover:bg-gray-300 ${v.id === activeId ? "outline-1 outline-blue-400" : ""}`}>
                       <div>
                         <div className='flex justify-between'>
                           <input className='cursor-pointer' value={String(v.refrenceAiCheckBox)} type="checkbox" id='checkBox' onClick={(e) => {
@@ -1062,10 +1108,11 @@ function ProImageEditor() {
           </div>
         </div>
 
-      </main>
+      </main >
 
-      {aiEdit && createPortal(<EditTool aiImageFn={aiImageFn} fabricjs={fabricJs} selectedId={activeId} aiEditShowFn={setAiEdit} />, document.getElementById("imageEdittingContainer") || document.body)}
-    </div>
+      {aiEdit && createPortal(<EditTool aiImageFn={aiImageFn} fabricjs={fabricJs} selectedId={activeId} aiEditShowFn={setAiEdit} />, document.getElementById("imageEdittingContainer") || document.body)
+      }
+    </div >
   )
 }
 

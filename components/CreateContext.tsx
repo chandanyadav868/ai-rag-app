@@ -1,5 +1,6 @@
 "use client";
 
+import { GoogleGenAI } from '@google/genai';
 import React, { createContext, RefObject, useContext, useEffect, useState } from 'react';
 
 export interface StoreProps {
@@ -19,6 +20,7 @@ export interface StoreProps {
   state: StateProps[]
   setError: React.Dispatch<React.SetStateAction<ErrorProps | undefined>>
   error: ErrorProps | undefined
+  ai: GoogleGenAI | undefined
   // setDemiState: React.Dispatch<React.SetStateAction<StateProps[]>>
   // demiState: StateProps[]
 }
@@ -84,8 +86,17 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   }
   });
 
+  const [ai,setAi] = useState<GoogleGenAI | undefined>()
+
   useEffect(()=>{
     localStorage.setItem("apiKeys",JSON.stringify(apiKey)); 
+    const usingApi = apiKey.find((v,i)=> !!v.systemInstructionActive)
+    if(!usingApi) return
+    // console.log("that is api i am using", usingApi.text,process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API);
+    
+    const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API ?? usingApi.text });
+    
+    setAi(ai)
   },[apiKey])
 
   useEffect(()=>{
@@ -183,9 +194,10 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
 
 
+
   // all methods which are going to be send to used in useContext
   const storeSendingData = {
-    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError
+    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError,ai
     // demiState,setDemiState
   }
 
