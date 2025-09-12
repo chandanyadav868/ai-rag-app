@@ -1,14 +1,6 @@
 import mongoose from "mongoose";
 
-export interface UserSchemaProp {
-    _id?:string;
-    email:string;
-    password?:string;
-    username?:string;
-    emailVerified:boolean;
-    avatar?:string;
-    plan: UserPlan
-}
+
 
 type UserPlan = "Free" | "Premium"
 
