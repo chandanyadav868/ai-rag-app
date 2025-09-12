@@ -1,3 +1,5 @@
+import mongodbConnection from "@/mongodb/connection"
+import UserSchema from "@/mongodb/schema/User.Schema"
 import fs from "fs/promises"
 import path from "path"
 
@@ -15,7 +17,7 @@ export interface ObjectProps {
     source: string
 }
 
-const folderPath  = path.join(process.cwd(),"public","uploaded_pdf.json")
+const folderPath = path.join(process.cwd(), "public", "uploaded_pdf.json")
 
 
 export async function fileReading() {
@@ -33,12 +35,20 @@ export async function fileUpdate(fileRemove: string, insertingData: ObjectProps)
 
     let fileReadingData = await fileReading();
 
-    console.log("fileReadingData:- ",fileReadingData);
-    
+    console.log("fileReadingData:- ", fileReadingData);
+
     fileReadingData = [...fileReadingData, insertingData]
 
-    fs.writeFile(folderPath, JSON.stringify(fileReadingData,null,2))
-    
+    fs.writeFile(folderPath, JSON.stringify(fileReadingData, null, 2))
+
     console.log("Successfully wrote file");
 
+}
+
+
+export async function getUserFromDb(credentials:Partial<Record<"password" | "email", unknown>>) {
+    const userData = await mongodbConnection();
+    const responseData = await UserSchema.findOne({ email: credentials.email }).lean() as UserSchemaProp | null;
+
+    return responseData
 }

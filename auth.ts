@@ -2,11 +2,9 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
-import mongodbConnection from "./mongodb/connection";
-// import UserSchemaModel, { UserSchemaProp } from "./mongodb/schema/User.Schema";
-// import UserSchema from "./mongodb/schema/User.Schema";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
+import { getUserFromDb } from "./utils/util";
 
 /* {
     authorization: {
@@ -35,14 +33,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       },
       async authorize(credentials) {
-        const {default:UserSchema} = await import("./mongodb/schema/User.Schema");
-        const {default:mongodbConnection} = await import("./mongodb/connection")
         let user = null
         console.log("Email and Password in authorized:- ", credentials);
-        const userData = await mongodbConnection();
-        const responseData = await UserSchema.findOne({ email: credentials.email }).lean() as UserSchemaProp | null;
+        
+        const responseData = await getUserFromDb(credentials)
         console.log("ResponseData:- ", responseData);
-
         if (!responseData) {
           throw new Error("User not Found")
         }
