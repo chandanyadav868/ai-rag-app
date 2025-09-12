@@ -213,6 +213,11 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
       setPortalElement(null);
       clearTimeout(portalVisible)
     })
+    
+    target.addEventListener("touchend",()=>{
+      setPortalElement(null);
+      clearTimeout(portalVisible)
+    })
   }
 
 
