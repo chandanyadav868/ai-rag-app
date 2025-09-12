@@ -55,6 +55,8 @@ export async function getUserFromDb(credentials:Partial<Record<"password" | "ema
             "Content-Type": "application/json"
           }
         });
+        console.log("Original Data:---", response);
+        
         const responseJson = await response.json();
         console.log("responseJson:- ",responseJson);
         
