@@ -38,7 +38,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         const responseData = await getUserFromDb(credentials)
         console.log("ResponseData:- ", responseData);
-        
         if (!responseData) {
           throw new Error("User not Found")
         }

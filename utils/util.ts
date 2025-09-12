@@ -44,6 +44,8 @@ export interface ObjectProps {
 
 export async function getUserFromDb(credentials:Partial<Record<"password" | "email", unknown>>) {
     try {
+        console.log(`${process.env.NEXTAUTH_URL}/api/mongoose`);
+        
         console.log("api in api mongoose:---   ------");
         
         const response = await fetch(`${process.env.NEXTAUTH_URL}/api/mongoose`, {
@@ -61,12 +63,9 @@ export async function getUserFromDb(credentials:Partial<Record<"password" | "ema
             return responseJson
         }
 
-
-
         return responseJson
     } catch (error) {
         console.log("Error in data",error);
-        
         return null
     }
 }
