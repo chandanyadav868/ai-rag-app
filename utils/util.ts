@@ -1,7 +1,3 @@
-import mongodbConnection from "@/mongodb/connection"
-import UserSchema from "@/mongodb/schema/User.Schema"
-import fs from "fs/promises"
-import path from "path"
 
 export interface ObjectProps {
     name: string
@@ -17,38 +13,60 @@ export interface ObjectProps {
     source: string
 }
 
-const folderPath = path.join(process.cwd(), "public", "uploaded_pdf.json")
+// const folderPath = path.join(process.cwd(), "public", "uploaded_pdf.json")
 
 
-export async function fileReading() {
-    let datas: ObjectProps[] = [];
+// export async function fileReading() {
+//     let datas: ObjectProps[] = [];
 
-    const data = await fs.readFile(folderPath, { encoding: "utf-8" });
+//     const data = await fs.readFile(folderPath, { encoding: "utf-8" });
 
-    datas = JSON.parse(data)
+//     datas = JSON.parse(data)
 
-    return datas
-}
+//     return datas
+// }
 
 
-export async function fileUpdate(fileRemove: string, insertingData: ObjectProps) {
+// export async function fileUpdate(fileRemove: string, insertingData: ObjectProps) {
 
-    let fileReadingData = await fileReading();
+//     let fileReadingData = await fileReading();
 
-    console.log("fileReadingData:- ", fileReadingData);
+//     console.log("fileReadingData:- ", fileReadingData);
 
-    fileReadingData = [...fileReadingData, insertingData]
+//     fileReadingData = [...fileReadingData, insertingData]
 
-    fs.writeFile(folderPath, JSON.stringify(fileReadingData, null, 2))
+//     fs.writeFile(folderPath, JSON.stringify(fileReadingData, null, 2))
 
-    console.log("Successfully wrote file");
+//     console.log("Successfully wrote file");
 
-}
+// }
 
 
 export async function getUserFromDb(credentials:Partial<Record<"password" | "email", unknown>>) {
-    const userData = await mongodbConnection();
-    const responseData = await UserSchema.findOne({ email: credentials.email }).lean() as UserSchemaProp | null;
+    try {
+        console.log("api in api mongoose:---   ------");
+        
+        const response = await fetch(`${process.env.NEXTAUTH_URL}/api/mongoose`, {
+          method: "POST",
+          body: JSON.stringify(credentials),
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        const responseJson = await response.json();
+        console.log("responseJson:- ",responseJson);
+        
 
-    return responseData
+        if (response.status === 200) {
+            return responseJson
+        }
+
+
+
+        return responseJson
+    } catch (error) {
+        console.log("Error in data",error);
+        
+        return null
+    }
 }

@@ -1,4 +1,3 @@
-export const runtime = "nodejs";
 
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
@@ -39,6 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         const responseData = await getUserFromDb(credentials)
         console.log("ResponseData:- ", responseData);
+        
         if (!responseData) {
           throw new Error("User not Found")
         }

@@ -15,7 +15,7 @@ interface ApiSuccessRoutesProps {
     success:boolean
 }
 
-class ApiErrorRoutes {
+export class ApiErrorRoutes {
     error = ''
     message = ''
     status = 500
@@ -26,7 +26,7 @@ class ApiErrorRoutes {
     }
 }
 
-class ApiSuccessRoutes {
+export class ApiSuccessRoutes {
     message = ''
     status = 200
     success = true
