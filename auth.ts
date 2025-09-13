@@ -2,7 +2,11 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
+import mongodbConnection from "./mongodb/connection";
+import UserSchema from "./mongodb/schema/User.Schema";
+import authConfig from "./auth.config"
 
 /* {
     authorization: {
@@ -18,8 +22,49 @@ import jwt from "jsonwebtoken"
 // maine NextAuth run karwa use mai se kuchh object nikal liye hai aur yha se export bhi kar diya hai
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    Google,
-    Credentials({})
+    // i am importing function which are going exported from them spreading, for edge compatibility
+    ...(authConfig.providers ?? []),
+    Credentials({
+      credentials: {
+        password: {
+          type: "password",
+          label: "Password"
+        },
+        email: {
+          type: "email",
+          label: "Email"
+        }
+      },
+      async authorize(credentials) {
+        let user = null
+        console.log("Email and Password in authorized:- ", credentials);
+        
+        const userData = await mongodbConnection();
+        const responseData = await UserSchema.findOne({ email: credentials.email }).lean() as UserSchemaProp | null;
+        console.log("ResponseData:- ", responseData);
+        if (!responseData) {
+          // agar aap throw karoge to ye internall Error will count so return null
+          return user
+          // throw new Error("User not Found")
+        }
+
+        const PasswordChecking = await bcrypt.compare(credentials.password as string, responseData.password as string);
+
+        console.log("Password checking:- ", PasswordChecking);
+        if (!PasswordChecking) {
+          return user
+          // throw new Error("Password incorrect")
+        }
+
+        user = {
+          id: responseData._id?.toString(),
+          email: responseData.email
+        }
+        console.log("User:---  ", user);
+
+        return user
+      }
+    })
   ],
 
   // ye callbacks har upar wale provider ke sath chalta hai whether it is google or credentials
@@ -88,6 +133,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return baseUrl
     },
   },
+
+  session:{
+    strategy:"jwt"
+  }
 
 })
 

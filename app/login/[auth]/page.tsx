@@ -1,5 +1,3 @@
-"use client";
-
 import Form from '@/components/Form'
 import Input from '@/components/Input'
 import Image from 'next/image'
@@ -15,12 +13,8 @@ const loginServices = [
 ]
 
 import { signIn } from "@/auth"
-import Link from 'next/link'
-import { useParams } from 'next/navigation'
 
 function page() {
-    const {auth} = useParams();
-    console.log("params:--  --:params",auth);
     
     return (
         <div className='w-full h-screen'>
@@ -30,10 +24,10 @@ function page() {
                     {loginServices.map((v, i) => (
                         <div key={i} className='px-6 py-4 rounded-md bg-gray-600 flex gap-2 zoomingOutIn'>
                             <span onClick={async () => {
-                                // "use server"
-                                // console.log("Request goind google");
-                                // // agar aap karte hai:- await signIn("google",{redirect:true, redirectTo:"/"})
-                                //  await signIn("google")
+                                "use server"
+                                console.log("Request goind google");
+                                // agar aap karte hai:- await signIn("google",{redirect:true, redirectTo:"/"})
+                                 await signIn("google")
                             }} className='font-bold text-white text-center w-full cursor-pointer'>{v.name}</span>
                         </div>
                     ))}
@@ -44,11 +38,7 @@ function page() {
 
                     <Form />
 
-                    <div>
-                        {auth === "signup" && <p className='text-center'>if you already make account <Link className='text-blue-500 font-bold hover:underline underline-offset-2' href={"/login/signin"}>Sign in</Link></p>}
-
-                        {auth === "signin" && <p className='text-center'>If you did not make account <Link className='text-blue-500 font-bold hover:underline underline-offset-2' href={"/login/signup"}>Sign Up</Link></p>}
-                    </div>
+                    
                 </div>
 
             </div>

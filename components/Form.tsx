@@ -5,7 +5,8 @@ import Input from './Input'
 import Button from './Button'
 import { useForm, SubmitHandler } from "react-hook-form"
 import { signIn } from "next-auth/react"
-import { useParams,useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface IFormInput {
   email: string;
@@ -18,8 +19,8 @@ function Form() {
   const { register, handleSubmit, watch } = useForm<IFormInput>();
   const { auth } = useParams<{ auth: AuthPramasProp }>();
   const [loading, setLoading] = useState<boolean>(false);
-  const [successData, setSuccessData] = useState<Record<string, string | boolean>>({});
-  const [errorData, setErrorData] = useState<Record<string, string | boolean>>({});
+  const [successData, setSuccessData] = useState<Record<string, string | boolean | undefined>>({});
+  const [errorData, setErrorData] = useState<Record<string, string | boolean | undefined>>({});
   const router = useRouter()
 
 
@@ -39,9 +40,14 @@ function Form() {
         });
 
         console.log("User saved by Creadentials:- ", result);
-        if (result.status === 200) {
+        if (result.status === 200 && !result.error) {
           router.push("/")
         }
+
+        setErrorData({
+            error: true,
+            message: result.code==="credentials"?"Please provide correct Credentials":result.code
+          })
 
       } else if (auth === "signup") {
         console.log("Logging going tot he api Register:----");
@@ -91,6 +97,12 @@ function Form() {
       <div>
         {errorData.error && <p className='font-bold text-center text-red-400'>{errorData.message}</p>}
         {successData.success && <p className='font-bold text-center text-blue-400'>{successData.message}</p>}
+      </div>
+
+      <div>
+        {auth === "signup" && <p className='text-center'>if you already make account <Link className='text-blue-500 font-bold hover:underline underline-offset-2' href={"/login/signin"}>Sign in</Link></p>}
+
+        {auth === "signin" && <p className='text-center'>If you did not make account <Link className='text-blue-500 font-bold hover:underline underline-offset-2' href={"/login/signup"}>Sign Up</Link></p>}
       </div>
     </form>
   )
