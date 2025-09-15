@@ -8,10 +8,17 @@ import {getToken} from "next-auth/jwt"
 export const { auth } = NextAuth(authConfig)
 
 export default auth(async function middleware(req: NextRequest) {
-    console.log("AUTH_SECRET:- ", process.env.AUTH_SECRET);
     
-    const token = await getToken({req:req,secret:process.env.AUTH_SECRET})
-    console.log("middleware:- ",token, "req.nextUrl.origin:- ", req.nextUrl.origin);
+    const token = await getToken({
+        req
+    })
+    console.log(
+        "middleware:- ",token, 
+        "req.nextUrl.origin:- ", req.nextUrl.origin,
+        "AUTH_SECRET:- ", process.env.AUTH_SECRET,
+        "new URL:- ",new URL("/login/signin",req.nextUrl.origin)
+    );
+    
     const {pathname} = req.nextUrl
     // console.log("pathname:- ",pathname,"url:- ", req.url);
     // const authvalue = await auth();
