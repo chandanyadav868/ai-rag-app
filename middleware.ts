@@ -33,3 +33,8 @@ export default auth(async function middleware(req: NextRequest) {
 
     NextResponse.next()
 })
+
+
+export const config = {
+    matcher:"/image-editing"
+}
