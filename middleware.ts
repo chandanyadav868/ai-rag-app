@@ -11,13 +11,13 @@ export default auth(async function middleware(req: NextRequest) {
     console.log("AUTH_SECRET:- ", process.env.AUTH_SECRET);
     
     const token = await getToken({req:req,secret:process.env.AUTH_SECRET})
-    console.log("middleware:- ",token);
+    console.log("middleware:- ",token, "req.nextUrl.origin:- ", req.nextUrl.origin);
     const {pathname} = req.nextUrl
     // console.log("pathname:- ",pathname,"url:- ", req.url);
     
     if (pathname === "/image-editing") {
         if ( !token || !token?._id) {
-            return NextResponse.redirect(new URL("/login/signin",req.url))
+            return NextResponse.redirect(new URL("/login/signin",req.nextUrl.origin))
         }
     }
 
