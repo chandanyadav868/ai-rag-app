@@ -14,6 +14,9 @@ export default auth(async function middleware(req: NextRequest) {
     console.log("middleware:- ",token, "req.nextUrl.origin:- ", req.nextUrl.origin);
     const {pathname} = req.nextUrl
     // console.log("pathname:- ",pathname,"url:- ", req.url);
+    const authvalue = await auth();
+    console.log("authValue:- ", authvalue?.user);
+    
     
     if (pathname === "/image-editing") {
         if ( !token || !token?._id) {
