@@ -9,7 +9,7 @@ export const { auth } = NextAuth(authConfig)
 
 export default auth(async function middleware(req: NextRequest) {
     const token = await getToken({req:req,secret:process.env.AUTH_SECRET})
-    // console.log("middleware:- ",token);
+    console.log("middleware:- ",token);
     const {pathname} = req.nextUrl
     // console.log("pathname:- ",pathname,"url:- ", req.url);
     
