@@ -9,21 +9,16 @@ export const { auth } = NextAuth(authConfig)
 
 export default auth(async (req) => {
 
-    const token = await getToken({
-        req,
-        secret: process.env.NEXTAUTH_SECRET
-    });
+    const token = req.auth
+    
     console.log(
-        "middleware:- ", token,
-        "req.nextUrl.origin:- ", req.nextUrl.origin,
-        "AUTH_SECRET:- ", process.env.NEXTAUTH_SECRET,
         "authValue", req.auth?.user
     );
 
     const { pathname } = req.nextUrl;
 
     if (pathname === "/image-editing") {
-        if (!token || !token?._id) {
+        if (!token || !token?.user.email) {
             return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
         }
     }
