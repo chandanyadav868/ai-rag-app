@@ -12,17 +12,19 @@ interface ApiErrorRoutesProps {
 interface ApiSuccessRoutesProps {
     status: number;
     message: string;
-    success:boolean
+    success: boolean
 }
 
 export class ApiErrorRoutes {
-    error = ''
-    message = ''
-    status = 500
+    error = {
+        error: '',
+        message: '',
+        status: 500
+    }
     constructor({ error, message, status }: ApiErrorRoutesProps) {
-        this.error = error
-        this.message = message
-        this.status = status
+        this.error.error = error
+        this.error.message = message
+        this.error.status = status
     }
 }
 
@@ -30,7 +32,7 @@ export class ApiSuccessRoutes {
     message = ''
     status = 200
     success = true
-    constructor({message,status,success}:ApiSuccessRoutesProps){
+    constructor({ message, status, success }: ApiSuccessRoutesProps) {
         this.message = message
         this.status = status
         this.success = success
@@ -42,20 +44,20 @@ export async function POST(req: NextRequest) {
         let { email, password } = await req.json();
         // if user did not provided credientials then give this error
         if (!email || !password) {
-            return  NextResponse.json(new ApiSuccessRoutes({
-                message:"Please Provide the creadentials",
-                status:400,
-                success:false
+            return NextResponse.json(new ApiSuccessRoutes({
+                message: "Please Provide the creadentials",
+                status: 400,
+                success: false
             }))
         }
 
-        console.log("POST New Account Creating:- ",email,password);
-        
+        console.log("POST New Account Creating:- ", email, password);
+
         // connecting with mongodbServer before making request for creating user
         const connectionEstablished = await mongodbConnection();
-        password = await bcrypt.hash(password,10);
+        password = await bcrypt.hash(password, 10);
         // console.log("Hashed Password:- ", password);
-        
+
 
         // this for creating user and getting any error then log
         try {
@@ -64,8 +66,8 @@ export async function POST(req: NextRequest) {
                 password
             });
             console.log(createdNewUser);
-            return NextResponse.json(new ApiSuccessRoutes({message:"Successfully created User",status:200,success:true}))
-            
+            return NextResponse.json(new ApiSuccessRoutes({ message: "Successfully created User", status: 200, success: true }))
+
         } catch (error) {
             console.log("Error in creating User:- ", error);
             return NextResponse.json(

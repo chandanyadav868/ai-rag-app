@@ -116,11 +116,14 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             
             const response = await fetch("/api/ai-image-generate",{
                 method:"POST",
-                body:JSON.stringify({content,id:loginUserData?.id}),
+                body:JSON.stringify({content,id:loginUserData?.id,model:modelSelected?.value}),
                 headers:{
                     "Content-Type":"application/json"
                 }
             });
+
+            console.log("Response Ok---", response);
+            
 
             if (response.ok) {
                 const responseJson = await response.json();
@@ -131,10 +134,12 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                         if (!prev) {
                             return prev
                         }
-                        return {...prev,credit:prev.credit? prev.credit - 1:0}
+                        return {...prev,credit:responseJson.credit}
                     })
-                    
+                }else{
+                    throw new Error(JSON.stringify(responseJson));
                 }
+
             }
 
 

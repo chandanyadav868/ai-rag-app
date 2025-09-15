@@ -1,67 +1,92 @@
 import { ai } from "@/constant";
+import mongodbConnection from "@/mongodb/connection";
 import UserSchema from "@/mongodb/schema/User.Schema";
 import { Modality } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorRoutes } from "../register/route";
+
+
 
 export async function POST(request: NextRequest) {
     try {
         // jo bhi content bheja gya hai from fronend they are present in the content 
-        const { content, id } = await request.json();
-        console.log(request);
+        const { content, id, model } = await request.json();
+        // console.log(request);
 
-        console.log("id:- ", id);
+        console.log("id:- ", id, "model:- ", model);
         if (!id) {
-            return NextResponse.json({ status: 400, error: { error: "Server error", message: "Did not get user Id" }, data: [] })
+            return NextResponse.json( new ApiErrorRoutes({ error: "Server error", message: "Did not get user Id", status: 400 }))
+           
         }
 
 
-
-        const existingUser = await UserSchema.findOne({ _id: id, }) as UserSchemaProp | null;
+        await mongodbConnection();
+        const existingUser = await UserSchema.findOne({ _id: id }) as UserSchemaProp | null;
 
         if (!existingUser) {
-            return NextResponse.json({ status: 400, error: { error: "User not found", message: "User not found  please login again" }, data: [] })
+            return NextResponse.json( new ApiErrorRoutes({ error: "User not found", message: "User not found", status: 404 }))
         }
 
         if (!existingUser.credit || (existingUser.credit && existingUser?.credit < 1)) {
-            return NextResponse.json({ status: 400, error: { error: "Your Credit is exhausted", message: "Credit exhausted by you please top up" }, data: [] })
+            return NextResponse.json(new ApiErrorRoutes({ error: "You exceeded your current quota", message: "RESOURCE_EXHAUSTED", status: 429 }))
         }
 
-        
-        const data: Record<string, string | Buffer<ArrayBuffer>> = {};
-        
+
+        const data: Record<string, string | number | undefined | Buffer<ArrayBuffer>> = {};
+
         // ye method gemina ke api ko call karta hai, with object body
-        const imageGeneration = await ai.models.generateContent({
-            model: "gemini-2.0-flash-preview-image-generation",
-            contents: content,
-            // config batata hai ki, kya aapko dena hai response mai, image and text
-            config: {
-                responseModalities: [Modality.TEXT, Modality.IMAGE]
-            }
-        });
-        
-        console.log("imageGeneration:- ", imageGeneration);
-        const imageData = imageGeneration.data
-        if (!imageData) {
-            return NextResponse.json({ status: 400, error: { error: "Api Not response as Expected", message: "No image created" }, data: [] })
+        let imageGeneration;
+
+        try {
+            imageGeneration = await ai.models.generateContent({
+                model: model,
+                contents: content,
+                // config batata hai ki, kya aapko dena hai response mai, image and text
+                config: {
+                    responseModalities: [Modality.TEXT, Modality.IMAGE]
+                }
+            });
+        } catch (error) {
+            const errorJson = error as {message:any,stack:string}
+            const Geminaerror = JSON.parse(errorJson.message as any);
+            console.log("Geminaerror:- ",Geminaerror);
+            
+            return NextResponse.json(new ApiErrorRoutes({
+                error:Geminaerror.error.status,
+                message:Geminaerror.error.message,
+                status:Geminaerror.error.code
+            }))
         }
-        
-        const updatingDataBase = await UserSchema.findOneAndUpdate({_id:id}, {$inc : {credit: -1}},{new:true})
-        console.log("updatingUserData:- ", updatingDataBase);
 
-    const buffer = Buffer.from(imageData, "base64")
-    console.log("buffer:- ", buffer);
-    data["data"] = buffer
-    // return buffer; // Return the image buffer
+        // console.log("imageGeneration:- ", imageGeneration);
+        const imageData = imageGeneration?.data
+        if (!imageData) {
+            return NextResponse.json(new ApiErrorRoutes({ error: "Api Not response as Expected", message: "No image created", status: 400 }))
+        }
+
+        const updatingDataBase = await UserSchema.findOneAndUpdate({ _id: id }, { $inc: { credit: -1 } }, { new: true }) as UserSchemaProp | null;
+
+        if (!updatingDataBase) {
+            return NextResponse.json( new ApiErrorRoutes({ error: "User not found updating time", message: "Server Error", status: 400 }))
+        }
 
 
-    return NextResponse.json({ status: 200, message: "Successfully", data: data })
-    // {"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}
+        console.log("updatingUserData:- ", updatingDataBase) 
+
+        const buffer = Buffer.from(imageData, "base64")
+        console.log("buffer:- ", buffer);
+        data["data"] = buffer
+        data["credit"] = updatingDataBase.credit
+        // return buffer; // Return the image buffer
 
 
-} catch (error) {
-    const errorImage = error as { message: string, stack: string }
-    console.log("error in route.ts", errorImage?.message);
+        return NextResponse.json({ status: 200, message: "Successfully", data: data })
+        // {"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}
 
-    return NextResponse.json({ status: 500, error: { error: errorImage?.message, message: "Something went wrong in function running" }, data: [] })
-}
+
+    } catch (error) {
+        const errorImage = error as { message: string, stack: string }
+        console.log("error in route.ts", errorImage?.message);
+        return NextResponse.json(errorImage.message)
+    }
 }

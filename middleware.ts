@@ -22,7 +22,7 @@ export default auth(async (req) => {
             return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
         }
     }
-
+    console.log("NextResponse:- ");
     NextResponse.next();
 })
 
