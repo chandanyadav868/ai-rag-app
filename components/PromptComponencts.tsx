@@ -5,14 +5,16 @@ import SelectSpecial from '@/components/SelectSpecial';
 import Textarea from '@/components/Textarea'
 import { aspectRatioImage, ImageModels } from '@/constant';
 import { GeminaAiFunProps } from '@/Gemina_Api/genAi';
-import { GoogleGenAI, Modality, createUserContent, createPartFromUri, Type, ApiError } from '@google/genai';
-import { Bot, BrushCleaning, CheckCircleIcon, CloudUpload, Loader2, Settings, X } from 'lucide-react';
+import { Modality, createUserContent, createPartFromUri, Type } from '@google/genai';
+import { Bot, BrushCleaning, CheckCircleIcon, CloudUpload, Info, Loader2, Settings, X } from 'lucide-react';
 import React, { useCallback, useRef, useState } from 'react'
 import { useContextStore } from './CreateContext';
 import PortalElement from './PortalElement';
 import SettingComponents from './SettingComponents';
 import { createPortal } from 'react-dom';
 import ErrorComponents from './ErrorComponents';
+import InfoComponent from './InfoComponent';
+import { useSession } from 'next-auth/react';
 
 interface ErrorPropsGeminaProps {
     error: {
@@ -43,7 +45,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     });
 
     // createContext 
-    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup } = useContextStore();
+    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup, apiKey, info, setInfo, infoSelectionFn } = useContextStore();
+    const {loginUserData,setLoginUserData} = useContextStore()
+    
 
 
     const [uploadedWholeCanvasData, setUploadedWholeCanvasData] = useState<FileUploadResponseProps>({
@@ -91,7 +95,6 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     // this generate image and return buffer or error 
     async function geminaAiImage({ text }: GeminaAiFunProps) {
 
-        const ai = apiSetup();
 
         let content = createUserContent([text]);
         console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
@@ -104,17 +107,52 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         const modelSelected = ImageModels.find((v) => v.name === selectedModel);
         if (!modelSelected) throw new Error("Selected Model Name does present");
 
-        const imageGeneration = await ai.models.generateContent({
-            model: modelSelected?.value,
-            contents: content,
-            config: {
-                responseModalities: [Modality.TEXT, Modality.IMAGE]
+        // if user given its own keys then make as many as it gives if he use my own keys then give limitation
+        const usingApi = apiKey.find((v, i) => !!v.systemInstructionActive);
+        let imageGeneration;
+
+        if (!usingApi) {
+            console.log("api calling going to the backend not present any apikey so.........");
+            
+            const response = await fetch("/api/ai-image-generate",{
+                method:"POST",
+                body:JSON.stringify({content,id:loginUserData?.id}),
+                headers:{
+                    "Content-Type":"application/json"
+                }
+            });
+
+            if (response.ok) {
+                const responseJson = await response.json();
+                console.log(responseJson);
+                if (responseJson.status === 200) {
+                    imageGeneration = responseJson.data
+                    setLoginUserData((prev)=> {
+                        if (!prev) {
+                            return prev
+                        }
+                        return {...prev,credit:prev.credit? prev.credit - 1:0}
+                    })
+                    
+                }
             }
-        });
+
+
+        } else {
+            const ai = apiSetup();
+            imageGeneration = await ai.models.generateContent({
+                model: modelSelected?.value,
+                contents: content,
+                config: {
+                    responseModalities: [Modality.TEXT, Modality.IMAGE]
+                }
+            });
+        }
+
 
         // aap base64 or undefined payege, like iVBORw0KGgo....
-        const textData = imageGeneration.text
-        const imageData = imageGeneration.data;
+        const textData = imageGeneration?.text
+        const imageData = imageGeneration?.data;
         console.log("textData:- ", textData);
 
         if (!imageData) throw new Error("Image not generated")
@@ -165,8 +203,8 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
         } catch (err) {
             // jo wha se bheja hai wo message mai hota hai
-            const catchError = err as {message:string,name:string}
-            const { error:{message,code,status} } = JSON.parse(catchError.message) as ErrorPropsGeminaProps
+            const catchError = err as { message: string, name: string }
+            const { error: { message, code, status } } = JSON.parse(catchError.message) as ErrorPropsGeminaProps
             console.log("Parsed error:", error);
 
             setError({
@@ -311,6 +349,15 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             <div id="imageEditor" className='flex'>
                 <div className='bg-amber-300/10 historyScrollbar text-black overflow-y-auto overflow-x-hidden max-md:w-full w-[500px]'>
 
+                    <div className='flex p-2 items-center text-lg'>
+                        <span className='font-bold flex-1'>Credit</span>
+                        <svg className='w-5 h-5 mr-2' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path
+                            fill='black'
+                            d="M192 160L192 144C192 99.8 278 64 384 64C490 64 576 99.8 576 144L576 160C576 190.6 534.7 217.2 474 230.7C471.6 227.9 469.1 225.2 466.6 222.7C451.1 207.4 431.1 195.8 410.2 187.2C368.3 169.7 313.7 160.1 256 160.1C234.1 160.1 212.7 161.5 192.2 164.2C192 162.9 192 161.5 192 160.1zM496 417L496 370.8C511.1 366.9 525.3 362.3 538.2 356.9C551.4 351.4 564.3 344.7 576 336.6L576 352C576 378.8 544.5 402.5 496 417zM496 321L496 288C496 283.5 495.6 279.2 495 275C510.5 271.1 525 266.4 538.2 260.8C551.4 255.2 564.3 248.6 576 240.5L576 255.9C576 282.7 544.5 306.4 496 320.9zM64 304L64 288C64 243.8 150 208 256 208C362 208 448 243.8 448 288L448 304C448 348.2 362 384 256 384C150 384 64 348.2 64 304zM448 400C448 444.2 362 480 256 480C150 480 64 444.2 64 400L64 384.6C75.6 392.7 88.5 399.3 101.8 404.9C143.7 422.4 198.3 432 256 432C313.7 432 368.3 422.3 410.2 404.9C423.4 399.4 436.3 392.7 448 384.6L448 400zM448 480.6L448 496C448 540.2 362 576 256 576C150 576 64 540.2 64 496L64 480.6C75.6 488.7 88.5 495.3 101.8 500.9C143.7 518.4 198.3 528 256 528C313.7 528 368.3 518.3 410.2 500.9C423.4 495.4 436.3 488.7 448 480.6z" /></svg>
+                        <span className='font-bold'>{loginUserData?.credit}</span>
+
+                    </div>
+
                     <SelectSpecial CustomeArray={ImageModels} selectedText={selectedModel} className='bg-gray-600 text-black' setAspectRation={(e: string) => {
                         setSelectedModel(prev => {
                             e as string
@@ -329,7 +376,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                     <input onChange={(e) => setCanvasReference(e.target.checked)} type="checkBox" id='canvas' className='mr-2' />
                                     <label htmlFor="canvas" id='imageText' className='font-bold text-xl'>Whole Canvas Reference</label>
                                 </span>
-                                <span className='flex gap-2 cursor-pointer'>
+                                <span className='flex gap-2'>
                                     {uploadedWholeCanvasData.uploaded === true ?
                                         <>
                                             <Loader2 onMouseEnter={(e) => getBoundingBox(e, "Uploading", "top")} size={22} className='animate-spin' />
@@ -338,14 +385,17 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                         <>
                                             {uploadedWholeCanvasData.uri.trim().length > 0 ?
                                                 <CheckCircleIcon size={22} color='green' /> :
-                                                <CloudUpload size={22}
-                                                    onMouseEnter={(e) => getBoundingBox(e, "Gemina Upload", "top")}
-                                                    onClick={
-                                                        async () => {
-                                                            setUploadedWholeCanvasData((prev) => ({ ...prev, uploaded: true }))
-                                                            await wholeCanvasReference()
+                                                <span className='flex items-center justify-center gap-0.5'>
+                                                    <Info size={15} className='self-end cursor-pointer' onClick={(e) => infoSelectionFn({ message: "This will upload whole your canvas as it is on the google which you can use for further editing , if you make changes then reupload it by canceling previous upload with close sign which are next to it", visible: true, e })} />
+                                                    <CloudUpload size={22}
+                                                        onMouseEnter={(e) => getBoundingBox(e, "Gemina Upload", "top")}
+                                                        onClick={
+                                                            async () => {
+                                                                setUploadedWholeCanvasData((prev) => ({ ...prev, uploaded: true }))
+                                                                await wholeCanvasReference()
 
-                                                        }} className='' />
+                                                            }} className='cursor-pointer' />
+                                                </span>
                                             }
                                         </>}
                                     <span>
@@ -354,16 +404,19 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                                 </span>
                             </div>
                             <div className='flex justify-between w-full items-center'>
-                                <label htmlFor="imageText" id='imageText' className='font-bold text-xl'>Prompt</label>
+                                <label htmlFor="imageText" id='imageText' className='font-bold text-xl'>Prompt Enhancer</label>
 
-                                <span className='font-bold text-xl rounded-md flex gap-4'>
+                                <span className='font-bold text-xl rounded-md flex gap-4 '>
                                     {refinedStart ?
                                         <Loader2 onMouseEnter={(e) => getBoundingBox(e, "Generating", "top")} className='animate-spin text-black' size={22} />
                                         :
-                                        <Bot onMouseEnter={(e) => {
-                                            setPortalElement(null);
-                                            getBoundingBox(e, "Enhance Prompt", "top")
-                                        }} onClick={refinePrompt} className='text-black cursor-pointer' size={22} />
+                                        <span className='flex items-center justify-center gap-0.5'>
+                                            {/* <Info size={15}  className='self-end'/> */}
+                                            <Bot onMouseEnter={(e) => {
+                                                setPortalElement(null);
+                                                getBoundingBox(e, "Enhance Prompt", "top")
+                                            }} onClick={refinePrompt} className='text-black cursor-pointer' size={22} />
+                                        </span>
                                     }
                                     {/* setting */}
                                     <span className='font-bold text-xl rounded-md transform hover:rotate-15' >
@@ -422,6 +475,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
             {/* error showing */}
             {error && createPortal(<ErrorComponents />, document.body)}
+
+            {/* info */}
+            {info && info.visible && createPortal(<InfoComponent infoDomRect={info} />, document.body)}
         </>
     )
 }

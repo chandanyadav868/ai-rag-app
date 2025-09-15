@@ -187,9 +187,12 @@ declare global {
         email:string;
         password?:string;
         username?:string;
-        emailVerified:boolean;
+        name:string;
+        emailVerified:Date | null | boolean;
+        image?:string;
         avatar?:string;
-        plan: UserPlan
+        plan: UserPlan;
+        credit?: number;
     }
 
 }

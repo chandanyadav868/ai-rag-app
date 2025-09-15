@@ -363,7 +363,7 @@ input[type="number"]::-webkit-outer-spin-button {
 /* layer sliding */
 
 .slidingLayer {
-  transition: transform 1s ease-in-out;
+  transition: transform .5s ease-in-out;
 }
 .slidingLayerCLosed {
   transform: translateX(calc(100% + 8px));
@@ -375,7 +375,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* left side sliding */
 .slidingGenerate {
-  transition: transform 1s ease-in-out;
+  transition: transform .5s ease-in-out;
 }
 .slidingGenerateCLosed {
   transform: translateX(calc(-100% ));

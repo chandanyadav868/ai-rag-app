@@ -33,7 +33,7 @@ async function mongodbConnection() {
 
         // if cached connection is not then make a new connection
         if (!cached.promise) {
-            cached.promise = mongoose.connect(`${Mongodb_URI}/${"aiimage"}`, { bufferCommands: true }).then((response) => response.connection)
+            cached.promise = mongoose.connect(`${Mongodb_URI}`, { dbName:"aiimage", bufferCommands: true }).then((response) => response.connection)
         }
 
         // wait till connection is not established

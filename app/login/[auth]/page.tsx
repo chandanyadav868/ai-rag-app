@@ -6,9 +6,6 @@ import React from 'react'
 const loginServices = [
     {
         name: "Google",
-    },
-    {
-        name: "Apple",
     }
 ]
 

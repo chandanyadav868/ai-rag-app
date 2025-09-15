@@ -1,15 +1,34 @@
 import { ai } from "@/constant";
+import UserSchema from "@/mongodb/schema/User.Schema";
 import { Modality } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
     try {
         // jo bhi content bheja gya hai from fronend they are present in the content 
-        const content = await request.json();
-        console.log("content:- ", content);
+        const { content, id } = await request.json();
+        console.log(request);
 
-        const data:Record<string,string | Buffer<ArrayBuffer>>  = {};
+        console.log("id:- ", id);
+        if (!id) {
+            return NextResponse.json({ status: 400, error: { error: "Server error", message: "Did not get user Id" }, data: [] })
+        }
 
+
+
+        const existingUser = await UserSchema.findOne({ _id: id, }) as UserSchemaProp | null;
+
+        if (!existingUser) {
+            return NextResponse.json({ status: 400, error: { error: "User not found", message: "User not found  please login again" }, data: [] })
+        }
+
+        if (!existingUser.credit || (existingUser.credit && existingUser?.credit < 1)) {
+            return NextResponse.json({ status: 400, error: { error: "Your Credit is exhausted", message: "Credit exhausted by you please top up" }, data: [] })
+        }
+
+        
+        const data: Record<string, string | Buffer<ArrayBuffer>> = {};
+        
         // ye method gemina ke api ko call karta hai, with object body
         const imageGeneration = await ai.models.generateContent({
             model: "gemini-2.0-flash-preview-image-generation",
@@ -19,41 +38,30 @@ export async function POST(request: NextRequest) {
                 responseModalities: [Modality.TEXT, Modality.IMAGE]
             }
         });
-
-        // ye typesafety ke liye check karta hai
-        if (!imageGeneration?.candidates?.[0].content?.parts) {
-            console.log("Response Data undefined");
-            return
-        }
-
-        console.log("imageGeneration:- ", imageGeneration);
-
-        // ye for loop aap ke response mai ,se image ka buffer data, ya text ka data nikalata hai
-        for (const part of imageGeneration?.candidates[0]?.content?.parts) {
-            if (part.text) {
-                console.log(part.text);
-                // i am setting a property key in the data name with text
-                data["text"] = part.text
-            } else if (part.inlineData) {
-                const imageData = part.inlineData.data;
-
-                if (!imageData) {
-                    throw new Error("Image data is Empty please try again")
-                }
-
-                const buffer = Buffer.from(imageData, "base64")
-                console.log("buffer:- ",buffer);
-                data["buffer"] = buffer
-                // return buffer; // Return the image buffer
-            }
-        }
-
-        return NextResponse.json({ status: 200, message: "Successfully", data:data })
-
-    } catch (error) {
-        const errorImage = error as {message:string,stack:string}
-        console.log("error in route.ts",errorImage?.message);
         
-        return NextResponse.json({ status: 500, error: {error:errorImage?.message,message:"Something went wrong in function running"}, data: [] })
-    }
+        console.log("imageGeneration:- ", imageGeneration);
+        const imageData = imageGeneration.data
+        if (!imageData) {
+            return NextResponse.json({ status: 400, error: { error: "Api Not response as Expected", message: "No image created" }, data: [] })
+        }
+        
+        const updatingDataBase = await UserSchema.findOneAndUpdate({_id:id}, {$inc : {credit: -1}},{new:true})
+        console.log("updatingUserData:- ", updatingDataBase);
+
+    const buffer = Buffer.from(imageData, "base64")
+    console.log("buffer:- ", buffer);
+    data["data"] = buffer
+    // return buffer; // Return the image buffer
+
+
+    return NextResponse.json({ status: 200, message: "Successfully", data: data })
+    // {"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}
+
+
+} catch (error) {
+    const errorImage = error as { message: string, stack: string }
+    console.log("error in route.ts", errorImage?.message);
+
+    return NextResponse.json({ status: 500, error: { error: errorImage?.message, message: "Something went wrong in function running" }, data: [] })
+}
 }

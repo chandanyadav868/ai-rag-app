@@ -1,7 +1,9 @@
 "use client";
 
 import { GoogleGenAI } from '@google/genai';
-import React, { createContext, RefObject, useContext, useEffect, useState } from 'react';
+import React, { createContext, RefObject, useContext, useEffect, useRef, useState } from 'react';
+import { domRectProps } from './InfoComponent';
+import { User } from 'next-auth';
 
 export interface StoreProps {
   portalElement: BoundingBoxProps | null | undefined;
@@ -24,6 +26,12 @@ export interface StoreProps {
   apiSetup: () => GoogleGenAI
   // setDemiState: React.Dispatch<React.SetStateAction<StateProps[]>>
   // demiState: StateProps[]
+  setInfo: React.Dispatch<React.SetStateAction<InfoProps & domRectProps | null>>
+  info: InfoProps & domRectProps | null
+  infoSelectionFn: (infoData: Omit<InfoProps, "parentElement">) => void;
+  loginUserData: User | undefined,
+  setLoginUserData: React.Dispatch<React.SetStateAction<User | undefined>>
+
 }
 
 export interface SystemInstructionProps {
@@ -46,73 +54,81 @@ type DataProps = Pick<SystemInstructionProps, 'text' | 'tag'>
 // i have created a store, where all value will be stored and will be accessed in defferent components
 export const Store = createContext<null | StoreProps>(null);
 
+export interface InfoProps {
+  visible: boolean;
+  message: string;
+  e: React.MouseEvent<SVGSVGElement, MouseEvent> | null
+  parentElement: HTMLElement
+}
 
 
 function ContextProvider({ children }: { children: React.ReactNode }) {
+  const [loginUserData, setLoginUserData] = useState<User | undefined>(undefined);
+
   const [setting, setSetting] = useState(false);
   const [error, setError] = useState<ErrorProps | undefined>();
 
   const [portalElement, setPortalElement] = useState<BoundingBoxProps | null>();
-  const [systemInstruction, setSystemInstruction] = useState<SystemInstructionProps[]>(()=>{
-     if (typeof window === "undefined") {
-    return []; // server pe empty state
-  }
+  const [systemInstruction, setSystemInstruction] = useState<SystemInstructionProps[]>(() => {
+    if (typeof window === "undefined") {
+      return []; // server pe empty state
+    }
 
-  try {
-    const saved = localStorage.getItem("systemInstructions");
-    if (!saved) return [];
-    
-    const parsed: SystemInstructionProps[] = JSON.parse(saved);
-    return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
-  } catch (err) {
-    console.error("Error reading localStorage:", err);
-    return [];
-  }
+    try {
+      const saved = localStorage.getItem("systemInstructions");
+      if (!saved) return [];
+
+      const parsed: SystemInstructionProps[] = JSON.parse(saved);
+      return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
+    } catch (err) {
+      console.error("Error reading localStorage:", err);
+      return [];
+    }
   });
 
-  const [apiKey, setApiKey] = useState<SystemInstructionProps[]>(()=>{
-     if (typeof window === "undefined") {
-    return []; // server pe empty state
-  }
+  const [apiKey, setApiKey] = useState<SystemInstructionProps[]>(() => {
+    if (typeof window === "undefined") {
+      return []; // server pe empty state
+    }
 
-  try {
-    const saved = localStorage.getItem("apiKeys");
-    if (!saved) return [];
-    
-    const parsed: SystemInstructionProps[] = JSON.parse(saved);
-    return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
-  } catch (err) {
-    console.error("Error reading localStorage:", err);
-    return [];
-  }
+    try {
+      const saved = localStorage.getItem("apiKeys");
+      if (!saved) return [];
+
+      const parsed: SystemInstructionProps[] = JSON.parse(saved);
+      return parsed.map((v) => ({ ...v, date: new Date(v.date) }));
+    } catch (err) {
+      console.error("Error reading localStorage:", err);
+      return [];
+    }
   });
 
-  const [ai,setAi] = useState<GoogleGenAI | undefined>()
+  const [ai, setAi] = useState<GoogleGenAI | undefined>()
 
-  useEffect(()=>{
+  useEffect(() => {
     console.log("apiKeys changes");
-    
-    localStorage.setItem("apiKeys",JSON.stringify(apiKey));
+
+    localStorage.setItem("apiKeys", JSON.stringify(apiKey));
     apiSetup();
     setAi(undefined);
-  },[apiKey])
-  
-  const apiSetup = ()=>{
+  }, [apiKey])
+
+  const apiSetup = () => {
     // select from api which user want to give from list of apikeus
-    const usingApi = apiKey.find((v,i)=> !!v.systemInstructionActive)
+    const usingApi = apiKey.find((v, i) => !!v.systemInstructionActive)
     // this is for holding
     console.log("usingApi", usingApi);
-    
-    let apiMethods 
+
+    let apiMethods
 
     // if user setup then use that 
     if (ai) return ai
-  
+
     // extract apikeys from user true list then attach all methods in apiMethods variable
-    if(usingApi?.text) {
+    if (usingApi?.text) {
       apiMethods = new GoogleGenAI({ apiKey: usingApi.text });
-      
-    }else{
+
+    } else {
       // if user did not have apikeys then use my own keys
       apiMethods = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
     }
@@ -124,9 +140,9 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
   }
 
-  useEffect(()=>{
-    localStorage.setItem("systemInstructions",JSON.stringify(systemInstruction)); 
-  },[systemInstruction])
+  useEffect(() => {
+    localStorage.setItem("systemInstructions", JSON.stringify(systemInstruction));
+  }, [systemInstruction])
 
   // setting function of imageEditing
   const [state, setState] = useState<StateProps[]>([]);
@@ -213,8 +229,8 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
       setPortalElement(null);
       clearTimeout(portalVisible)
     })
-    
-    target.addEventListener("touchend",()=>{
+
+    target.addEventListener("touchend", () => {
       setPortalElement(null);
       clearTimeout(portalVisible)
     })
@@ -222,12 +238,55 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
 
 
+  // info
+  const [info, setInfo] = useState<InfoProps & domRectProps | null>(null);
+
+
+  const infoSelectionFn = ({ e, message, visible }: Omit<InfoProps, "parentElement">) => {
+    if (!e) return
+
+    const target = e.target as SVGSVGElement
+    let domRectangle = target.getBoundingClientRect() as domRectProps
+    const parentElement = target.parentElement as HTMLElement
+    console.log("parentElement:- ", parentElement);
+
+    const windowInnerWidth = window.innerWidth
+
+    domRectangle = {
+      bottom: domRectangle.bottom,
+      height: domRectangle.height,
+      left: domRectangle.left,
+      right: domRectangle.right,
+      top: domRectangle.top,
+      width: domRectangle.width,
+      x: domRectangle.x,
+      y: domRectangle.y,
+      toJSON: domRectangle.toJSON,
+      translateX: domRectangle.translateX
+    }
+
+
+    if (windowInnerWidth > (domRectangle.left + (domRectangle.left / 2))) {
+      domRectangle = {
+        ...domRectangle,
+        translateX: 50
+      }
+    } else {
+      domRectangle = {
+        ...domRectangle,
+        translateX: 92
+      }
+    }
+    console.log("domRectangle:- ", domRectangle);
+
+    setInfo({ ...domRectangle, visible, message, e, parentElement })
+  }
 
 
 
   // all methods which are going to be send to used in useContext
   const storeSendingData = {
-    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError,ai,apiSetup
+    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError, ai, apiSetup, info, setInfo, infoSelectionFn, loginUserData, setLoginUserData
     // demiState,setDemiState
   }
 

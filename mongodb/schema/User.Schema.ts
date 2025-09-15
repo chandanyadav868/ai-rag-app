@@ -1,9 +1,5 @@
 import mongoose from "mongoose";
 
-
-
-type UserPlan = "Free" | "Premium"
-
 const UserSchema = new mongoose.Schema<UserSchemaProp>({
     email: {
         type: String,
@@ -22,10 +18,20 @@ const UserSchema = new mongoose.Schema<UserSchemaProp>({
     avatar: {
         type: String,
     },
+    name:{
+        type:String
+    },
+    image:{
+        type:String
+    },
     plan:{
         type:String,
         enum : ["Free", "Premium"],
         default: "Free"
+    },
+    credit:{
+        type :Number,
+        default : 20
     }
 }, {
     timestamps: true

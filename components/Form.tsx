@@ -46,7 +46,7 @@ function Form() {
 
         setErrorData({
             error: true,
-            message: result.code==="credentials"?"Please provide correct Credentials":result.code
+            message: result.code==="credentials"?"Please provide correct Credentials":result.error
           })
 
       } else if (auth === "signup") {
