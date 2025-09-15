@@ -124,22 +124,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       }
 
-      if (account?.provider === "credentials") {
+      // if (account?.provider === "credentials") {
 
-        if (!user.id) return token
+      //   if (!user.id) return token
 
-        console.log("I am on the credentials:--- ------ ----- credentials on the road");
-        const sessionSingned = jwt.sign({ id: user.id, email: user.email }, "chandanhahdng", {
-          algorithm: "HS256"
-        });
+      //   console.log("I am on the credentials:--- ------ ----- credentials on the road");
+      //   const sessionSingned = jwt.sign({ id: user.id, email: user.email },"chandanyadav", {
+      //     algorithm: "HS256"
+      //   });
 
-        // console.log("Session in credentials:- ", sessionSingned);
-        token.accessToken = sessionSingned
-        return token
-      } else {
-        token.accessToken = account?.access_token as string;
-        return token;
-      }
+      //   // console.log("Session in credentials:- ", sessionSingned);
+      //   token.accessToken = sessionSingned
+      //   return token
+      // } else {
+      //   token.accessToken = account?.access_token as string;
+      //   return token;
+      // }
+
+      return token
     },
 
     // ye function aap ko useSession ke use karne par session mai maujut sare data deta hai
