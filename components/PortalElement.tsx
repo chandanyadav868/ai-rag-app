@@ -5,7 +5,7 @@ import { useContextStore } from './CreateContext'
 
 function PortalElement() {
     const { getBoundingBox, portalElement } = useContextStore()
-    console.log(portalElement);
+    // console.log(portalElement);
     
 
     return (

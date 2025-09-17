@@ -106,7 +106,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   const [ai, setAi] = useState<GoogleGenAI | undefined>()
 
   useEffect(() => {
-    console.log("apiKeys changes");
+    // console.log("apiKeys changes");
 
     localStorage.setItem("apiKeys", JSON.stringify(apiKey));
     apiSetup();
@@ -117,7 +117,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     // select from api which user want to give from list of apikeus
     const usingApi = apiKey.find((v, i) => !!v.systemInstructionActive)
     // this is for holding
-    console.log("usingApi", usingApi);
+    // console.log("usingApi", usingApi);
 
     let apiMethods
 
@@ -164,7 +164,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
     // this function is checking that any edit true value is done means its instruction is edited not made new instruction
     const editingInstruciton = array.find((v, i) => !!v.editable);
-    console.log("editingInstruciton:- ", editingInstruciton);
+    // console.log("editingInstruciton:- ", editingInstruciton);
 
     // if user edit its existing instruction then change will show in that only
     if (editingInstruciton) {
@@ -203,7 +203,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     const innerHeightDetails = window.innerHeight;
     const innerWidthDetails = window.innerWidth;
 
-    console.log("b", bottom, "h", height, "l", left, "r", right, "t", top, "w", width, "x", x, "y", y, 'innerHeight', innerHeightDetails, 'innerWidthDetails', innerWidthDetails);
+    // console.log("b", bottom, "h", height, "l", left, "r", right, "t", top, "w", width, "x", x, "y", y, 'innerHeight', innerHeightDetails, 'innerWidthDetails', innerWidthDetails);
 
     let data = {} as BoundingBoxProps
     let translate = ''
@@ -248,7 +248,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     const target = e.target as SVGSVGElement
     let domRectangle = target.getBoundingClientRect() as domRectProps
     const parentElement = target.parentElement as HTMLElement
-    console.log("parentElement:- ", parentElement);
+    // console.log("parentElement:- ", parentElement);
 
     const windowInnerWidth = window.innerWidth
 
@@ -277,7 +277,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
         translateX: 92
       }
     }
-    console.log("domRectangle:- ", domRectangle);
+    // console.log("domRectangle:- ", domRectangle);
 
     setInfo({ ...domRectangle, visible, message, e, parentElement })
   }
@@ -302,10 +302,10 @@ export default ContextProvider
 export const useContextStore = () => {
   const context = useContext(Store);
   if (!context) {
-    console.log("Please configure the Store");
+    // console.log("Please configure the Store");
     throw new Error("Please configure the Store")
   };
-  console.log(context);
+  // console.log(context);
 
   return context
 }

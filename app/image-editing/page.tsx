@@ -27,7 +27,7 @@ function ProImageEditor() {
   const [layerMenu, setLayerMenu] = useState<string>("Layer");
   const [scale, setScale] = useState<number>(1)
 
-  console.log("state:- ", state);
+  // console.log("state:- ", state);
 
 
   // ye function run hata hai first time jab aap ka components mounts hota hai
@@ -49,7 +49,7 @@ function ProImageEditor() {
       if (!e.dataTransfer) return
       droppingFile(e.dataTransfer.files)
       setSomethingDrop(false);
-      console.log();
+      // console.log();
     }
 
     const deletingObj = (e: KeyboardEvent) => {
@@ -61,13 +61,13 @@ function ProImageEditor() {
         }
 
         const activeObjects = fabricJs.current?.getActiveObjects();
-        console.log("allSelectedObj:- ", activeObjects);
+        // console.log("allSelectedObj:- ", activeObjects);
         // Remove from canvas
         if (!activeObjects) return
 
 
         activeObjects.forEach((obj, i) => {
-          console.log("deletingObj:- ", obj.get("id"), i);
+          // console.log("deletingObj:- ", obj.get("id"), i);
           deleteLayer(obj.get("id"));
         });
       }
@@ -84,18 +84,18 @@ function ProImageEditor() {
     fabricJs.current.on("selection:created", (e) => {
       const activeObject = e.selected[0].get("id");
       setActiveId(activeObject); // store in useRef
-      console.log("Selected:", activeObject);
+      // console.log("Selected:", activeObject);
     });
 
     fabricJs.current.on("selection:updated", (e) => {
       const activeObject = e.selected[0].get("id");
       setActiveId(activeObject);;
-      console.log("Selection updated:", activeObject);
+      // console.log("Selection updated:", activeObject);
     });
 
     fabricJs.current.on("selection:cleared", () => {
       setActiveId(null);
-      console.log("Selection cleared");
+      // console.log("Selection cleared");
     });
 
 
@@ -139,14 +139,14 @@ function ProImageEditor() {
     const widthRatio = availableWidth / width;
     const heightRatio = availableHeight / height;
     const scaling = Math.min(widthRatio, heightRatio);
-    console.log(scaling);
+    // console.log(scaling);
 
 
     // Final scalingd size
     if ((newAspect.width > availableWidth || newAspect.height > availableHeight) && canvasDivRef.current) {
-      console.log("Scaling methods");
+      // console.log("Scaling methods");
 
-      console.log("Zooming", +scaling);
+      // console.log("Zooming", +scaling);
       resizeCanvas("intial",scaling)
       width = newAspect.width
       height = newAspect.height
@@ -156,7 +156,7 @@ function ProImageEditor() {
       height = newAspect.height
     }
 
-    console.log("Final width:", width, "Final height:", height);
+    // console.log("Final width:", width, "Final height:", height);
 
     // Update fabric.js canvas dimensions
     fabricJs.current?.setDimensions({ width, height });
@@ -178,7 +178,7 @@ function ProImageEditor() {
   const zoomingInOut = (type: string) => {
 
     if (!fabricJs.current) return
-    console.log(fabricJs.current.getZoom());
+    // console.log(fabricJs.current.getZoom());
     if (type === "zoomedIn") {
       fabricJs.current.setZoom(fabricJs.current.getZoom() + 0.1);
     } else {
@@ -191,7 +191,7 @@ function ProImageEditor() {
   const shapeEventAdding = (shape: Rect | Triangle<Record<string, number | string | undefined>, SerializedRectProps, ObjectEvents>) => {
     shape.on("modified", ({ target, action }) => {
       const id = target.get("id");
-      console.log(target, action);
+      // console.log(target, action);
 
       const obj = {
         globalCompositeOperation: target.get("globalCompositeOperation"),
@@ -209,7 +209,7 @@ function ProImageEditor() {
       })
     })
     shape.on("scaling", ({ transform, pointer }) => {
-      console.log(pointer);
+      // console.log(pointer);
 
       const id = transform.target.get("id")
       const width = Number(Math.round(transform.target.getScaledWidth()).toFixed(0));
@@ -224,7 +224,7 @@ function ProImageEditor() {
   const textEventAdding = (shape: Textbox<Partial<TextboxProps>, SerializedTextboxProps, ITextEvents>) => {
     shape.on("modified", ({ target }) => {
       const id = target.get("id");
-      console.log(target);
+      // console.log(target);
 
       const obj = {
         globalCompositeOperation: target.get("globalCompositeOperation"),
@@ -252,7 +252,7 @@ function ProImageEditor() {
   const imageEventAdding = (shape: FabricImage<Partial<ImageProps>, SerializedImageProps, ObjectEvents>) => {
     shape.on("modified", ({ target }) => {
       const id = target.get("id");
-      console.log(target);
+      // console.log(target);
 
       const obj = {
         globalCompositeOperation: target.get("globalCompositeOperation"),
@@ -282,7 +282,7 @@ function ProImageEditor() {
   }
 
   const fileInserting = async (file: FileList) => {
-    console.log(file);
+    // console.log(file);
 
     const ImageUrl = URL.createObjectURL(file[0]);
     // const ImageUrl = "https://yt3.ggpht.com/ChQ-8N_TZHHRcb3bKOY4rVOPhKzv-OrRinEtVM5BdbbK3KJIgy36mSIE8bfGmVobimKa8Yacxpji_w=s840-c-fcrop64=1,55850000e584ffff-rw-nd-v1";
@@ -306,7 +306,7 @@ function ProImageEditor() {
     // shape.on("added",updateLayer)
     fabricJs.current?.add(img);
 
-    console.log("newImage:- ", newImage);
+    // console.log("newImage:- ", newImage);
 
 
     setState((prev) => [{ ...newImage, src: ImageUrl }, ...prev]);
@@ -314,8 +314,8 @@ function ProImageEditor() {
 
   const shapeInserting = (shape: Partial<StateProps>, type: string) => {
     const maxOrder = maxFindingFn();
-    console.log("maxOrder:- ", maxOrder);
-    console.log("state:- ", state);
+    // console.log("maxOrder:- ", maxOrder);
+    // console.log("state:- ", state);
 
     const obj1 = {
       width: shape.width ?? 200,
@@ -355,7 +355,7 @@ function ProImageEditor() {
 
     if (!newshape) return
 
-    console.log(newshape);
+    // console.log(newshape);
 
     shapeEventAdding(newshape)
 
@@ -372,7 +372,7 @@ function ProImageEditor() {
   const deleteLayer = (divIndex: string) => {
     const deletingObj = fabricJs.current?.getObjects().find((o, i) => o.get("id") === divIndex);
 
-    console.log("deletingObj:- ", deletingObj);
+    // console.log("deletingObj:- ", deletingObj);
 
     // state will be empty when it will be called from event listener, so use the setState function to update the state
     setState((prev) => prev.filter((v, i) => v.id !== divIndex))
@@ -436,11 +436,11 @@ function ProImageEditor() {
   const lockLayer = async (selectedId: string) => {
 
     if (!fabricJs.current) return
-    console.log("lock clicking");
+    // console.log("lock clicking");
 
     const selectedObject = fabricJs.current.getObjects().find((l, i) => l.get("id") === selectedId);
     if (!selectedObject) return
-    console.log("selectedLayer:- ", selectedObject);
+    // console.log("selectedLayer:- ", selectedObject);
 
     setState((prev) => {
       return prev.map((l, i) => {
@@ -488,13 +488,13 @@ function ProImageEditor() {
       return
     }
 
-    console.log("Scalling:- ", scale);
+    // console.log("Scalling:- ", scale);
     const height = exportWidth?.height;
     const width = exportWidth?.width;
 
     const data = fabricJs.current.toDataURL({ format: "png", quality: 1, multiplier: 0.5, enableRetinaScaling: true, height, width });
 
-    console.log("data ", data, "height:- ", height, "width:- ", width);
+    // console.log("data ", data, "height:- ", height, "width:- ", width);
 
 
     const a = document.createElement("a");
@@ -535,14 +535,14 @@ function ProImageEditor() {
   const droppingFile = (file: FileList) => {
     const notAllowedImage = ["avif"]
     if (notAllowedImage.includes(file[0].type)) {
-      console.log("this types of image is not allowed:- ", file[0].type);
+      // console.log("this types of image is not allowed:- ", file[0].type);
       return
     }
     fileInserting(file)
   }
 
   const aiImageFn = async (blob: Blob) => {
-    console.log("aiBlob:- ", blob);
+    // console.log("aiBlob:- ", blob);
 
     // aap file mai convert karo kisi bhi blob ko
     const file = new File([blob], `ai-image${random}.png`, { type: blob.type || "image/png" });
@@ -566,7 +566,7 @@ function ProImageEditor() {
       if (!cloneUploadingData) return;
 
       if (!uploadingData) {
-        console.log("No object found with the given ID");
+        // console.log("No object found with the given ID");
         return;
       }
 
@@ -596,11 +596,11 @@ function ProImageEditor() {
       // anchor.download = "image.png";
       // anchor.click();
 
-      console.log("selectedObj:- ", blobData, uploadingData);
+      // console.log("selectedObj:- ", blobData, uploadingData);
 
       // Convert blob to file
       const file = new File([blobData], "image.png", { type: blobData.type || "image/png" });
-      console.log("file:- ", file);
+      // console.log("file:- ", file);
 
 
       const myfile = await ai.files.upload({
@@ -614,14 +614,14 @@ function ProImageEditor() {
         return
       }
 
-      console.log("myUploadedFile", myfile);
+      // console.log("myUploadedFile", myfile);
 
       setState((prev) => {
         return prev.map((l, i) => l.id === selectedId ? ({ ...l, geminaUploadData: myfile }) : l)
       });
 
     } catch (error) {
-      console.log("Error in fileUploading", error);
+      // console.log("Error in fileUploading", error);
     } finally {
       setCloudUploadingStart(false)
     }
@@ -629,10 +629,10 @@ function ProImageEditor() {
   }
 
   const checkingBox = (selectedId: string, e: boolean) => {
-    console.log(e);
+    // console.log(e);
 
     const updatedValue = state.map((l, i) => l.id === selectedId ? ({ ...l, refrenceAiCheckBox: e }) : l);
-    console.log("updatedValue:- ", updatedValue);
+    // console.log("updatedValue:- ", updatedValue);
     setState(updatedValue)
   }
 
@@ -643,7 +643,7 @@ function ProImageEditor() {
     obj.set("visible", !obj.visible);
     fabricJs.current?.renderAll();
     const updatedValue = state.map((l, i) => l.id === selectedId ? ({ ...l, hideLayer: !obj.visible }) : l);
-    console.log("updatedValue:- ", updatedValue);
+    // console.log("updatedValue:- ", updatedValue);
     setState(updatedValue)
   }
 
@@ -663,7 +663,7 @@ function ProImageEditor() {
       id: "text_" + layerName("text"), // Unique ID for tracking
     }
     const textLayer = new Textbox("Hello");
-    console.log(textLayer);
+    // console.log(textLayer);
 
     textLayer.set({
       ...obj
@@ -679,7 +679,7 @@ function ProImageEditor() {
 
   const [startShapeDrawing, setStartShapeDrawing] = useState<boolean>(false);
   const onShapeClick = ({ type }: { type: string }) => {
-    console.log("onShapeClick:- ", type);
+    // console.log("onShapeClick:- ", type);
     if (!fabricJs.current) return
 
     let isDrawing: boolean, RectX: number, RectY: number, Shape: Rect | Triangle;
@@ -687,11 +687,11 @@ function ProImageEditor() {
       case "rectangle":
         fabricJs.current.on("mouse:down", (options) => {
           isDrawing = true;
-          console.log("type", type);
+          // console.log("type", type);
           const { scenePoint } = options;
           RectX = scenePoint.x;
           RectY = scenePoint.y;
-          console.log("RectX:- ", RectX, "RectY:- ", RectY);
+          // console.log("RectX:- ", RectX, "RectY:- ", RectY);
           const obj = {
             left: RectX,
             top: RectY,
@@ -729,7 +729,7 @@ function ProImageEditor() {
       case "triangle":
         fabricJs.current.on("mouse:down", (options) => {
           isDrawing = true;
-          console.log("type", type);
+          // console.log("type", type);
 
           const { scenePoint } = options;
           RectX = scenePoint.x;
@@ -767,7 +767,7 @@ function ProImageEditor() {
       case "circle":
         fabricJs.current.on("mouse:down", (options) => {
           isDrawing = true;
-          console.log("type", type);
+          // console.log("type", type);
 
           const { scenePoint } = options;
           RectX = scenePoint.x;
@@ -874,10 +874,10 @@ function ProImageEditor() {
     }
 
     if (str === "ZoomIn") {
-      console.log("ZoomingIN", +canvasDivRef.current?.style.scale, num);
+      // console.log("ZoomingIN", +canvasDivRef.current?.style.scale, num);
       canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale + num)
     } else if(str === "ZoomOut"){
-      console.log("ZoomingOUT", +canvasDivRef.current?.style.scale, num);
+      // console.log("ZoomingOUT", +canvasDivRef.current?.style.scale, num);
       canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale - num)
     }else {
       canvasDivRef.current.style.scale = String(num)

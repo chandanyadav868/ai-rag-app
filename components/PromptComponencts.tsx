@@ -7,7 +7,7 @@ import { aspectRatioImage, ImageModels } from '@/constant';
 import { GeminaAiFunProps } from '@/Gemina_Api/genAi';
 import { Modality, createUserContent, createPartFromUri, Type } from '@google/genai';
 import { Bot, BrushCleaning, CheckCircleIcon, CloudUpload, Info, Loader2, Settings, X } from 'lucide-react';
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useContextStore } from './CreateContext';
 import PortalElement from './PortalElement';
 import SettingComponents from './SettingComponents';
@@ -43,11 +43,34 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         quality_enhancers: "",
         negative_prompts: "",
     });
-
+    const { data, status, update } = useSession()
     // createContext 
     const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup, apiKey, info, setInfo, infoSelectionFn } = useContextStore();
-    const {loginUserData,setLoginUserData} = useContextStore()
-    
+    const { loginUserData, setLoginUserData } = useContextStore();
+
+    useEffect(() => { 
+        const responseJson = async()=>{
+            const response = await fetch('/api/mongoose',{
+                method:"POST",
+                headers:{
+                    'Content-Type':'application/json'
+                },
+                body:JSON.stringify(data?.user)
+            });
+
+            const responseJson = await response.json();
+            if (responseJson.status === 200) {
+                setLoginUserData(responseJson);
+
+                // console.log('getting user from:- ',responseJson);
+                
+            }else{
+                setError(responseJson)
+            }
+        }
+        responseJson();
+    }, [data?.user.email])
+
 
 
     const [uploadedWholeCanvasData, setUploadedWholeCanvasData] = useState<FileUploadResponseProps>({
@@ -66,14 +89,14 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         const data = await fabricJs.current.toBlob({ format: "png", quality: 1, multiplier: 1, enableRetinaScaling: true, height: exportWidth?.height, width: exportWidth?.width });
 
 
-        console.log("data:- ", data);
+        // console.log("data:- ", data);
 
 
         if (!data) return;
 
         // Convert blob to file
         const file = new File([data], "image.png", { type: data.type || "image/png" });
-        console.log("file:- ", file);
+        // console.log("file:- ", file);
 
         const ai = apiSetup()
 
@@ -84,7 +107,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             }
         });
 
-        console.log("myfile:- ", myfile);
+        // console.log("myfile:- ", myfile);
 
 
         setUploadedWholeCanvasData((prev) => ({ ...prev, uploaded: false, ...myfile }))
@@ -97,13 +120,13 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
 
         let content = createUserContent([text]);
-        console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
+        // console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
 
         if (canvasReference || state.length > 0) {
             content = await contentStrucure(state, text)
         }
 
-        console.log("content:- ", content);
+        // console.log("content:- ", content);
         const modelSelected = ImageModels.find((v) => v.name === selectedModel);
         if (!modelSelected) throw new Error("Selected Model Name does present");
 
@@ -112,31 +135,31 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         let imageGeneration;
 
         if (!usingApi) {
-            console.log("api calling going to the backend not present any apikey so.........");
-            
-            const response = await fetch("/api/ai-image-generate",{
-                method:"POST",
-                body:JSON.stringify({content,id:loginUserData?.id,model:modelSelected?.value}),
-                headers:{
-                    "Content-Type":"application/json"
+            // console.log("api calling going to the backend not present any apikey so.........");
+
+            const response = await fetch("/api/ai-image-generate", {
+                method: "POST",
+                body: JSON.stringify({ content, id: loginUserData?.id, model: modelSelected?.value }),
+                headers: {
+                    "Content-Type": "application/json"
                 }
             });
 
-            console.log("Response Ok---", response);
-            
+            // console.log("Response Ok---", response);
+
 
             if (response.ok) {
                 const responseJson = await response.json();
-                console.log(responseJson);
+                // console.log(responseJson);
                 if (responseJson.status === 200) {
                     imageGeneration = responseJson.data
-                    setLoginUserData((prev)=> {
+                    setLoginUserData((prev) => {
                         if (!prev) {
                             return prev
                         }
-                        return {...prev,credit:responseJson.data.credit}
+                        return { ...prev, credit: responseJson.data.credit }
                     })
-                }else{
+                } else {
                     throw new Error(JSON.stringify(responseJson));
                 }
             }
@@ -157,7 +180,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         // aap base64 or undefined payege, like iVBORw0KGgo....
         const textData = imageGeneration?.text
         const imageData = imageGeneration?.data;
-        console.log("textData:- ", textData);
+        // console.log("textData:- ", textData);
 
         if (!imageData) throw new Error("Image not generated")
         // aap base64 ko buffer mai convert karege jo ki array hoga which represent the number like Uint8Array(914221) [137, 80, 78]
@@ -178,7 +201,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
         // convert your object Prompt into the stringify means a string as it is as 
         let textareaStringModified = JSON.stringify(Object.values(promptStructure).join(" "));
-        console.log("textareaString:- ", textareaStringModified);
+        // console.log("textareaString:- ", textareaStringModified);
 
         try {
             // loading start
@@ -187,12 +210,12 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             const reponse = await Promise.all([geminaAiImage({ text: textareaStringModified })])
                 // res is holding the return which send by geminaAiImage which are buffer , that is return from here
                 .then((res) => {
-                    console.log("Response:- ", res);
+                    // console.log("Response:- ", res);
                     return res as Buffer<ArrayBuffer>[]
                 }) // if error come then it throw error
                 .catch((err) => {
                     // jo error bheja hai wo err ke message ke pass hota hai n ki err ke pass, pura object
-                    console.log("Error in Promise All", err.message);
+                    // console.log("Error in Promise All", err.message);
                     throw new Error(err.message)
                 });
 
@@ -209,7 +232,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             // jo wha se bheja hai wo message mai hota hai
             const catchError = err as { message: string, name: string }
             const { error: { message, code, status } } = JSON.parse(catchError.message) as ErrorPropsGeminaProps
-            console.log("Parsed error:", error);
+            // console.log("Parsed error:", error);
 
             setError({
                 type: "error",
@@ -235,7 +258,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 convertIntoString,
             ]);
 
-            console.log("content:- ", content);
+            // console.log("content:- ", content);
             return content
 
         } else {
@@ -247,7 +270,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 .map((v, i) => createPartFromUri(v?.geminaUploadData?.uri ?? "", v?.geminaUploadData?.mimeType ?? "")
                 );
 
-            console.log("fileDataUploaded:- ", fileDataUploaded);
+            // console.log("fileDataUploaded:- ", fileDataUploaded);
             // fileDataUpload have array of Object so spread, make new data structure which want to send model
             return createUserContent([
                 ...fileDataUploaded,
@@ -270,12 +293,12 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 content = await contentStrucure(state, convertIntoString)
             }
 
-            console.log("content:- ", content);
+            // console.log("content:- ", content);
             setRefinedStart(true)
 
             // this methods collect the instruction which user selected from setting if not then a empty
             const systemPromptSelected = systemInstruction.find((v, i) => !!v.systemInstructionActive)?.text ?? "";
-            console.log("systemPromptSelected:- ", systemPromptSelected);
+            // console.log("systemPromptSelected:- ", systemPromptSelected);
 
             const ai = apiSetup()
 
@@ -337,14 +360,15 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
             setPromptStructure(refinedPromptStructureWays[0]);
 
         } catch (error) {
-            console.log("Error in refine Prompt", error);
+            // console.log("Error in refine Prompt", error);
+            throw new Error(error as string)
         } finally {
             setRefinedStart(false)
         }
 
     }
 
-    console.log("Just for checking re-render this Functional Componet", ImageModels.map(v => v.name));
+    // console.log("Just for checking re-render this Functional Componet", ImageModels.map(v => v.name));
 
 
 

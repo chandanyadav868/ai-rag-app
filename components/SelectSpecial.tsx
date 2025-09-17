@@ -1,5 +1,4 @@
 import { ChevronDown, Dot } from 'lucide-react';
-import { Span } from 'next/dist/trace';
 import React, { useState } from 'react'
 
 interface SelectSpecialProps {
@@ -11,7 +10,7 @@ interface SelectSpecialProps {
 
 function SelectSpecial({ setAspectRation, CustomeArray, selectedText, className }: SelectSpecialProps) {
   const [aspectRatioDiv, setAspectRationDiv] = useState<boolean>(false);
-  console.log("CustomeArray:- ", CustomeArray,selectedText);
+  // console.log("CustomeArray:- ", CustomeArray,selectedText);
 
 
   return (

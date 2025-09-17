@@ -13,11 +13,11 @@ function Headers() {
   const profileBoxRef = useRef<HTMLDivElement>(null);
   const {setLoginUserData} = useContextStore();
   const { auth } = useParams();
-  console.log("auth:--", auth);
+  // console.log("auth:--", auth);
   
 
   const session = useSession();
-  console.log("Session:-- --- --",session);
+  // console.log("Session:-- --- --",session);
   
 
 
@@ -26,10 +26,10 @@ function Headers() {
     // this function have parameter e of which type is MouseEvent
     const handleClickOutside = (e: MouseEvent) => {
       
-      console.log("proCur", profileBoxRef.current, "E.target", e.target);
+      // console.log("proCur", profileBoxRef.current, "E.target", e.target);
       // check that profileBoxRef.current have tag element attach not the null then check that profileBoxRef.current have methods of contains which will check that e.target which are at the end is the html tags , find where you click is under the profileBox containing div undar or not,
       if (profileBoxRef.current && !profileBoxRef.current.contains(e.target as Node)) {
-        console.log("2:- proCur", profileBoxRef.current, "E.target", e.target);
+        // console.log("2:- proCur", profileBoxRef.current, "E.target", e.target);
         setProfileBox(false)
       }
     }
