@@ -134,12 +134,11 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                         if (!prev) {
                             return prev
                         }
-                        return {...prev,credit:responseJson.credit}
+                        return {...prev,credit:responseJson.data.credit}
                     })
                 }else{
                     throw new Error(JSON.stringify(responseJson));
                 }
-
             }
 
 
@@ -367,7 +366,6 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                         setSelectedModel(prev => {
                             e as string
                             return e
-
                         })
                     }} />
 
