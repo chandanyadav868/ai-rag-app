@@ -87,7 +87,7 @@ function FeedBack() {
         <h1 className='font-bold text-2xl text-center'>Give Your Valuable Feedback</h1>
         <form onSubmit={handleSubmit(formSubmission)} className='flex flex-col p-2 gap-2 rounded-md shadow-md'>
           <Textarea {...register('feedback', { required: true })} placeholder='Sending feedback...' className='w-full rounded-md h-[150px]' />
-          <Button loader={loading} text='Send' type='submit' className='text-black text-xl bg-white' />
+          <Button loader={loading} text='Send' type='submit' className='text-black text-xl bg-white text-center' />
         </form>
       </div>
 
