@@ -42,6 +42,7 @@ function Form() {
         console.log("User saved by Creadentials:- ", result);
         if (result.status === 200 && !result.error) {
           router.push("/")
+          router.refresh()
         }
 
         setErrorData({
