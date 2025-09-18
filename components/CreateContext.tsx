@@ -31,6 +31,8 @@ export interface StoreProps {
   infoSelectionFn: (infoData: Omit<InfoProps, "parentElement">) => void;
   loginUserData: User | undefined,
   setLoginUserData: React.Dispatch<React.SetStateAction<User | undefined>>
+  feedback: FeedBackUseStateProps[] | undefined,
+  setFeedback: React.Dispatch<React.SetStateAction<FeedBackUseStateProps[] | undefined>>
 
 }
 
@@ -61,6 +63,14 @@ export interface InfoProps {
   parentElement: HTMLElement
 }
 
+export interface FeedBackUseStateProps {
+  createdBy: Pick<UserSchemaProp, 'email' | '_id' | 'username' | 'avatar'>;
+  feedback: string;
+  __v?: number;
+  _id: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 function ContextProvider({ children }: { children: React.ReactNode }) {
   const [loginUserData, setLoginUserData] = useState<User | undefined>(undefined);
@@ -103,7 +113,8 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const [ai, setAi] = useState<GoogleGenAI | undefined>()
+  const [ai, setAi] = useState<GoogleGenAI | undefined>();
+  const [feedback, setFeedback] = useState<FeedBackUseStateProps[] | undefined>()
 
   useEffect(() => {
     // console.log("apiKeys changes");
@@ -286,7 +297,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
 
   // all methods which are going to be send to used in useContext
   const storeSendingData = {
-    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError, ai, apiSetup, info, setInfo, infoSelectionFn, loginUserData, setLoginUserData
+    getBoundingBox, portalElement, setSetting, setting, systemInstructionDelete, systemInstructionAdding, systemInstruction, systemInstructionEdit, setSystemInstruction, setPortalElement, apiKey, setApiKey, state, setState, error, setError, ai, apiSetup, info, setInfo, infoSelectionFn, loginUserData, setLoginUserData, feedback, setFeedback
     // demiState,setDemiState
   }
 

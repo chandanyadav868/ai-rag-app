@@ -6,7 +6,7 @@ import { aspectRatioImage, ImageModels } from '@/constant';
 import { GeminaAiFunProps } from '@/Gemina_Api/genAi';
 import { Modality, createUserContent, createPartFromUri, Type } from '@google/genai';
 import { Bot, BrushCleaning, CheckCircleIcon, CloudUpload, Info, Loader2, Settings, X } from 'lucide-react';
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useContextStore } from './CreateContext';
 import PortalElement from './PortalElement';
 import SettingComponents from './SettingComponents';
@@ -42,31 +42,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
         quality_enhancers: "",
         negative_prompts: "",
     });
-    const { data, status, update } = useSession()
     // createContext 
     const { getBoundingBox, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup, apiKey, info, infoSelectionFn, loginUserData, setLoginUserData } = useContextStore();
     const router = useRouter()
-
-    useEffect(() => {
-        const responseJson = async () => {
-            const response = await fetch('/api/mongoose', {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data?.user)
-            });
-
-            const responseJson = await response.json();
-            if (responseJson.status === 200) {
-                setLoginUserData(responseJson);
-                // console.log('getting user from:- ',responseJson);
-            } else {
-                setError(responseJson)
-            }
-        }
-        responseJson();
-    }, [data?.user.email])
 
 
 

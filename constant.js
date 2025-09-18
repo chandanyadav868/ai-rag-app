@@ -422,10 +422,10 @@ export const HeaderList = [
         name: "About",
         link: "/about"
     },
-    // {
-    //     name: "Testing",
-    //     link: "/testing"
-    // },
+    {
+        name: "Feedback",
+        link: "/feedback"
+    },
 ]
 
 

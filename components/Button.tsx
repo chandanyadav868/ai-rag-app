@@ -11,7 +11,7 @@ const Button = React.forwardRef<HTMLButtonElement,ButtonProps>(({className,loade
   return (
     <>
     {loader?
-    <span className={`py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 ${className}`}>
+    <span className={`py-4 px-6 rounded-md shadow-md disabled:bg-gray-400 w-full text-center ${className}`}>
       Loading...
     </span>
     :

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
         console.log("id:- ", id, "model:- ", model);
         if (!id) {
-            return NextResponse.json( new ApiErrorRoutes({ error: "Server error", message: "Did not get user Id", status: 400 }))
+            return NextResponse.json( new ApiErrorRoutes({ error: "Server error", message: "Please login", status: 400 }))
            
         }
 
