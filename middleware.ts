@@ -8,24 +8,24 @@ import { getToken } from "next-auth/jwt"
 export const { auth } = NextAuth(authConfig)
 
 export default auth(async (req) => {
-        // const token = req.auth
-        
-    // console.log(
-    //     "authValue", req.auth?.user
-    // );
+        const token = req.auth
 
-    // const { pathname } = req.nextUrl;
+    console.log(
+        "authValue", req.auth?.user
+    );
 
-    // if (pathname === "/image-editing") {
-    //     if (!token || !token?.user.email) {
-    //         return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
-    //     }
-    // }
-    // console.log("NextResponse:- ");
+    const { pathname } = req.nextUrl;
+
+    if (pathname === "/image-editing") {
+        if (!token || !token?.user.email) {
+            return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
+        }
+    }
+    console.log("NextResponse:- ");
     NextResponse.next();
 })
 
 
-// export const config = {
-//     matcher: "/image-editing"
-// }
+export const config = {
+    matcher: "/image-editing"
+}

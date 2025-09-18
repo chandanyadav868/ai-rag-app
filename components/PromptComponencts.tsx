@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import ErrorComponents from './ErrorComponents';
 import InfoComponent from './InfoComponent';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface ErrorPropsGeminaProps {
     error: {
@@ -43,26 +44,24 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
     });
     const { data, status, update } = useSession()
     // createContext 
-    const { getBoundingBox, portalElement, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup, apiKey, info, setInfo, infoSelectionFn } = useContextStore();
-    const { loginUserData, setLoginUserData } = useContextStore();
+    const { getBoundingBox, setSetting, setting, setPortalElement, systemInstruction, error, setError, apiSetup, apiKey, info, infoSelectionFn, loginUserData, setLoginUserData } = useContextStore();
+    const router = useRouter()
 
-    useEffect(() => { 
-        const responseJson = async()=>{
-            const response = await fetch('/api/mongoose',{
-                method:"POST",
-                headers:{
-                    'Content-Type':'application/json'
+    useEffect(() => {
+        const responseJson = async () => {
+            const response = await fetch('/api/mongoose', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
                 },
-                body:JSON.stringify(data?.user)
+                body: JSON.stringify(data?.user)
             });
 
             const responseJson = await response.json();
             if (responseJson.status === 200) {
                 setLoginUserData(responseJson);
-
                 // console.log('getting user from:- ',responseJson);
-                
-            }else{
+            } else {
                 setError(responseJson)
             }
         }
@@ -115,7 +114,6 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
     // this generate image and return buffer or error 
     async function geminaAiImage({ text }: GeminaAiFunProps) {
-
 
         let content = createUserContent([text]);
         // console.log("uploadedImageData:- ", state, "canvasReference:- ", canvasReference);
@@ -245,7 +243,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
 
     // give put all data in structure ways
-    const contentStrucure = useCallback(async function (state: StateProps[], convertIntoString: string) {
+    const contentStrucure = async function (state: StateProps[], convertIntoString: string) {
         // check user clicked to send whole canvas 
         if (canvasReference) {
             // run methods and upload whole canvas image to the gemini
@@ -275,11 +273,14 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 convertIntoString,
             ])
         }
-    }, []);
+    };
 
     // if user want a prompt enhance
     const refinePrompt = async () => {
         try {
+            if (loginUserData?.id) {
+
+            }
             // it taking Object , convert values into Array, then join with space
             const convertIntoString = Object.values(promptStructure).join(" ");
             if (convertIntoString.trim().length <= 0) return
