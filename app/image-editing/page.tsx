@@ -974,8 +974,8 @@ function ProImageEditor() {
           className='bg-black flex-1 relative overflow-auto' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
 
           <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4' style={{ zIndex: 999 }}>
-            <Plus onClick={() => resizeCanvas("ZoomIn",0.1)} size={22} className='font-bold text-black' />
-            <Minus onClick={() => resizeCanvas("ZoomOut",0.1)} size={22} className='font-bold text-black' />
+            <Plus  onClick={() => resizeCanvas("ZoomIn",0.1)} size={22} className='font-bold text-black cursor-pointer' />
+            <Minus onClick={() => resizeCanvas("ZoomOut",0.1)} size={22} className='font-bold text-black cursor-pointer' />
           </div>
 
           <div ref={canvasDivRef} className=' w-full h-full relative flex justify-center items-center' style={{scale:1}}>

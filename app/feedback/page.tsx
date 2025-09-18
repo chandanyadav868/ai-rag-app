@@ -18,11 +18,11 @@ interface FeedBackProps {
 function FeedBack() {
   const { register, handleSubmit } = useForm<FeedBackProps>();
   const { loginUserData, setError, error, setFeedback } = useContextStore();
-  const [loading,setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(false)
   const router = useRouter();
 
   const formSubmission = async (data: FeedBackProps) => {
-    console.log('formSubmission:- ', data);
+    // console.log('formSubmission:- ', data);
     setLoading(true);
 
     if (!loginUserData?.id) {
@@ -33,15 +33,15 @@ function FeedBack() {
 
     try {
       const response = await ApiEndpoint.Post('/feedback', {}, sedingData);
-      console.log('response:- ', response);
+      // console.log('response:- ', response);
 
       if (response.status === 200) {
         setError({ message: response.message, type: 'success' })
         const responseData = response.data as FeedBackUseStateProps
-        
-        setFeedback((prev)=>{
+
+        setFeedback((prev) => {
           if (responseData) {
-            return [...prev??[],responseData]
+            return [responseData, ...prev ?? []]
           }
           return prev
         })
@@ -53,10 +53,10 @@ function FeedBack() {
 
       const errorJson = JSON.parse(errorData.message) as { error: { message: string, stack: string } }
 
-      console.log('Errorin Feedback:- ', errorJson.error.message);
+      // console.log('Errorin Feedback:- ', errorJson.error.message);
 
       setError({ type: 'error', message: errorJson.error.message })
-    }finally{
+    } finally {
       setLoading(false)
     }
 
@@ -66,14 +66,14 @@ function FeedBack() {
     const responseData = async () => {
       try {
         const response = await ApiEndpoint.Get('/feedback');
-        console.log('Response Data:- ', response);
+        // console.log('Response Data:- ', response);
         const data = response.data as FeedBackUseStateProps[]
         setFeedback(data);
       } catch (error) {
         // console.log('Error in Feedbac page.ts ', error);
         const errorData = error as { message: string }
         const errorJson = JSON.parse(errorData.message) as { error: { message: string, stack: string } }
-        console.log('Errorin Feedback:- ', errorJson.error.message);
+        // console.log('Errorin Feedback:- ', errorJson.error.message);
         setError({ type: 'error', message: errorJson.error.message })
 
       }
@@ -92,7 +92,7 @@ function FeedBack() {
       </div>
 
       {/* feedBack card showing */}
-        <FeedbackComponets/>
+      <FeedbackComponets />
 
       {/* error showing */}
       {error && createPortal(<ErrorComponents />, document.body)}

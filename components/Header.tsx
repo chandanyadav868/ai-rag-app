@@ -24,15 +24,15 @@ function Headers() {
     const responseJson = async () => {
       try {
         const response = await ApiEndpoint.Post('/mongoose', {}, { email: data?.user.email });
-        console.log(response);
+        // console.log(response);
         setLoginUserData(response.data);
       } catch (error) {
         // console.log('Error in Feedbac page.ts ', error);
         const errorData = error as { message: string }
-        console.log(error);
+        // console.log(error);
         
         const errorJson = JSON.parse(errorData.message) as { error: { message: string, stack: string } }
-        console.log('Errorin Feedback:- ', errorJson.error.message);
+        // console.log('Errorin Feedback:- ', errorJson.error.message);
         setError({ type: 'error', message: errorJson.error.message })
       }
 
@@ -42,6 +42,8 @@ function Headers() {
   }, [data?.user.id])
 
   useEffect(() => {
+    console.log("Twon");
+    
     // i am doing like this because i can remove this function from click when i unmounts the components
     // this function have parameter e of which type is MouseEvent
     const handleClickOutside = (e: MouseEvent) => {
@@ -79,11 +81,18 @@ function Headers() {
               </nav>
             </header>
             <div ref={profileBoxRef} className='relative'>
+
+             {!data && <Link href={"/login/signin"} className='font-black bg-gray-400/50 px-4 py-2 rounded-full'>Login</Link>}
+
+            {data && 
+            <>
+      
               <span onClick={() => setProfileBox((prev => !prev))} className='flex justify-center items-center relative cursor-pointer'>
                 {data?.user?.avatar ? <Image src={data?.user?.avatar} alt="user avatar" height={34} width={34} className='rounded-full' /> : <CircleUser color='white' className='bg-black p-2 rounded-full w-[44px] h-[44px] ' />}
               </span>
+
               {profileBox && data &&
-                <div className={`p-2 bg-gray-300 font-semibold rounded-md absolute mt-4 flex flex-col gap-2 transform ${data?.user ? "-translate-x-1/2" : ""}`}>
+                <div className={`p-2 bg-gray-300 font-semibold rounded-md absolute mt-4 flex flex-col gap-2`} style={{transform:`translate(calc(-50% + 22px))`}}>
                   <span>{data?.user?.name}</span>
                   <span>{data?.user?.email}</span>
                   <span className='text-red-400 font-bold cursor-pointer py-0.5 px-1 rounded-md w-fit'>
@@ -96,12 +105,13 @@ function Headers() {
                         </>
                         :
                         <>
-                          <Link href={"/login/signin"} className='font-black'>Login</Link>
                         </>
                     }
                   </span>
                 </div>
               }
+              </>
+            } 
             </div>
           </div>
         </>}

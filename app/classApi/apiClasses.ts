@@ -13,7 +13,7 @@ class ApiClass {
     // endpoint, header, body
     async Post(enpoint: string, headers: Record<string, string> = {}, body: Record<string, any>) {
         try {
-            console.log('data in apiClass:- ', body);
+            // console.log('data in apiClass:- ', body);
 
             const response = await fetch(`${this.endpoint}/${enpoint}`, {
                 method: 'POST',
@@ -25,7 +25,7 @@ class ApiClass {
             });
 
             const responseJson = await response.json();
-            console.log('responseJson:- ', responseJson);
+            // console.log('responseJson:- ', responseJson);
 
             if (responseJson.status === 200) {
                 return responseJson;
@@ -50,7 +50,7 @@ class ApiClass {
             });
 
             const responseJson = await response.json();
-            console.log('responseJson Get:- ', responseJson);
+            // console.log('responseJson Get:- ', responseJson);
 
             if (responseJson.status === 200) {
                 return responseJson;
