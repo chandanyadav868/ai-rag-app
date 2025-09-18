@@ -1,6 +1,5 @@
 "use client"
 import Button from '@/components/Button';
-
 import SelectSpecial from '@/components/SelectSpecial';
 import Textarea from '@/components/Textarea'
 import { aspectRatioImage, ImageModels } from '@/constant';
@@ -22,7 +21,6 @@ interface ErrorPropsGeminaProps {
         message: string,
         status: string,
     }
-
 }
 
 export const PromptComponencts = React.memo(function ({ imageSetting, state, canvasOrientation, fabricJs }: ImageSettingProps) {
