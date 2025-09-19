@@ -39,6 +39,7 @@
     "react-redux": "^9.2.0",
     "react-rnd": "^10.5.2",
     "tailwindcss": "^4.1.11",
+    "uuid": "^13.0.0",
     "zooming": "^2.1.1"
   },
   "devDependencies": {

@@ -10,6 +10,7 @@ import { ai, aspectRatioImage, slidingImage } from '@/constant';
 import ToolBox from '@/components/ToolBox';
 import EditTool from '@/components/EditTool';
 import { useContextStore } from '@/components/CreateContext';
+import { v4 as uuidv4 } from 'uuid';
 
 
 
@@ -167,7 +168,7 @@ function ProImageEditor() {
 
 
   // write a methods which will return random number on client side
-  const random = crypto.randomUUID();
+  const random = uuidv4();
 
   const maxFindingFn = () => {
     const stateMax = state.map((v, _) => v.order ? v.order : 0)

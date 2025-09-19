@@ -130,19 +130,14 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     // this is for holding
     // console.log("usingApi", usingApi);
 
-    let apiMethods
-
     // if user setup then use that 
     if (ai) return ai
 
     // extract apikeys from user true list then attach all methods in apiMethods variable
-    if (usingApi?.text) {
-      apiMethods = new GoogleGenAI({ apiKey: usingApi.text });
+    
+      let apiMethods = new GoogleGenAI({ apiKey: usingApi?.text??"" });
 
-    } else {
-      // if user did not have apikeys then use my own keys
-      apiMethods = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
-    }
+    
 
     // set in useState api methods
     setAi(apiMethods)
