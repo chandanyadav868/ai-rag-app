@@ -8,21 +8,21 @@ import { getToken } from "next-auth/jwt";
 export const { auth } = NextAuth(authConfig)
 
 export default auth(async (req) => {
-        const token = req.auth
+    // const token = req.auth
 
-    console.log(
-        "authValue", req.auth?.user
-    );
+    // console.log(
+    //     "authValue", req.auth?.user
+    // );
 
-    const { pathname } = req.nextUrl;
+    // const { pathname } = req.nextUrl;
 
-    if (pathname === "/image-editing") {
-        if (!token || !token?.user.email) {
-            return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
-        }
-    }
-    console.log("NextResponse:- ");
-   return NextResponse.next();
+    // if (pathname === "/image-editing") {
+    //     if (!token || !token?.user.email) {
+    //         return NextResponse.redirect(new URL("/login/signin", req.nextUrl.origin))
+    //     }
+    // }
+    // console.log("NextResponse:- ");
+    return NextResponse.next();
 })
 
 

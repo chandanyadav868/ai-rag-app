@@ -539,7 +539,7 @@ function ProImageEditor() {
   };
 
   const droppingFile = (file: FileList) => {
-    const notAllowedImage = ["avif"]
+    const notAllowedImage = ["avif", "gif","svg+xml","svg","pdf"];
     if (notAllowedImage.includes(file[0].type)) {
       // console.log("this types of image is not allowed:- ", file[0].type);
       return
