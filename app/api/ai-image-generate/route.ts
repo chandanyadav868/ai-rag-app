@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
             const errorJson = error as {message:any,stack:string}
             const Geminaerror = JSON.parse(errorJson.message as any);
-            console.log("Geminaerror:- ",Geminaerror);
+            // console.log("Geminaerror:- ",Geminaerror);
             
             return NextResponse.json(new ApiErrorRoutes({
                 error:Geminaerror.error.status,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         }
 
 
-        console.log("updatingUserData:- ", updatingDataBase) 
+        // console.log("updatingUserData:- ", updatingDataBase) 
 
         const buffer = Buffer.from(imageData, "base64")
         console.log("buffer:- ", buffer);

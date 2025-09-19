@@ -5,11 +5,12 @@ import { createPortal } from "react-dom"
 import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas } from 'fabric'; // browser
 import Image from 'next/image';
 import { PromptComponencts } from '@/components/PromptComponencts';
-import { ai, aspectRatioImage, slidingImage } from '@/constant';
+import { ai, aspectRatioImage } from '@/constant';
 import ToolBox from '@/components/ToolBox';
 import EditTool from '@/components/EditTool';
 import { useContextStore } from '@/components/CreateContext';
 import { v4 as uuidv4 } from 'uuid';
+import { ApiEndpoint } from '../classApi/apiClasses';
 
 
 
@@ -26,7 +27,8 @@ function ProImageEditor() {
   const [slidingLayer, setSlidingLayer] = useState<boolean>(true);
   const [slidingGenerateImage, setSlidingGenerateImage] = useState<boolean>(true);
   const [layerMenu, setLayerMenu] = useState<string>("Layer");
-  const [scale, setScale] = useState<number>(1)
+  const [scale, setScale] = useState<number>(1);
+  const {setError} = useContextStore();
 
   // console.log("state:- ", state);
 
@@ -148,7 +150,7 @@ function ProImageEditor() {
       // console.log("Scaling methods");
 
       // console.log("Zooming", +scaling);
-      resizeCanvas("intial",scaling)
+      resizeCanvas("intial", scaling)
       width = newAspect.width
       height = newAspect.height
       setScale(scaling)
@@ -279,7 +281,9 @@ function ProImageEditor() {
   }
 
   const layerName = (shapeType: string) => {
-    return state.length + 1
+    // console.log('LayerName:- ',state);
+    
+    return uuidv4().split("-")[0];
   }
 
   const fileInserting = async (file: FileList) => {
@@ -295,7 +299,7 @@ function ProImageEditor() {
     const newImage: StateProps = {
       id: `image_${layerName("image")}`, left: 0, top: 0, fill: "#fff", scaleX: 1, width: img.width, height: img.height,
       scaleY: 1, scale: 1, globalCompositeOperation: "normal", order: maxOrder + 1, type: "image", angle: 0, layerlock: false
-    };
+    };    
 
     // Bake the scaling into width/height so scaleX/scaleY can stay at 1
     img.set({
@@ -308,7 +312,8 @@ function ProImageEditor() {
     fabricJs.current?.add(img);
 
     // console.log("newImage:- ", newImage);
-
+    // console.log("state:- ", state);
+    
 
     setState((prev) => [{ ...newImage, src: ImageUrl }, ...prev]);
   }
@@ -604,21 +609,35 @@ function ProImageEditor() {
       // console.log("file:- ", file);
 
 
-      const myfile = await ai.files.upload({
-        file: file,
-        config: {
-          mimeType: "image/png"
-        }
+      // const ai = apiSetup()
+      const formdata = new FormData();
+
+      formdata.set("file", file);
+
+      setState((prev) => {
+        return prev.map((l, i) => l.id === selectedId ? ({ ...l, currentlyUploading:true }) : l)
       });
 
-      if (!myfile) {
+      const response = await ApiEndpoint.FileUpload('/google-api-setup', {}, formdata);
+
+      const fileData = await response.data;
+
+      // console.log("myfile:- ", fileData);
+
+
+      setError({
+        type: "success",
+        message: "Uploaded Successfully"
+      })
+
+      if (!fileData) {
         return
       }
 
-      // console.log("myUploadedFile", myfile);
+      // console.log("myUploadedFile", fileData);
 
       setState((prev) => {
-        return prev.map((l, i) => l.id === selectedId ? ({ ...l, geminaUploadData: myfile }) : l)
+        return prev.map((l, i) => l.id === selectedId ? ({ ...l, geminaUploadData: fileData,currentlyUploading:false }) : l)
       });
 
     } catch (error) {
@@ -868,7 +887,7 @@ function ProImageEditor() {
   }
 
 
-  const resizeCanvas = (str: string,num:number) => {
+  const resizeCanvas = (str: string, num: number) => {
 
     if (!canvasDivRef.current) {
       return
@@ -877,10 +896,10 @@ function ProImageEditor() {
     if (str === "ZoomIn") {
       // console.log("ZoomingIN", +canvasDivRef.current?.style.scale, num);
       canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale + num)
-    } else if(str === "ZoomOut"){
+    } else if (str === "ZoomOut") {
       // console.log("ZoomingOUT", +canvasDivRef.current?.style.scale, num);
       canvasDivRef.current.style.scale = String(+canvasDivRef.current?.style.scale - num)
-    }else {
+    } else {
       canvasDivRef.current.style.scale = String(num)
     }
 
@@ -975,11 +994,11 @@ function ProImageEditor() {
           className='bg-black flex-1 relative overflow-auto' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
 
           <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4' style={{ zIndex: 999 }}>
-            <Plus  onClick={() => resizeCanvas("ZoomIn",0.1)} size={22} className='font-bold text-black cursor-pointer' />
-            <Minus onClick={() => resizeCanvas("ZoomOut",0.1)} size={22} className='font-bold text-black cursor-pointer' />
+            <Plus onClick={() => resizeCanvas("ZoomIn", 0.1)} size={22} className='font-bold text-black cursor-pointer' />
+            <Minus onClick={() => resizeCanvas("ZoomOut", 0.1)} size={22} className='font-bold text-black cursor-pointer' />
           </div>
 
-          <div ref={canvasDivRef} className=' w-full h-full relative flex justify-center items-center' style={{scale:1}}>
+          <div ref={canvasDivRef} className=' w-full h-full relative flex justify-center items-center' style={{ scale: 1 }}>
             <canvas onClick={(e) => e.stopPropagation()} id='fabricJsCanvas' className='outline-2 outline-dashed outline-amber-200' style={{ scale: 1, }} ref={canvasRef}>
             </canvas>
           </div>
@@ -1014,9 +1033,11 @@ function ProImageEditor() {
                           }} />
 
                           <span className='cursor-pointer'>
-                            {cloudUploadingStart ?
+                            {
                               <span>
-                                {activeId === v.id ? <Loader2Icon size={22} color='black' className='animate-spin' /> :
+                                {v.currentlyUploading === true ? 
+                                <Loader2Icon size={22} color='black' className='animate-spin' /> 
+                                :
                                   <>
                                     <span>
                                       {v.geminaUploadData?.state === "ACTIVE" ?
@@ -1030,14 +1051,7 @@ function ProImageEditor() {
                                     </span>
                                   </>}
                               </span>
-                              :
-                              <span>
-                                {v.geminaUploadData?.state === "ACTIVE" ?
-                                  <CheckCircleIcon size={22} color='green' />
-                                  :
-                                  <UploadCloud size={22} color='black' onClick={() => uploadImageGemina(v.id)} />
-                                }
-                              </span>
+                              
                             }
                           </span>
 

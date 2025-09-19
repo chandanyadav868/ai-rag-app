@@ -128,23 +128,17 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   const apiSetup = () => {
     // select from api which user want to give from list of apikeus
     const usingApi = apiKey.find((v, i) => !!v.systemInstructionActive)
-    // this is for holding
-    // console.log("usingApi", usingApi);
 
     // if user setup then use that 
     if (ai) return ai
 
     // extract apikeys from user true list then attach all methods in apiMethods variable
-    
-      let apiMethods = new GoogleGenAI({ apiKey: usingApi?.text??"" });
-
-    
+    let apiMethods = new GoogleGenAI({ apiKey: usingApi?.text ?? "" });
 
     // set in useState api methods
     setAi(apiMethods)
     // return apiMethods holding class intialided methods
     return apiMethods;
-
   }
 
   useEffect(() => {

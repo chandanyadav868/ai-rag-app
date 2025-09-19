@@ -41,9 +41,7 @@ function Headers() {
     responseJson();
   }, [data?.user.id])
 
-  useEffect(() => {
-    console.log("Twon");
-    
+  useEffect(() => {    
     // i am doing like this because i can remove this function from click when i unmounts the components
     // this function have parameter e of which type is MouseEvent
     const handleClickOutside = (e: MouseEvent) => {

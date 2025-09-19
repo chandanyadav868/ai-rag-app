@@ -109,6 +109,7 @@ declare global {
         refrenceAiCheckBox?: boolean
         geminaUploadedUri?: string
         globalCompositeOperation?: BlendMode
+        currentlyUploading?: boolean
     }
 
     export type PositionProps = "bringFront" | "sendBack" | "bringForward" | "sendBackward"
