@@ -4,6 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 import React, { createContext, RefObject, useContext, useEffect, useRef, useState } from 'react';
 import { domRectProps } from './InfoComponent';
 import { User } from 'next-auth';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface StoreProps {
   portalElement: BoundingBoxProps | null | undefined;
@@ -155,7 +156,7 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   // const [demiState, setDemiState] = useState<StateProps[]>([]);
 
 
-  const id = crypto.randomUUID()
+  const id = uuidv4();
 
   // systemInstruction Methods like delete, edit etc...
   const systemInstructionAdding = (textAreaRef: RefObject<HTMLTextAreaElement>, inputRef: RefObject<HTMLInputElement>, array: SystemInstructionProps[], setArray: React.Dispatch<React.SetStateAction<SystemInstructionProps[]>>) => {
