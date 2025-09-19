@@ -2,6 +2,7 @@
 import { ArrowLeftSquare, ArrowRightSquare, CheckCircleIcon, Copy, Download, Edit2, EyeIcon, EyeOff, ImageUpIcon, Layers, Loader2Icon, LockKeyhole, LockKeyholeOpen, Minus, Plus, ShapesIcon, Text, Trash2Icon, UploadCloud } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from "react-dom"
+import crypto from 'crypto'
 import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas } from 'fabric'; // browser
 import Image from 'next/image';
 import { PromptComponencts } from '@/components/PromptComponencts';
@@ -165,8 +166,8 @@ function ProImageEditor() {
 
 
 
-  // random data
-  const random = crypto.randomUUID()
+  // write a methods which will return random number on client side
+  const random = crypto.randomUUID();
 
   const maxFindingFn = () => {
     const stateMax = state.map((v, _) => v.order ? v.order : 0)
