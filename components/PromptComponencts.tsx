@@ -114,6 +114,9 @@ content = await contentStrucure(state, text)
 
 // console.log("content:- ", content);
 const modelSelected = ImageModels.find((v) => v.name === selectedModel);
+
+
+
 if (!modelSelected) throw new Error("Selected Model Name does present");
 
 // if user given its own keys then make as many as it gives if he use my own keys then give limitation
@@ -176,6 +179,7 @@ return buffer
 
 
 }
+
 
 // this is for the runing image Generation in promise.all and convert buffer into the blob
 const imageGenerationFn = async () => {
@@ -264,6 +268,7 @@ return createUserContent([
 ])
 }
 };
+
 
 // if user want a prompt enhance
 const refinePrompt = async () => {
@@ -389,8 +394,6 @@ setRefinedStart(false)
 }
 
 }
-
-// console.log("Just for checking re-render this Functional Componet", ImageModels.map(v => v.name));
 
 
 

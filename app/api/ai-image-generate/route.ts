@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
         const { content, id, model } = await request.json();
         // console.log(request);
 
-        console.log("id:- ", id, "model:- ", model);
+        console.log("id:- ", id, "model:- ", model,'content:- ', content);
+
         if (!id) {
             return NextResponse.json( new ApiErrorRoutes({ error: "Server error", message: "Please login", status: 400 }))
            
@@ -37,6 +38,9 @@ export async function POST(request: NextRequest) {
         // ye method gemina ke api ko call karta hai, with object body
         let imageGeneration;
 
+        // console.log("ai models:- ", await ai.models.list());
+        
+
         try {
             imageGeneration = await ai.models.generateContent({
                 model: model,
@@ -49,7 +53,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
             const errorJson = error as {message:any,stack:string}
             const Geminaerror = JSON.parse(errorJson.message as any);
-            // console.log("Geminaerror:- ",Geminaerror);
+            console.log("Geminaerror:- ",Geminaerror);
             
             return NextResponse.json(new ApiErrorRoutes({
                 error:Geminaerror.error.status,
@@ -59,7 +63,8 @@ export async function POST(request: NextRequest) {
         }
 
         // console.log("imageGeneration:- ", imageGeneration);
-        const imageData = imageGeneration?.data
+        const imageData = imageGeneration?.data;
+        const imagetext = imageGeneration?.text;
         if (!imageData) {
             return NextResponse.json(new ApiErrorRoutes({ error: "Api Not response as Expected", message: "No image created", status: 400 }))
         }
@@ -74,11 +79,14 @@ export async function POST(request: NextRequest) {
         // console.log("updatingUserData:- ", updatingDataBase) 
 
         const buffer = Buffer.from(imageData, "base64")
-        console.log("buffer:- ", buffer);
+        // console.log("buffer:- ", buffer);
         data["data"] = buffer
         data["credit"] = updatingDataBase.credit
+        data["text"] = imagetext
         // return buffer; // Return the image buffer
 
+        console.log("data in image generation", data);
+        
 
         return NextResponse.json({ status: 200, message: "Successfully", data: data })
         // {"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}
