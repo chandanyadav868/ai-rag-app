@@ -5,6 +5,7 @@ import Headers from "@/components/Header";
 import 'highlight.js/styles/github.css'; // or any other style
 import ContextProvider from "@/components/CreateContext";
 import { SessionProvider } from "next-auth/react";
+import Script from "next/script";
 
 
 const geistMono = LocalFont({
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SessionProvider>
           <ContextProvider>
             <Headers />
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <div className={`${geistMono.variable} ${geistSans.variable} antialiased`}>{children}</div>
           </ContextProvider>
         </SessionProvider>

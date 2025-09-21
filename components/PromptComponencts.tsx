@@ -169,7 +169,7 @@ imageGeneration = await ai.models.generateContent({
 // aap base64 or undefined payege, like iVBORw0KGgo....
 const textData = imageGeneration?.text
 const imageData = imageGeneration?.data;
-// console.log("textData:- ", textData);
+console.log("Models:- ", imageGeneration.model);
 
 if (!imageData) throw new Error("Image not generated")
 // aap base64 ko buffer mai convert karege jo ki array hoga which represent the number like Uint8Array(914221) [137, 80, 78]

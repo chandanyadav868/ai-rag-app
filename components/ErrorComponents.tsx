@@ -16,7 +16,7 @@ function ErrorComponents() {
   },[error])
 
   return (
-    <div className={`errorBox rounded-md ${error?.type === "error" ? "bg-red-500":"bg-blue-500"} text-white p-2 fixed right-2 top-14 w-[350px] h-[100px] ${error?.message ? "topUpComponentsUpon" : "topUpComponentsCLosed"}`} 
+    <div className={`errorBox rounded-md ${error?.type === "error" ? "bg-red-500":"bg-blue-500"} text-white p-2 fixed right-2 top-14 w-[350px] h-auto ${error?.message ? "topUpComponentsUpon" : "topUpComponentsCLosed"}`} 
     style={{zIndex:99}}>
       {error?.message}
     </div>

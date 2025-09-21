@@ -32,6 +32,7 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.3.93",
     "postcss": "^8.5.6",
+    "razorpay": "^2.9.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
