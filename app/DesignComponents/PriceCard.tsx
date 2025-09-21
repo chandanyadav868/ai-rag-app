@@ -33,6 +33,8 @@ function PriceCard({ data }: { data: PriceCardProps }) {
 
   const handlePayment = async () => {
     try {
+      console.log("Initiating payment...");
+      
       const response = await ApiEndpoint.Post('/orders', {}, { id: loginUserData?.id, amount: 200 });
 
       console.log("responseJson:- ", response);
@@ -57,6 +59,9 @@ function PriceCard({ data }: { data: PriceCardProps }) {
 
       const rzp1 = new window.Razorpay(options);
       rzp1.open();
+
+      console.log("Razorpay form opened");
+      
 
     } catch (error) {
       console.log('Error in payment:', error);
