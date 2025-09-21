@@ -29,7 +29,7 @@ declare global {
 }
 
 function PriceCard({ data }: { data: PriceCardProps }) {
-  const { loginUserData } = useContextStore()
+  const { loginUserData } = useContextStore();
 
   const handlePayment = async () => {
     try {
@@ -67,6 +67,9 @@ function PriceCard({ data }: { data: PriceCardProps }) {
       console.log('Error in payment:', error);
     }
   }
+
+  console.log("Price Card");
+  
 
   return (
     <div className='w-[350px] outline-1 outline-white bg-black text-white rounded-2xl p-4 flex flex-col gap-4'>
