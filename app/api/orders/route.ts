@@ -4,9 +4,9 @@ import { ApiErrorRoutes, ApiSuccessRoutes } from "../register/route";
 import mongodbConnection from "@/mongodb/connection";
 import Order from "@/mongodb/schema/Order.Schema";
 
-const initiate = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || ''
+export const initiate = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!
 });
 
 export async function POST(req: NextRequest, res: NextResponse) {
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
                 message: 'Successfully created',
                 status: 200,
                 success: true
-            }), data: { orderId: order.id, amount: order.amount, currenct: order.currency, dbOrderId: newOrder.id }
+            }), data: { orderId: order.id, amount: order.amount, currency: order.currency, dbOrderId: newOrder.id }
         })
 
     } catch (error) {

@@ -39,18 +39,17 @@ function PriceCard({ data }: { data: PriceCardProps }) {
 
       console.log("responseJson:- ", response);
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // Only key_id (not secret) can be exposed
-        amount: response.amount,
-        currency: response.currenct,
-        name: "PolishAI",
-        description: "Purchase Description",
-        order_id: response.orderId,   // important: order id from backend
-        handler: function (response: any) {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: response.data.amount,
+        currency: response.data.currency,
+        order_id: response.data.orderId,
+        handler: async function (response: any) {
           console.log("Payment successful:", response);
           // response.razorpay_payment_id
           // response.razorpay_order_id
           // response.razorpay_signature
           // --> send this to backend to verify
+          // await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
         },
         theme: {
           color: "#3399cc",

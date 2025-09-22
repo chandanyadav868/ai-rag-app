@@ -3,7 +3,7 @@ import { ApiErrorRoutes, ApiSuccessRoutes } from "../../register/route";
 import crypto from 'crypto';
 import mongodbConnection from "@/mongodb/connection";
 import Order from "@/mongodb/schema/Order.Schema";
-import { log } from "console";
+import { initiate } from "../../orders/route";
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,11 +14,11 @@ export async function POST(req: NextRequest) {
         
         const razorpaySignature = req.headers.get('x-razorpay-signature');
 
-        const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECREAT!).update(body).digest('hex');
+        const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!).update(body).digest('hex');
 
         console.log('Razorpay Signature:', razorpaySignature);
         console.log('Expected Signature:', expectedSignature);
-        
+
 
         if (razorpaySignature !== expectedSignature) {
             return NextResponse.json(
@@ -45,14 +45,10 @@ export async function POST(req: NextRequest) {
                 { new: true }
             );
             
-            log('Updated Order:', updatedData);
+            console.log('Updated Order:', updatedData);
         }
 
-        return NextResponse.json(new ApiSuccessRoutes({
-            message: 'Webhook processed successfully',
-            status: 200,
-            success: true
-        }));
+        return NextResponse.json({status:'ok'});
 
     } catch (error) {
         console.log('Error in order route:', error);
