@@ -47,32 +47,30 @@ export async function POST(req: NextRequest) {
 
         await mongodbConnection();
 
+        let userUpdate = null;
+
         if (event.event === 'payment.captured') {
             const paymentEntity = event.payload.payment.entity;
             console.log('Payment Captured:', paymentEntity);
 
             const updatedData = await Order.findOneAndUpdate(
                 { razorpayOrderId: paymentEntity.order_id },
-                { status: 'Success',paymentDetails: paymentEntity, razorpayPaymentId: paymentEntity.id },
+                { status: 'Success', paymentDetails: paymentEntity,     razorpayPaymentId: paymentEntity.id },
                 { new: true }
             );
 
             console.log('Updated Order:', updatedData);
+
+            userUpdate = await UserSchema.findOneAndUpdate({ _id: paymentEntity.notes.userId },
+                {
+                    $set: { plan: paymentEntity.notes.plan },
+                    $inc: { credit: paymentEntity.notes.credits }
+                }, { new: true }).select('credit').lean();
+
+            console.log('Updated User:', userUpdate);
         }
 
-        // await mongodbConnection();
-
-        // const updatedData = await Order.findOneAndUpdate({razorpayOrderId: razorpay_order_id}, {status: 'Success', paymentDetails: payment}, {new: true});
-        // console.log('Updated Order:', updatedData);
-        
-        // const userUpdate = await UserSchema.findOneAndUpdate({_id:payment.notes.userId}, 
-        //     {
-        //         $set:{plan:payment.notes.plan},
-        //         $inc:{credit:payment.notes.credits}
-        //     },{new:true});
-        // console.log('Updated User:', userUpdate);
-
-        return NextResponse.json({status:200, message:"Success"});
+        return NextResponse.json({...new ApiSuccessRoutes({ status: 200, message: "Success", success: true }),data:userUpdate});
 
     } catch (error) {
         console.log('Error in order route:', error);
