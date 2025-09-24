@@ -641,7 +641,11 @@ function ProImageEditor() {
       });
 
     } catch (error) {
-      // console.log("Error in fileUploading", error);
+      console.log("Error in fileUploading", error);
+      setError({
+        type:'error',
+        message:error instanceof Error ? error.message : 'Something went wrong'
+      })
     } finally {
       setCloudUploadingStart(false)
     }

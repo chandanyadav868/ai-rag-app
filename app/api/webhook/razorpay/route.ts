@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
 
         const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!).update(body).digest('hex');
 
-        console.log('Razorpay Signature:', razorpaySignature);
-        console.log('Expected Signature:', expectedSignature);
+        console.log('Razorpay Signature:- ', razorpaySignature);
+        console.log('Expected Signature:- ', expectedSignature);
 
 
         if (razorpaySignature !== expectedSignature) {
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
             const paymentEntity = event.payload.payment.entity;
             console.log('Payment Captured:', paymentEntity);
 
+            // findOneAnd Update, take three object , first object is for the filtering condition the document, and second is the update what have to be update in field, third is for the returning updated document if new is true
             const updatedData = await Order.findOneAndUpdate(
                 { razorpayOrderId: paymentEntity.order_id },
                 { status: 'Success', paymentDetails: paymentEntity,     razorpayPaymentId: paymentEntity.id },
@@ -61,16 +62,17 @@ export async function POST(req: NextRequest) {
 
             console.log('Updated Order:', updatedData);
 
+            // this is also doing update after filtring but is doing in different ways, second object use the operator for updating, $set is used for update the field value with new, $inc is increase the value of previous by adding new value,
             userUpdate = await UserSchema.findOneAndUpdate({ _id: paymentEntity.notes.userId },
                 {
                     $set: { plan: paymentEntity.notes.plan },
                     $inc: { credit: paymentEntity.notes.credits }
-                }, { new: true }).select('credit').lean();
+                }, { new: true }).lean();
 
             console.log('Updated User:', userUpdate);
         }
 
-        return NextResponse.json({...new ApiSuccessRoutes({ status: 200, message: "Success", success: true }),data:userUpdate});
+        return NextResponse.json(new ApiSuccessRoutes({ status: 200, message: "Success", success: true }));
 
     } catch (error) {
         console.log('Error in order route:', error);
