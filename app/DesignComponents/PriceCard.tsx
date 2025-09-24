@@ -50,7 +50,7 @@ function PriceCard({ data }: { data: PriceCardProps }) {
           // response.razorpay_order_id
           // response.razorpay_signature
           // --> send this to backend to verify
-          await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
+          // await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
         },
         theme: {
           color: "#3399cc",
