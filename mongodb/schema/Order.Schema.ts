@@ -5,7 +5,8 @@ interface OrderSchemaProps {
     razorpayOrderId:string,
     amount:number,
     currency:string,
-    status:"Pending" | "Success"
+    status:"Pending" | "Success",
+    paymentDetails?:object
 }
 
 const orderSchema = new Schema<OrderSchemaProps>({
@@ -13,7 +14,8 @@ const orderSchema = new Schema<OrderSchemaProps>({
     razorpayOrderId: { type: String, required: true },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
-    status: { type: String, required: true }
+    status: { type: String, required: true },
+    paymentDetails: { type: Object }
 }, { timestamps: true });
 
 const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);

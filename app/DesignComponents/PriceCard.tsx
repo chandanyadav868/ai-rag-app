@@ -3,6 +3,7 @@
 import React from 'react'
 import { ApiEndpoint } from '../classApi/apiClasses';
 import { useContextStore } from '@/components/CreateContext';
+import { CheckSquare, X } from 'lucide-react';
 
 
 interface PriceCardProps {
@@ -31,11 +32,11 @@ declare global {
 function PriceCard({ data }: { data: PriceCardProps }) {
   const { loginUserData } = useContextStore();
 
-  const handlePayment = async () => {
+  const handlePayment = async (rate:number) => {
     try {
-      console.log("Initiating payment...");
+      console.log("Initiating payment...:- ", rate);
       
-      const response = await ApiEndpoint.Post('/orders', {}, { id: loginUserData?.id, amount: 200 });
+      const response = await ApiEndpoint.Post('/orders', {}, { id: loginUserData?.id, amount: rate });
 
       console.log("responseJson:- ", response);
       const options = {
@@ -49,7 +50,7 @@ function PriceCard({ data }: { data: PriceCardProps }) {
           // response.razorpay_order_id
           // response.razorpay_signature
           // --> send this to backend to verify
-          // await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
+          await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
         },
         theme: {
           color: "#3399cc",
@@ -60,14 +61,12 @@ function PriceCard({ data }: { data: PriceCardProps }) {
       rzp1.open();
 
       console.log("Razorpay form opened");
-      
-
     } catch (error) {
       console.log('Error in payment:', error);
     }
   }
 
-  console.log("Price Card");
+  console.log("Price Card",data.type, loginUserData?.plan);
   
 
   return (
@@ -85,13 +84,14 @@ function PriceCard({ data }: { data: PriceCardProps }) {
 
       <div className='font-semibold'>{data.caption}</div>
 
-      <button onClick={() => handlePayment()} className='outline-1 outline-gray-200 rounded-full text-center px-4 py-2 '>Your current plan</button>
+      <button onClick={() => handlePayment(data.rate.rate)} className={`outline-1 outline-gray-200 rounded-full text-center px-4 py-2 font-bold cursor-pointer ${loginUserData?.plan === data.type?'bg-white text-black':''}`}>{loginUserData?.plan === data.type? "Your current plan":"Select"}</button>
 
       <div className='flex gap-4 mt-2 flex-col'>
         {data.features.map((v, i) => (
           <span key={i} className='flex gap-2'>
             <span>{v.icon}</span>
-            <span>{v.text}</span>
+            <span >{v.text}</span>
+            {data.type.toLowerCase() === "free" && v.text === "Able to use own Api Key"? <X color='red'/>:<CheckSquare color='green'/>}
           </span>
         ))}
       </div>

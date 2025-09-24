@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { BookImage, Bot, Brain, Image, ScanSearch, Search } from "lucide-react";
+import { BookImage, Bot, Brain, Image, ScanSearch, Search, SendHorizontal } from "lucide-react";
 
 export const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
 
@@ -138,18 +138,18 @@ export const PriceData = [
     {
         type: "Free",
         rate: {
-            type: "$",
+            type: "₹",
             rate: 0,
             curreny: {
                 country: "INR",
                 time: "month"
             }
         },
-        caption: "Intelligence for everyday tasks",
+        caption: "20 Credits",
         features: [
             {
                 icon: <Bot />,
-                text: "Access to Text Generation"
+                text: "Access to Prompt Generation"
             },
             {
                 icon: <Image />,
@@ -164,27 +164,27 @@ export const PriceData = [
                 text: "Limited memory and context"
             },
             {
-                icon: <ScanSearch />,
-                text: "Limited Access Real Info"
+                icon: <SendHorizontal />,
+                text: "Able to use own Api Key"
             },
 
         ]
     },
     {
-        type: "Free",
+        type: "Silver",
         rate: {
-            type: "$",
-            rate: 0,
+            type: "₹",
+            rate: 15,
             curreny: {
                 country: "INR",
                 time: "month"
             }
         },
-        caption: "Intelligence for everyday tasks",
+        caption: "30 Credits",
         features: [
             {
                 icon: <Bot />,
-                text: "Access to Text Generation"
+                text: "Access to Prompt Generation"
             },
             {
                 icon: <Image />,
@@ -199,23 +199,23 @@ export const PriceData = [
                 text: "Limited memory and context"
             },
             {
-                icon: <ScanSearch />,
-                text: "Limited Access Real Info"
+                icon: <SendHorizontal />,
+                text: "Able to use own Api Key"
             },
 
         ]
     },
     {
-        type: "Free",
+        type: "Gold",
         rate: {
-            type: "$",
-            rate: 0,
+            type: "₹",
+            rate: 30,
             curreny: {
                 country: "INR",
                 time: "month"
             }
         },
-        caption: "Intelligence for everyday tasks",
+        caption: "60 Credits",
         features: [
             {
                 icon: <Bot />,
@@ -234,27 +234,27 @@ export const PriceData = [
                 text: "Limited memory and context"
             },
             {
-                icon: <ScanSearch />,
-                text: "Limited Access Real Info"
+                icon: <SendHorizontal />,
+                text: "Able to use own Api Key"
             },
 
         ]
     },
     {
-        type: "Free",
+        type: "Platinum",
         rate: {
-            type: "$",
-            rate: 0,
+            type: "₹",
+            rate: 60,
             curreny: {
                 country: "INR",
                 time: "month"
             }
         },
-        caption: "Intelligence for everyday tasks",
+        caption: "120 Credits",
         features: [
             {
                 icon: <Bot />,
-                text: "Access to Text Generation"
+                text: "Access to Prompt Generation"
             },
             {
                 icon: <Image />,
@@ -269,8 +269,8 @@ export const PriceData = [
                 text: "Limited memory and context"
             },
             {
-                icon: <ScanSearch />,
-                text: "Limited Access Real Info"
+                icon: <SendHorizontal />,
+                text: "Able to use own Api Key"
             },
 
         ]

@@ -3,15 +3,27 @@ import { ApiErrorRoutes, ApiSuccessRoutes } from "../../register/route";
 import crypto from 'crypto';
 import mongodbConnection from "@/mongodb/connection";
 import Order from "@/mongodb/schema/Order.Schema";
-import { initiate } from "../../orders/route";
+import Razorpay from "razorpay";
+import UserSchema from "@/mongodb/schema/User.Schema";
+
+const initiate = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!
+});
+
 
 export async function POST(req: NextRequest) {
     try {
+        // const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = await req.json();
+        // const payment = await initiate.payments.fetch(razorpay_payment_id);
+        // console.log("Payment details:", payment);
+
+
         const body = await req.text();
         console.log('Raw Body:', body);
-        
+
         console.log("Headers:", req.headers);
-        
+
         const razorpaySignature = req.headers.get('x-razorpay-signature');
 
         const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!).update(body).digest('hex');
@@ -38,17 +50,29 @@ export async function POST(req: NextRequest) {
         if (event.event === 'payment.captured') {
             const paymentEntity = event.payload.payment.entity;
             console.log('Payment Captured:', paymentEntity);
-            
+
             const updatedData = await Order.findOneAndUpdate(
                 { razorpayOrderId: paymentEntity.order_id },
                 { status: 'Success' },
                 { new: true }
             );
-            
+
             console.log('Updated Order:', updatedData);
         }
 
-        return NextResponse.json({status:'ok'});
+        // await mongodbConnection();
+
+        // const updatedData = await Order.findOneAndUpdate({razorpayOrderId: razorpay_order_id}, {status: 'Success', paymentDetails: payment}, {new: true});
+        // console.log('Updated Order:', updatedData);
+        
+        // const userUpdate = await UserSchema.findOneAndUpdate({_id:payment.notes.userId}, 
+        //     {
+        //         $set:{plan:payment.notes.plan},
+        //         $inc:{credit:payment.notes.credits}
+        //     },{new:true});
+        // console.log('Updated User:', userUpdate);
+
+        return NextResponse.json({status:200, message:"Success"});
 
     } catch (error) {
         console.log('Error in order route:', error);

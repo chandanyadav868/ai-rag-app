@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema<UserSchemaProp>({
     },
     plan:{
         type:String,
-        enum : ["Free", "Premium"],
+        enum : ["Free", "Silver", "Gold", "Platinum"],
         default: "Free"
     },
     credit:{
