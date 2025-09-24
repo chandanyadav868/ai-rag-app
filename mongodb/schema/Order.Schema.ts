@@ -6,12 +6,14 @@ interface OrderSchemaProps {
     amount:number,
     currency:string,
     status:"Pending" | "Success",
-    paymentDetails?:object
+    paymentDetails?:object,
+    razorpayPaymentId?:string
 }
 
 const orderSchema = new Schema<OrderSchemaProps>({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     razorpayOrderId: { type: String, required: true },
+    razorpayPaymentId: { type: String },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
     status: { type: String, required: true },

@@ -38,7 +38,6 @@ export async function POST(req: NextRequest, res: NextResponse) {
             }))
         }
 
-
         // Create orderId in Razorpay
         const order = await initiate.orders.create({
             amount: amount * 100,
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
             notes: {
                 userId: id,
                 plan: priceData.type,
-                credits: 20
+                credits: priceData.credits
             }
         });
 

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
             const updatedData = await Order.findOneAndUpdate(
                 { razorpayOrderId: paymentEntity.order_id },
-                { status: 'Success' },
+                { status: 'Success',paymentDetails: paymentEntity, razorpayPaymentId: paymentEntity.id },
                 { new: true }
             );
 
