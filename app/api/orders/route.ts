@@ -38,27 +38,37 @@ export async function POST(req: NextRequest, res: NextResponse) {
             }))
         }
 
+        let order = null;
         // Create orderId in Razorpay
-        const order = await initiate.orders.create({
-            amount: amount * 100,
-            currency: 'INR',
-            receipt: `receipt_order_${Date.now()}`,
-            notes: {
-                userId: id,
-                plan: priceData.type,
-                credits: priceData.credits
-            }
-        });
+        try {
+            order = await initiate.orders.create({
+                amount: amount * 100,
+                currency: 'INR',
+                receipt: `receipt_order_${Date.now()}`,
+                notes: {
+                    userId: id,
+                    plan: priceData.type,
+                    credits: priceData.credits
+                }
+            });
 
-        console.log("Razorpay Order:", order);
+            console.log("Razorpay Order:", order);
+        } catch (error) {
+            console.log('Error in creating Order from Razorpay:', error);
+            return NextResponse.json(new ApiErrorRoutes({
+                message: (error as any).error.description,
+                status: (error as any).statusCode,
+                error: (error as any).error.code
+            }))
+        }
 
 
         // saving order in database
         const newOrder = await Order.create({
             userId: id,
-            razorpayOrderId: order.id,
-            amount: order.amount,
-            currency: order.currency,
+            razorpayOrderId: order?.id,
+            amount: order?.amount,
+            currency: order?.currency,
             status: "pending"
         });
 
@@ -67,7 +77,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
                 message: 'Successfully created',
                 status: 200,
                 success: true
-            }), data: { orderId: order.id, amount: order.amount, currency: order.currency, dbOrderId: newOrder.id }
+            }), data: { orderId: order?.id, amount: order?.amount, currency: order?.currency, dbOrderId: newOrder.id }
         })
 
     } catch (error) {
