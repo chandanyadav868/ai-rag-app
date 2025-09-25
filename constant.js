@@ -168,14 +168,14 @@ export const ImageModels = [
         value: "gemini-2.0-flash-preview-image-generation",
         new: DateDiffrence("06/28/2025")
     },
-    {
-        family: "Gemini",
-        free: false,
-        type: "Image-generation",
-        name: "Gemini 2.5 Flash",
-        value: "gemini-2.5-flash-image-preview",
-        new: DateDiffrence("08/28/2025")
-    }
+    // {
+    //     family: "Gemini",
+    //     free: false,
+    //     type: "Image-generation",
+    //     name: "Gemini 2.5 Flash",
+    //     value: "gemini-2.5-flash-image-preview",
+    //     new: DateDiffrence("08/28/2025")
+    // }
 ]
 
 export const PriceData = [
@@ -524,7 +524,8 @@ export const AtmosphericEffects = [
 ];
 
 export const LightingEffects = [
-    "cinematic lighting", "dramatic volumetric lighting", "soft diffused light", "hard directional light rim light", "backlit", "god rays", "caustic light studio lighting", "natural lighting", "moonlight", "candlelight", "starlight", "fluorescent light golden hour", "blue hour", "dusk", "dawn"]
+    "cinematic lighting", "dramatic volumetric lighting", "soft diffused light", "hard directional light rim light", "backlit", "god rays", "caustic light studio lighting", "natural lighting", "moonlight", "candlelight", "starlight", "fluorescent light golden hour", "blue hour", "dusk", "dawn"
+]
 
 
 export const Composition = [

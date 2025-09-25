@@ -46,7 +46,7 @@ function PriceCard({ data }: { data: PriceCardProps }) {
         order_id: response.data.orderId,
 
         handler: async function (response: any) {
-          console.log("Payment successful:", response);
+          // console.log("Payment successful:", response);
           // Optionally, you can verify the payment on the server side here
           try {
             const updatedUserData =  await ApiEndpoint.Post('/mongoose',{},{email:loginUserData?.email});
