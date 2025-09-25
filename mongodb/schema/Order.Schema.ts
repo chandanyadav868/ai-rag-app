@@ -5,7 +5,7 @@ interface OrderSchemaProps {
     razorpayOrderId:string,
     amount:number,
     currency:string,
-    status:"Pending" | "Success",
+    status:string,
     paymentDetails?:object,
     razorpayPaymentId?:string
 }
