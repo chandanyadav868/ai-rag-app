@@ -1,4 +1,4 @@
-import { ai } from "@/constant";
+import { ai, systemInstruction } from "@/constant";
 import mongodbConnection from "@/mongodb/connection";
 import UserSchema from "@/mongodb/schema/User.Schema";
 import { Modality, Type } from "@google/genai";
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
                 config: {
                     systemInstruction: {
                         role: "system",
-                        text: systemPromptSelected
+                        text: systemPromptSelected?? systemInstruction
                     },
                     responseMimeType: "application/json",
                     responseSchema: {

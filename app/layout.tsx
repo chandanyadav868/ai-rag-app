@@ -21,15 +21,11 @@ const geistSans = LocalFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Ai App',
+  title: 'Poslish Ai',
   description: 'This website for the Ai Image Editing and Generation',
   icons: {
     icon: '/favicorn/favicon.ico',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-  }
 }
 
 

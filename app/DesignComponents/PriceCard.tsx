@@ -30,7 +30,7 @@ declare global {
 }
 
 function PriceCard({ data }: { data: PriceCardProps }) {
-  const { loginUserData } = useContextStore();
+  const { loginUserData,setLoginUserData,setError } = useContextStore();
 
   const handlePayment = async (rate:number) => {
     try {
@@ -44,13 +44,22 @@ function PriceCard({ data }: { data: PriceCardProps }) {
         amount: response.data.amount,
         currency: response.data.currency,
         order_id: response.data.orderId,
+
         handler: async function (response: any) {
           console.log("Payment successful:", response);
-          // response.razorpay_payment_id
-          // response.razorpay_order_id
-          // response.razorpay_signature
-          // --> send this to backend to verify
-          // await ApiEndpoint.Post('webhook/razorpay', {"x-razorpay-signature":response.razorpay_signature}, response);
+          // Optionally, you can verify the payment on the server side here
+          try {
+            const updatedUserData =  await ApiEndpoint.Post('/mongoose',{},{email:loginUserData?.email});
+            setLoginUserData({...updatedUserData.data});
+            console.log("Updated user data after payment:", updatedUserData);
+          } catch (error) {
+            console.log("Error updating user data after payment:", error);
+            setError({
+              message:error instanceof Error ? error.message : 'Unknown error',
+              type:'error'
+            })
+            
+          }
         },
         theme: {
           color: "#3399cc",

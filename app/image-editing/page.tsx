@@ -162,6 +162,7 @@ function ProImageEditor() {
     // console.log("Final width:", width, "Final height:", height);
 
     // Update fabric.js canvas dimensions
+    if (!fabricJs.current) return;
     fabricJs.current?.setDimensions({ width, height });
     fabricJs.current?.renderAll();
   }, [canvasOrientation]);
