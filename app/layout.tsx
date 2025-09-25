@@ -21,8 +21,15 @@ const geistSans = LocalFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Scrowling Website',
-  description: 'This website for the scrawling the page of website'
+  title: 'Ai App',
+  description: 'This website for the Ai Image Editing and Generation',
+  icons: {
+    icon: '/favicorn/favicon.ico',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+  }
 }
 
 
@@ -30,6 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
   return (
     <html lang="en">
+      <link rel="shortcut icon" href="favicorn/favicon.ico" type="image/x-icon" />
       <body>
         {/* header */}
         <SessionProvider>

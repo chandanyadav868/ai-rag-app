@@ -49,18 +49,19 @@ export async function POST(req: NextRequest) {
 
         let userUpdate = null;
 
+        const paymentEntity = event.payload.payment.entity;
+        console.log('Payment Captured:', paymentEntity);
+
+        // findOneAnd Update, take three object , first object is for the filtering condition the document, and second is the update what have to be update in field, third is for the returning updated document if new is true
+        const updatedData = await Order.findOneAndUpdate(
+            { razorpayOrderId: paymentEntity.order_id },
+            { status: paymentEntity.status, paymentDetails: paymentEntity,  razorpayPaymentId: paymentEntity.id },
+            { new: true }
+        );
+
+        console.log('Updated Order:', updatedData);
+        
         if (event.event === 'payment.captured') {
-            const paymentEntity = event.payload.payment.entity;
-            console.log('Payment Captured:', paymentEntity);
-
-            // findOneAnd Update, take three object , first object is for the filtering condition the document, and second is the update what have to be update in field, third is for the returning updated document if new is true
-            const updatedData = await Order.findOneAndUpdate(
-                { razorpayOrderId: paymentEntity.order_id },
-                { status: 'Success', paymentDetails: paymentEntity,     razorpayPaymentId: paymentEntity.id },
-                { new: true }
-            );
-
-            console.log('Updated Order:', updatedData);
 
             // this is also doing update after filtring but is doing in different ways, second object use the operator for updating, $set is used for update the field value with new, $inc is increase the value of previous by adding new value,
             userUpdate = await UserSchema.findOneAndUpdate({ _id: paymentEntity.notes.userId },

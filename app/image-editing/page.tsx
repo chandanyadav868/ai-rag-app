@@ -28,7 +28,7 @@ function ProImageEditor() {
   const [slidingGenerateImage, setSlidingGenerateImage] = useState<boolean>(true);
   const [layerMenu, setLayerMenu] = useState<string>("Layer");
   const [scale, setScale] = useState<number>(1);
-  const {setError} = useContextStore();
+  const { setError } = useContextStore();
 
   // console.log("state:- ", state);
 
@@ -167,7 +167,6 @@ function ProImageEditor() {
   }, [canvasOrientation]);
 
 
-
   // write a methods which will return random number on client side
   const random = uuidv4();
 
@@ -177,18 +176,6 @@ function ProImageEditor() {
     const maxOrder = Math.max(...modified);
     return maxOrder
   }
-
-  const zoomingInOut = (type: string) => {
-
-    if (!fabricJs.current) return
-    // console.log(fabricJs.current.getZoom());
-    if (type === "zoomedIn") {
-      fabricJs.current.setZoom(fabricJs.current.getZoom() + 0.1);
-    } else {
-      fabricJs.current.setZoom(fabricJs.current.getZoom() - 0.1);
-
-    }
-  };
 
 
   const shapeEventAdding = (shape: Rect | Triangle<Record<string, number | string | undefined>, SerializedRectProps, ObjectEvents>) => {
@@ -282,7 +269,7 @@ function ProImageEditor() {
 
   const layerName = (shapeType: string) => {
     // console.log('LayerName:- ',state);
-    
+
     return uuidv4().split("-")[0];
   }
 
@@ -299,7 +286,7 @@ function ProImageEditor() {
     const newImage: StateProps = {
       id: `image_${layerName("image")}`, left: 0, top: 0, fill: "#fff", scaleX: 1, width: img.width, height: img.height,
       scaleY: 1, scale: 1, globalCompositeOperation: "normal", order: maxOrder + 1, type: "image", angle: 0, layerlock: false
-    };    
+    };
 
     // Bake the scaling into width/height so scaleX/scaleY can stay at 1
     img.set({
@@ -313,7 +300,7 @@ function ProImageEditor() {
 
     // console.log("newImage:- ", newImage);
     // console.log("state:- ", state);
-    
+
 
     setState((prev) => [{ ...newImage, src: ImageUrl }, ...prev]);
   }
@@ -539,7 +526,7 @@ function ProImageEditor() {
   };
 
   const droppingFile = (file: FileList) => {
-    const notAllowedImage = ["avif", "gif","svg+xml","svg","pdf"];
+    const notAllowedImage = ["avif", "gif", "svg+xml", "svg", "pdf"];
     if (notAllowedImage.includes(file[0].type)) {
       // console.log("this types of image is not allowed:- ", file[0].type);
       return
@@ -615,7 +602,7 @@ function ProImageEditor() {
       formdata.set("file", file);
 
       setState((prev) => {
-        return prev.map((l, i) => l.id === selectedId ? ({ ...l, currentlyUploading:true }) : l)
+        return prev.map((l, i) => l.id === selectedId ? ({ ...l, currentlyUploading: true }) : l)
       });
 
       const response = await ApiEndpoint.FileUpload('/google-api-setup', {}, formdata);
@@ -637,14 +624,14 @@ function ProImageEditor() {
       // console.log("myUploadedFile", fileData);
 
       setState((prev) => {
-        return prev.map((l, i) => l.id === selectedId ? ({ ...l, geminaUploadData: fileData,currentlyUploading:false }) : l)
+        return prev.map((l, i) => l.id === selectedId ? ({ ...l, geminaUploadData: fileData, currentlyUploading: false }) : l)
       });
 
     } catch (error) {
       console.log("Error in fileUploading", error);
       setError({
-        type:'error',
-        message:error instanceof Error ? error.message : 'Something went wrong'
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Something went wrong'
       })
     } finally {
       setCloudUploadingStart(false)
@@ -703,19 +690,30 @@ function ProImageEditor() {
 
   const [startShapeDrawing, setStartShapeDrawing] = useState<boolean>(false);
   const onShapeClick = ({ type }: { type: string }) => {
-    // console.log("onShapeClick:- ", type);
+    // you are checking that fabricJs is now holding the canvas or not
     if (!fabricJs.current) return
 
     let isDrawing: boolean, RectX: number, RectY: number, Shape: Rect | Triangle;
+
+    // this is also checking for putting event on the canvas
     switch (type) {
       case "rectangle":
+
+        fabricJs.current.isDrawingMode = true; // Disable free drawing mode
+        console.log('crosshair');
+        
+        // fabricJs ke pass current naam ke property ke pass on naam ka method hai jo ki ek parameter mai event ka naam leta hai, aur second mai ek callback, ye es callback ko register kar leta hai jab bhi ye event hoga to ye callback run mai defined logic run karega aur jo es ka parameter hai wo ye method khud hi dalta hai
         fabricJs.current.on("mouse:down", (options) => {
+          // now drawing start ho gya hai
           isDrawing = true;
-          // console.log("type", type);
+          // extract scenePoint from options
           const { scenePoint } = options;
+
+          // put scenePoint x and y in RectX and RectY, ye wo jagah hai jaha se rectangle draw karna start hoga
           RectX = scenePoint.x;
           RectY = scenePoint.y;
-          // console.log("RectX:- ", RectX, "RectY:- ", RectY);
+
+          // ab ek object banao jo ki rectangle ke properties jo ki default hota hai ko hold karega
           const obj = {
             left: RectX,
             top: RectY,
@@ -724,27 +722,38 @@ function ProImageEditor() {
             fill: "rgba(255, 0, 0, 0.5)", // semi-transparent red
           }
 
+          // aap shapeInserting function ko call karo jo ki ek rectangle return karega aur usko Shape variable mai store kar do
           const retrunShape = shapeInserting(obj, type)
           if (!retrunShape) return
           Shape = retrunShape
 
         });
 
+        // agar mouse move kar rha hai canvas ke upar to ye callback run hoga
         fabricJs.current.on("mouse:move", (options) => {
+          // agar mouseDown karne par Shape variable mai kuch nahi hai to return kar do
           if (!Shape) {
             return
           }
+
+          // extract scenePoint from options
           const { scenePoint } = options;
+
+          // Shape ke pass ek method hota hai jiska naam set hai, jo ki banae huye rectangle ke reference ko hold karta hai, uski width aur height ko update kar do
+          // secenePoint.x ye hai ki kha tak mouse move hua hai aur RectX wo jagah hai jaha se rectangle draw karna start hua tha, to in dono ka difference hi rectangle ki width hogi, same height ke liye bhi
           Shape.set({
             width: scenePoint.x - RectX,
             height: scenePoint.y - RectY,
           });
 
+          // ab fabricJs ke pass ek method hai jiska naam renderAll hai, jo ki canvas ko re-render karta hai taaki naya rectangle dikhai de
           fabricJs.current?.renderAll()
         });
 
         fabricJs.current.on("mouse:up", (options) => {
+          if (!fabricJs.current) return
           isDrawing = false;
+          fabricJs.current.isDrawingMode = false; // Disable free drawing mode
           fabricJs.current?.off("mouse:down")
           fabricJs.current?.off("mouse:up")
           fabricJs.current?.off("mouse:move")
@@ -1039,9 +1048,9 @@ function ProImageEditor() {
                           <span className='cursor-pointer'>
                             {
                               <span>
-                                {v.currentlyUploading === true ? 
-                                <Loader2Icon size={22} color='black' className='animate-spin' /> 
-                                :
+                                {v.currentlyUploading === true ?
+                                  <Loader2Icon size={22} color='black' className='animate-spin' />
+                                  :
                                   <>
                                     <span>
                                       {v.geminaUploadData?.state === "ACTIVE" ?
@@ -1055,7 +1064,7 @@ function ProImageEditor() {
                                     </span>
                                   </>}
                               </span>
-                              
+
                             }
                           </span>
 
