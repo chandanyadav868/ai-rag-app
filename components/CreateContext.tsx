@@ -67,6 +67,7 @@ export interface InfoProps {
 export interface FeedBackUseStateProps {
   createdBy: Pick<UserSchemaProp, 'email' | '_id' | 'username' | 'avatar'>;
   feedback: string;
+  rating?:number
   __v?: number;
   _id: string;
   createdAt?: string;

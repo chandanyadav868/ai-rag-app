@@ -702,7 +702,7 @@ function ProImageEditor() {
 
         fabricJs.current.isDrawingMode = true; // Disable free drawing mode
         console.log('crosshair');
-        
+
         // fabricJs ke pass current naam ke property ke pass on naam ka method hai jo ki ek parameter mai event ka naam leta hai, aur second mai ek callback, ye es callback ko register kar leta hai jab bhi ye event hoga to ye callback run mai defined logic run karega aur jo es ka parameter hai wo ye method khud hi dalta hai
         fabricJs.current.on("mouse:down", (options) => {
           // now drawing start ho gya hai
@@ -927,15 +927,15 @@ function ProImageEditor() {
       {/* <ImageKitUploader/> */}
 
       <main className='flex gap-2'>
-        <div className={`bg-amber-200 flex max-md:w-[85%] fixed left-0 w-[400px] basis-[400px]  p-1 slidingGenerate ${slidingGenerateImage ? "slidingGenerateUpon" : "slidingGenerateCLosed"}`} style={{ height: `calc(-62px + 100vh)`, zIndex: 9 }}>
+        <div className={`bg-[#262627] textColor flex max-md:w-[85%] fixed left-0 w-[400px] basis-[400px]  p-1 slidingGenerate ${slidingGenerateImage ? "slidingGenerateUpon" : "slidingGenerateCLosed"}`} style={{ height: `100vh`, zIndex: 9 }}>
 
           {slidingGenerateImage ?
             <>
-              <ArrowLeftSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 text-white rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
+              <ArrowLeftSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 textColor rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
             </>
             :
             <>
-              <ArrowRightSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 text-white rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
+              <ArrowRightSquare onClick={() => setSlidingGenerateImage((prev) => !prev)} className='bg-gray-500 p-2 fixed top-12 left-1/1 textColor rounded-md tansform translate-x-1 cursor-pointer' size={35} style={{ zIndex: 99 }} />
             </>}
 
           <div className='flex-1 flex flex-col gap-4 overflow-auto historyScrollbar'>
@@ -948,18 +948,18 @@ function ProImageEditor() {
               ))}
             </div>
             {/* text */}
-            <label htmlFor="shape_insert" className='flex gap-2 bg-white rounded-md w-fit p-2 cursor-pointer' onClick={addTextLayer}>
+            <label htmlFor="shape_insert" className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer ' onClick={addTextLayer}>
               <Text size={22} color='black' />
               <span>Text</span>
             </label>
             {/* shape */}
-            <label htmlFor="shape_insert" className='flex gap-2 bg-white rounded-md w-fit p-2 cursor-pointer relative'
+            <label htmlFor="shape_insert" className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer relative textColor'
               onClick={setStartShapeDrawing.bind(null, !startShapeDrawing)}
             >
               <ShapesIcon size={22} color='black' />
               <span>Insert</span>
 
-              {startShapeDrawing && <div className='absolute bg-white rounded-md p-2 flex gap-2 flex-col right-0 top-0 z-10' id='shape_insert' style={{ transform: "translate(100%, 0px)" }}>
+              {startShapeDrawing && <div className='absolute bg-gray-600 rounded-md p-2 flex gap-2 flex-col right-0 top-0 z-10' id='shape_insert' style={{ transform: "translate(100%, 0px)" }}>
                 <span onClick={() => onShapeClick({ type: "rectangle" })}>Rectangle</span>
                 <span onClick={() => onShapeClick({ type: "circle" })}>Circle</span>
                 <span onClick={() => onShapeClick({ type: "triangle" })}>Triangle</span>
@@ -970,10 +970,10 @@ function ProImageEditor() {
             </label>
             {/* file  use same htmlFor and id in input for activating that*/}
             <label
-              htmlFor='file' className='flex gap-2 bg-white rounded-md p-2 cursor-pointer w-full'>
+              htmlFor='file' className='flex gap-2 bg-gray-600 rounded-md p-2 cursor-pointer w-full textColor'>
               {somethingDrop ?
                 <>
-                  <span className='block w-full rounded-md text-center animate-pulse'>Drop Here</span>
+                  <span className='block w-full rounded-md textColorr animate-pulse'>Drop Here</span>
                 </>
                 :
                 <>
@@ -989,7 +989,7 @@ function ProImageEditor() {
             </label>
 
             {/* export */}
-            <label className='flex gap-2 bg-white rounded-md w-fit p-2 cursor-pointer' onClick={exporting}>
+            <label className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer' onClick={exporting}>
               <Download size={22} color='black' />
               <span>Export</span>
 
@@ -1005,11 +1005,11 @@ function ProImageEditor() {
 
         {/* CANVAS AREA */}
         <div
-          className='bg-black flex-1 relative overflow-auto' style={{ height: `calc(-62px + 100vh)`, overflow: "auto", scale: 1, }}>
+          className='bg-black flex-1 relative overflow-auto' style={{ height: `100vh`, overflow: "auto", scale: 1, }}>
 
           <div className='rounded-md bg-white p-2 flex fixed bottom-6 right-4' style={{ zIndex: 999 }}>
-            <Plus onClick={() => resizeCanvas("ZoomIn", 0.1)} size={22} className='font-bold text-black cursor-pointer' />
-            <Minus onClick={() => resizeCanvas("ZoomOut", 0.1)} size={22} className='font-bold text-black cursor-pointer' />
+            <Plus color='black' onClick={() => resizeCanvas("ZoomIn", 0.1)} size={22} className='font-bold textColor cursor-pointer' />
+            <Minus color='black' onClick={() => resizeCanvas("ZoomOut", 0.1)} size={22} className='font-bold textColor cursor-pointer' />
           </div>
 
           <div ref={canvasDivRef} className=' w-full h-full relative flex justify-center items-center' style={{ scale: 1 }}>
@@ -1020,13 +1020,13 @@ function ProImageEditor() {
         </div>
 
         {/* layer div */}
-        <div className={`slidingLayer bg-gray-600/50 flex flex-col backdrop-blur-3xl max-md:w-[80%] w-[400px] fixed right-0 transform ${slidingLayer ? "slidingLayerUpon" : "slidingLayerCLosed"}`} style={{ height: `calc(-50px + 100vh)` }}>
+        <div className={`slidingLayer bg-gray-600/50 flex flex-col backdrop-blur-3xl max-md:w-[80%] w-[400px] p-1 fixed right-0 transform ${slidingLayer ? "slidingLayerUpon" : "slidingLayerCLosed"}`} style={{ height: `100vh` }}>
 
-          <Layers onClick={() => setSlidingLayer((prev) => !prev)} className='bg-gray-500 p-2 absolute top-2 -left-2 text-white rounded-md tansform -translate-x-1/1 cursor-pointer' size={35} />
+          <Layers onClick={() => setSlidingLayer((prev) => !prev)} className='bg-gray-500 p-2 absolute top-2 -left-2 textColor rounded-md tansform -translate-x-1/1 cursor-pointer' size={35} />
 
-          <div className='bg-white text-black font-bold flex p-0.5 justify-center items-center gap-2 rounded-md mt-1'>
+          <div className='bg-white font-bold flex p-0.5 justify-center items-center  textColor gap-2 rounded-md mt-1'>
             {["Layer", "Property"].map((v, i) => (
-              <span key={v} onClick={() => setLayerMenu(v)} className={`font-bold hover:bg-gray-400/50 p-1 rounded-md cursor-pointer ${layerMenu === v ? "underline underline-offset-2" : ""}`}>{v}</span>
+              <span key={v} onClick={() => setLayerMenu(v)} className={`font-bold  hover:bg-gray-400/50 text-black p-1 rounded-md cursor-pointer ${layerMenu === v ? "underline underline-offset-2" : ""}`}>{v}</span>
             ))}
           </div>
 
@@ -1038,7 +1038,7 @@ function ProImageEditor() {
                 <div className='flex w-full flex-col gap-2 mt-2 p-2 overflow-auto historyScrollbar'>
                   {/* slice is being use for shallow copy other wise sort will mutate the state  */}
                   {state.length > 0 && state.slice().sort((s, b) => b.order - s.order).map((v, i) => (
-                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md bg-white hover:bg-gray-300 ${v.id === activeId ? "outline-1 outline-blue-400" : ""}`}>
+                    <div key={v.id} onClick={() => selectingItem(v.id)} className={` p-2 rounded-md bg-gray-700 hover:bg-gray-700/20 ${v.id === activeId ? "outline-1 outline-blue-400" : ""}`}>
                       <div>
                         <div className='flex justify-between'>
                           <input className='cursor-pointer' value={String(v.refrenceAiCheckBox)} type="checkbox" id='checkBox' onClick={(e) => {
@@ -1050,14 +1050,14 @@ function ProImageEditor() {
                             {
                               <span>
                                 {v.currentlyUploading === true ?
-                                  <Loader2Icon size={22} color='black' className='animate-spin' />
+                                  <Loader2Icon size={22} color='white' className='animate-spin' />
                                   :
                                   <>
                                     <span>
                                       {v.geminaUploadData?.state === "ACTIVE" ?
-                                        <CheckCircleIcon onClick={(e) => e.stopPropagation()} size={22} color='green' />
+                                        <CheckCircleIcon onClick={(e) => e.stopPropagation()} size={22} color='white' />
                                         :
-                                        <UploadCloud size={22} color='black' onClick={(e) => {
+                                        <UploadCloud size={22} color='white' onClick={(e) => {
                                           e.stopPropagation();
                                           uploadImageGemina(v.id)
                                         }} />

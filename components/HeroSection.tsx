@@ -4,16 +4,28 @@ import React from 'react'
 
 function HeroSection() {
   return (
-    <div className='w-full gap-4 flex relative justify-center items-center' style={{ height: "calc(-60px + 100vh )" }}>
-      <div className='w-[80%] h-[95%] outline-1 rounded-md absolute flex mx-auto overflow-hidden p-2'>
-        <SlidingDesign />
+    <>
+      {/* text */}
+      <div>
+        <h1 className='hero-Section-Heading'>AI Powered Image Editing</h1>
+        <h1 className='hero-Section-Heading'>Become Viral on
+          <span className='text-red-500 font-extrabold'> Social Media</span>
+        </h1>
+        <p className='commonText'>Transform your ideas into captivating visuals with our AI-powered image generator.</p>
       </div>
-      <div className='bg-white rounded-md p-2 shadow-md w-[561px] max-md:w-full h-[100px]' style={{ position: "absolute", zIndex: 9 }}>
+
+      <div className='mx-auto rounded-md p-2 shadow-md w-[561px] max-md:w-full mt-6 flex gap-4 justify-center items-center'>
+        <ButtonDesign text='Get Started' link='image-editing' />
+        {/* <ButtonDesign text='Explore' link='image-editing' /> */}
+      </div>
+
+      <div className='w-full gap-4 flex relative justify-center items-center' style={{ height: "calc(-60px + 100vh )" }}>
+        <div className='w-[80%] h-[95%] rounded-md absolute flex mx-auto overflow-hidden p-2'>
+          <SlidingDesign />
+        </div>
 
       </div>
-      {/* <ButtonDesign text='Ai Image Editor' link='image-editing'/> */}
-      <ButtonDesign text='Ai Image Editor' link='image-editing' />
-    </div>
+    </>
   )
 }
 

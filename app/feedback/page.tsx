@@ -10,16 +10,23 @@ import { ApiEndpoint } from '../classApi/apiClasses';
 import ErrorComponents from '@/components/ErrorComponents';
 import { createPortal } from 'react-dom';
 import FeedbackComponets from '@/components/FeedbackComponets';
+import Testomonial from '@/components/Testomonial';
 
 interface FeedBackProps {
   feedback: string;
 }
 
 function FeedBack() {
-  const { register, handleSubmit } = useForm<FeedBackProps>();
+  const { register, handleSubmit,watch } = useForm<FeedBackProps>({
+    defaultValues:{
+      feedback:''
+    }
+  });
   const { loginUserData, setError, error, setFeedback } = useContextStore();
   const [loading, setLoading] = useState<boolean>(false)
   const router = useRouter();
+
+  const feedbackText = watch('feedback');  
 
   const formSubmission = async (data: FeedBackProps) => {
     // console.log('formSubmission:- ', data);
@@ -66,7 +73,7 @@ function FeedBack() {
     const responseData = async () => {
       try {
         const response = await ApiEndpoint.Get('/feedback');
-        // console.log('Response Data:- ', response);
+        console.log('Response Data:- ', response);
         const data = response.data as FeedBackUseStateProps[]
         setFeedback(data);
       } catch (error) {
@@ -82,17 +89,31 @@ function FeedBack() {
   }, [])
 
   return (
-    <div className='p-2'>
+    <div className='commonSpacingLeaveForHeader'>
       <div className='w-lg mx-auto max-md:w-[95%]'>
         <h1 className='font-bold text-2xl text-center'>Give Your Valuable Feedback</h1>
+
+        {/* form submission */}
         <form onSubmit={handleSubmit(formSubmission)} className='flex flex-col p-2 gap-2 rounded-md shadow-md'>
           <Textarea {...register('feedback', { required: true })} placeholder='Sending feedback...' className='w-full rounded-md h-[150px]' />
+          <div className='flex gap-2 justify-end'>
+            <span className='text-blue-400 font-bold'>Text</span>
+            <span className='font-bold'>{feedbackText?.length??0}</span>
+            {feedbackText.length > 500?
+            <span className='text-red-500 font-semibold'>Text Must be less than 500</span>
+            :
+            <span></span>
+            }
+          </div>
           <Button loader={loading} text='Send' type='submit' className='text-black text-xl bg-white text-center' />
         </form>
+
+
       </div>
 
       {/* feedBack card showing */}
-      <FeedbackComponets />
+      <Testomonial/>
+      {/* <FeedbackComponets /> */}
 
       {/* error showing */}
       {error && createPortal(<ErrorComponents />, document.body)}

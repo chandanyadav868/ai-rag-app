@@ -70,27 +70,25 @@ function Headers() {
         <></>
         :
         <>
-          <div className='flex bg-gray-300 px-2 py-2 justify-around items-center sticky z-50'>
+          <div className='header-Section gap-12'>
             <header>
-              <nav className='flex gap-4'>
+              <nav className='flex gap-8'>
                 {HeaderList.map((nav, i) => (
-                  <Link key={i} className='font-semibold text-xl' href={nav.link}>{nav.name}</Link>
+                  <Link key={i} className='font-semibold text-xl hover:underline underline-offset-2 decoration-amber-50' href={nav.link}>{nav.name}</Link>
                 ))}
               </nav>
             </header>
+
             <div ref={profileBoxRef} className='relative'>
-
-             {!data && <Link href={"/login/signin"} className='font-black bg-gray-400/50 px-4 py-2 rounded-full'>Login</Link>}
-
+             {!data && <Link href={"/login/signin"} className='font-black bg-white text-black px-4 py-2 rounded-md'>Login</Link>}
             {data && 
             <>
-      
               <span onClick={() => setProfileBox((prev => !prev))} className='flex justify-center items-center relative cursor-pointer'>
                 {data?.user?.avatar ? <Image src={data?.user?.avatar} alt="user avatar" height={34} width={34} className='rounded-full' /> : <CircleUser color='white' className='bg-black p-2 rounded-full w-[44px] h-[44px] ' />}
               </span>
 
               {profileBox && data &&
-                <div className={`p-2 bg-gray-300 font-semibold rounded-md absolute mt-4 flex flex-col gap-2`} style={{transform:`translate(calc(-50% + 22px))`}}>
+                <div className={`p-2 bg-black text-white font-semibold rounded-md absolute mt-4 flex flex-col gap-2`} style={{transform:`translate(calc(-50% + 22px))`}}>
                   <span>{data?.user?.name}</span>
                   <span>{data?.user?.email}</span>
                   <span className='text-red-400 font-bold cursor-pointer py-0.5 px-1 rounded-md w-fit'>

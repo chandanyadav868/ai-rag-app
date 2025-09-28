@@ -3,7 +3,7 @@
 import React from 'react'
 import { ApiEndpoint } from '../classApi/apiClasses';
 import { useContextStore } from '@/components/CreateContext';
-import { CheckSquare, X } from 'lucide-react';
+import { Check, CheckSquare, X } from 'lucide-react';
 
 
 interface PriceCardProps {
@@ -30,12 +30,12 @@ declare global {
 }
 
 function PriceCard({ data }: { data: PriceCardProps }) {
-  const { loginUserData,setLoginUserData,setError } = useContextStore();
+  const { loginUserData, setLoginUserData, setError } = useContextStore();
 
-  const handlePayment = async (rate:number) => {
+  const handlePayment = async (rate: number) => {
     try {
       console.log("Initiating payment...:- ", rate);
-      
+
       const response = await ApiEndpoint.Post('/orders', {}, { id: loginUserData?.id, amount: rate });
 
       console.log("responseJson:- ", response);
@@ -49,16 +49,16 @@ function PriceCard({ data }: { data: PriceCardProps }) {
           // console.log("Payment successful:", response);
           // Optionally, you can verify the payment on the server side here
           try {
-            const updatedUserData =  await ApiEndpoint.Post('/mongoose',{},{email:loginUserData?.email});
-            setLoginUserData({...updatedUserData.data});
+            const updatedUserData = await ApiEndpoint.Post('/mongoose', {}, { email: loginUserData?.email });
+            setLoginUserData({ ...updatedUserData.data });
             console.log("Updated user data after payment:", updatedUserData);
           } catch (error) {
             console.log("Error updating user data after payment:", error);
             setError({
-              message:error instanceof Error ? error.message : 'Unknown error',
-              type:'error'
+              message: error instanceof Error ? error.message : 'Unknown error',
+              type: 'error'
             })
-            
+
           }
         },
         theme: {
@@ -75,35 +75,38 @@ function PriceCard({ data }: { data: PriceCardProps }) {
     }
   }
 
-  console.log("Price Card",data.type, loginUserData?.plan);
-  
-
   return (
-    <div className='w-[350px] outline-1 outline-white bg-black text-white rounded-2xl p-4 flex flex-col gap-4'>
-      <div className='font-bold text-2xl'>{data.type}</div>
+    <div className='w-[350px] outline-1 outline-gray-500 hover:outline-gray-300 bg-black text-white rounded-md p-4 flex flex-col gap-4'>
 
-      <div className='flex'>
-        <span className='align-super'>{data.rate.type}</span>
-        <span className='text-4xl font-semibold'>{data.rate.rate}</span>
-        <span className='flex flex-col text-sm -space-y-2 justify-end ml-1'>
-          <span>{data.rate.curreny.country} /</span>
-          <span>{data.rate.curreny.time}</span>
-        </span>
-      </div>
+      <div className='h-[450px] flex flex-col gap-2'>
+        <div className='font-bold text-2xl'>{data.type}</div>
 
-      <div className='font-semibold'>{data.caption}</div>
-
-      <button onClick={() => handlePayment(data.rate.rate)} className={`outline-1 outline-gray-200 rounded-full text-center px-4 py-2 font-bold cursor-pointer ${loginUserData?.plan === data.type?'bg-white text-black':''}`}>{loginUserData?.plan === data.type? "Your current plan":"Select"}</button>
-
-      <div className='flex gap-4 mt-2 flex-col'>
-        {data.features.map((v, i) => (
-          <span key={i} className='flex gap-2'>
-            <span>{v.icon}</span>
-            <span >{v.text}</span>
-            {data.type.toLowerCase() === "free" && v.text === "Able to use own Api Key"? <X color='red'/>:<CheckSquare color='green'/>}
+        <div className='flex'>
+          <span className='align-super'>{data.rate.type}</span>
+          <span className='text-4xl font-semibold'>{data.rate.rate}</span>
+          <span className='flex flex-col text-sm -space-y-2 justify-end ml-1'>
+            <span>{data.rate.curreny.country} /</span>
+            <span>{data.rate.curreny.time}</span>
           </span>
-        ))}
+        </div>
+
+        <div className='font-semibold'>{data.caption}</div>
+
+        <div className='flex gap-4 mt-4 flex-col'>
+          {data.features.map((v, i) => (
+            <span key={i} className='flex gap-2'>
+              <span>{v.icon}</span>
+              <span >{v.text}</span>
+              {data.type.toLowerCase() === "free" && v.text === "Able to use own Api Key" ? <X color='white' size={22} className='bg-gray-500/40 rounded-full p-1' /> : <Check size={22} color='white' className='bg-gray-500/40 rounded-full p-1' />}
+            </span>
+          ))}
+        </div>
       </div>
+
+      {/* calling the methods */}
+      <button onClick={() => handlePayment(data.rate.rate)} className={`outline-1 outline-gray-500 hover:outline-white rounded-md text-center px-4 py-2 font-bold cursor-pointer ${loginUserData?.plan === data.type ? 'bg-white text-black' : ''}`}>{loginUserData?.plan === data.type ? "Your current plan" : "Select"}
+
+      </button>
 
     </div>
   )

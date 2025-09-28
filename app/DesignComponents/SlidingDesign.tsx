@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import React, { useState } from 'react'
 
-const slidingImage = [{ videoId: "AbkEmIgJMcU", id: 1 }, { videoId: "vFAqBlDpEm0", id: 2 }, { videoId: "7iy8iB8tu5c", id: 3 }, { videoId: "Qg9LxRHLbAk", id: 4 }, { videoId: "k3ijQJjUbTs", id: 5 }]
+const slidingImage = [{ videoId: 'https://ik.imagekit.io/o66qwandt/images/canvas-export%20(17)%20(1).png?updatedAt=1759063440208', id: 1 }, { videoId: 'https://ik.imagekit.io/o66qwandt/images/canvas-export%20(16)%20(1).png?updatedAt=1759063439939', id: 2 }, { videoId: 'https://ik.imagekit.io/o66qwandt/images/canvas-export%20(11)%20(1).png?updatedAt=1759063442909', id: 3 }]
 
 function SlidingDesign() {
     const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -39,8 +39,8 @@ function SlidingDesign() {
         <div className='w-[100%] bg-amber-400 h-[100%] flex transition-transform duration-500 ease-in-out' style={{ transform: `translateX(calc(-${(currentIndex * 100)}% - ${currentIndex*10}px))` }}>
             {
                 slidingImage.map((image, index) => (
-                    <Image height={1000} key={index} width={1000} src={`https://img.youtube.com/vi/${image.videoId}/maxresdefault.jpg`} alt={`sliding-image-${image.id}`} 
-                    className={`w-full h-full object-cover rounded-md bg-white`}
+                    <Image height={1000} key={index} width={1000} src={`${image.videoId}`} alt={`sliding-image-${image.id}`} 
+                    className={`w-full h-full object-cover rounded-md bg-white `}
                      style={{ transform: `translateX(${(index * 100)}%)`, marginLeft:`${index*10}px`,position:"absolute"}} 
                      />
                 ))

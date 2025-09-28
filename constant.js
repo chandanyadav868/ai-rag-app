@@ -93,37 +93,49 @@ export const testomonialDetails = [
     },
 ]
 
+export const slidingText = [
+    {
+        text: "Change image into the portrait, change width 1080 and change height 1920, position all element of image according to the protrait of image where they will stay, which give visual effect more",
+    },
+    {
+        text: "Change image into the landscape, change width 1920 and change height 1080, position all element of image according to the protrait of image where they will stay, which give visual effect more",
+    },
+    {
+        text: "Change image into the square, change width 1080 and change height 1080, position all element of image according to the protrait of image where they will stay, which give same visual effect",
+    }
+]
+
 export const slidingImage = [
     {
-        landscapeThumnail: "https://img.youtube.com/vi/SqIE6lj2IGo/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/OU4ncnRAmLE/oardefault.jpg",
-        squareThumnail: "https://yt3.ggpht.com/hwly2tSvE66xgff3sKIUYGFahayMInlDihF3-AJ10F7_08ha9fOrzUsC7EmyYpGpt2xNFxHF1wAkoQ=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
+        portraitImage: "https://ik.imagekit.io/o66qwandt/images/canvas-export%20(12).png?updatedAt=1759047925915",
+        LandscapeImage: "https://ik.imagekit.io/o66qwandt/images/canvas-export%20(13).png?updatedAt=1759050989336",
+        SquareImage: "https://ik.imagekit.io/o66qwandt/images/canvas-export%20(13).png?updatedAt=1759050989336",
     },
-    {
-        landscapeThumnail: "https://img.youtube.com/vi/r9Y35xwNPiI/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/bMjzIr8OlQE/oardefault.jpg",
-        squareThumnail: "https://yt3.ggpht.com/ChQ-8N_TZHHRcb3bKOY4rVOPhKzv-OrRinEtVM5BdbbK3KJIgy36mSIE8bfGmVobimKa8Yacxpji_w=s640-c-fcrop64=1,55850000e584ffff-rw-nd-v1",
-    },
-    {
-        landscapeThumnail: "https://img.youtube.com/vi/6uB65PdasQI/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/-7CjPpTCSjA/oardefault.jpg",
-        squareThumnail: "https://yt3.ggpht.com/EqQh_QIb_N9R0k7iheAXnwMNX0rUxrhsTgX40KvmDGBPcBvoOUVpKPOiG7uWFVHGOmnv3K6n32PGTPg=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
-    },
-    {
-        landscapeThumnail: "https://img.youtube.com/vi/N7Q_56f39MQ/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/HHobKQxriIU/oardefault.jpg",
-        squareThumnail: "https://yt3.ggpht.com/KsNHNO9xNeyqaL-Basz1KWos9s5SkbQlRF8pFDzDqXNViRjnSVhga1mknkROLJX4wjJEbyprNg3NgmY=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
-    },
-    {
-        landscapeThumnail: "https://img.youtube.com/vi/PzvZ70aTZ3s/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/6bz6FsHKHDQ/oardefault.jpg",
-        squareThumnail: "https://yt3.ggpht.com/23Jjb9jJ7w38GfaRxQI7nYjWG4ti2hCmrcCop5SNLlKKmZxYpqS1v1tgtExxvgxrdXcSRooS2tkgVw=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
-    },
-    {
-        landscapeThumnail: "https://img.youtube.com/vi/2B8gABDfh7I/maxresdefault.jpg",
-        potraitThumnail: "https://i.ytimg.com/vi/gkRbgY6D-Nc/oar2.jpg",
-        squareThumnail: "https://yt3.ggpht.com/npkteHAsUkoTROQYCZpQK_n-UKCy1gNfw0kSUGjnk2TX-PRIPE9Eim0mZSkGN2Id-D6it42ZR5qy=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
-    },
+    // {
+    //     landscapeThumnail: "https://img.youtube.com/vi/r9Y35xwNPiI/maxresdefault.jpg",
+    //     potraitThumnail: "https://i.ytimg.com/vi/bMjzIr8OlQE/oardefault.jpg",
+    //     squareThumnail: "https://yt3.ggpht.com/ChQ-8N_TZHHRcb3bKOY4rVOPhKzv-OrRinEtVM5BdbbK3KJIgy36mSIE8bfGmVobimKa8Yacxpji_w=s640-c-fcrop64=1,55850000e584ffff-rw-nd-v1",
+    // },
+    // {
+    //     landscapeThumnail: "https://img.youtube.com/vi/6uB65PdasQI/maxresdefault.jpg",
+    //     potraitThumnail: "https://i.ytimg.com/vi/-7CjPpTCSjA/oardefault.jpg",
+    //     squareThumnail: "https://yt3.ggpht.com/EqQh_QIb_N9R0k7iheAXnwMNX0rUxrhsTgX40KvmDGBPcBvoOUVpKPOiG7uWFVHGOmnv3K6n32PGTPg=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
+    // },
+    // {
+    //     landscapeThumnail: "https://img.youtube.com/vi/N7Q_56f39MQ/maxresdefault.jpg",
+    //     potraitThumnail: "https://i.ytimg.com/vi/HHobKQxriIU/oardefault.jpg",
+    //     squareThumnail: "https://yt3.ggpht.com/KsNHNO9xNeyqaL-Basz1KWos9s5SkbQlRF8pFDzDqXNViRjnSVhga1mknkROLJX4wjJEbyprNg3NgmY=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
+    // },
+    // {
+    //     landscapeThumnail: "https://img.youtube.com/vi/PzvZ70aTZ3s/maxresdefault.jpg",
+    //     potraitThumnail: "https://i.ytimg.com/vi/6bz6FsHKHDQ/oardefault.jpg",
+    //     squareThumnail: "https://yt3.ggpht.com/23Jjb9jJ7w38GfaRxQI7nYjWG4ti2hCmrcCop5SNLlKKmZxYpqS1v1tgtExxvgxrdXcSRooS2tkgVw=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
+    // },
+    // {
+    //     landscapeThumnail: "https://img.youtube.com/vi/2B8gABDfh7I/maxresdefault.jpg",
+    //     potraitThumnail: "https://i.ytimg.com/vi/gkRbgY6D-Nc/oar2.jpg",
+    //     squareThumnail: "https://yt3.ggpht.com/npkteHAsUkoTROQYCZpQK_n-UKCy1gNfw0kSUGjnk2TX-PRIPE9Eim0mZSkGN2Id-D6it42ZR5qy=s640-c-fcrop64=1,00000000ffffffff-rw-nd-v1",
+    // },
 ]
 
 
@@ -605,7 +617,4 @@ export const toolsDifferentShapes = [
         ]
     }
 ]
-
-
-
 

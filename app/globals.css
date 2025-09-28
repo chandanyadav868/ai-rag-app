@@ -4,9 +4,16 @@
 body {
     min-height: 100vh;
 }
+
+/* spacing leave */
+.commonSpacingLeaveForHeader{
+  @apply pt-24
+}
+
 body{
     /* @apply bg-[#575763] */
-    @apply bg-amber-50
+    @apply bg-black/95;
+    color: white;
 }
 
 
@@ -126,6 +133,14 @@ button:active {
     scrollbar-color: #727272 #f2090900;
 }
 
+.copyingSectionScrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.copyingSectionScrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
 
 .prose {
     --tw-prose-links: #489dee;
@@ -384,3 +399,22 @@ input[type="number"]::-webkit-outer-spin-button {
 .slidingGenerateUpon {
   transform: translateX(0);
 }
+
+@layer utilities {
+  .hero-Section-Heading {
+    @apply text-5xl max-md:text-4xl font-bold text-center leading-13
+  }
+  .show-Section-Heading {
+    @apply text-5xl text-center max-md:text-3xl font-bold
+  }
+  .header-Section {
+    @apply top-0 left-1/2 transform -translate-x-1/2 flex bg-[#1e2126]/50 backdrop-blur-2xl px-4 py-4 justify-around items-center fixed z-50 w-fit mx-auto mt-4 rounded-md max-lg:w-full
+  }
+  .commonText{
+    @apply font-medium mt-4 text-center text-xl text-gray-400 max-md:text-sm
+  }
+  .textColor{
+    @apply text-white
+  }
+}
+
