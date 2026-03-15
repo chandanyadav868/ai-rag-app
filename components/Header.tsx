@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from "next-auth/react"
 import { useContextStore } from './CreateContext'
-import { ApiEndpoint } from '@/app/classApi/apiClasses'
+import { ApiEndpoint } from '@/app/(main)/classApi/apiClasses'
 
 function Headers() {
   const [profileBox, setProfileBox] = useState(false);

@@ -2,7 +2,7 @@
 import { ArrowLeftSquare, ArrowRightSquare, CheckCircleIcon, Copy, Download, Edit2, EyeIcon, EyeOff, ImageUpIcon, Layers, Loader2Icon, LockKeyhole, LockKeyholeOpen, Minus, Plus, ShapesIcon, Text, Trash2Icon, UploadCloud } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from "react-dom"
-import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas } from 'fabric'; // browser
+import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas, SprayBrush, CircleBrush } from 'fabric'; // browser
 import Image from 'next/image';
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { ai, aspectRatioImage } from '@/constant';
@@ -10,7 +10,7 @@ import ToolBox from '@/components/ToolBox';
 import EditTool from '@/components/EditTool';
 import { useContextStore } from '@/components/CreateContext';
 import { v4 as uuidv4 } from 'uuid';
-import { ApiEndpoint } from '../classApi/apiClasses';
+import { ApiEndpoint } from '../(main)/classApi/apiClasses';
 
 
 
@@ -81,7 +81,7 @@ function ProImageEditor() {
 
     const newAspectration = aspectRatioImage.find((v, _) => v.orientation === canvasOrientation);
 
-    fabricJs.current = new Canvas(canvasRef.current, { width: newAspectration?.width, height: newAspectration?.height, backgroundColor: "azure", allowTouchScrolling: true, selectionColor: "red" });
+    fabricJs.current = new Canvas(canvasRef.current, { width: newAspectration?.width, height: newAspectration?.height, backgroundColor: "azure" });
 
 
     fabricJs.current.on("selection:created", (e) => {
@@ -187,7 +187,7 @@ function ProImageEditor() {
       const obj = {
         globalCompositeOperation: target.get("globalCompositeOperation"),
         top: target.get("top"),
-        left: target.get("lect"),
+        left: target.get("left"),
         width: Number(Math.round(target.getScaledWidth()).toFixed(0)),
         fill: target.get("fill"),
         height: Number(Math.round(target.getScaledHeight()).toFixed(0)),
@@ -695,12 +695,16 @@ function ProImageEditor() {
     if (!fabricJs.current) return
 
     let isDrawing: boolean, RectX: number, RectY: number, Shape: Rect | Triangle;
-
+    // remove old listeners first
+    fabricJs.current.off("mouse:down");
+    fabricJs.current.off("mouse:move");
+    fabricJs.current.off("mouse:up");
     // this is also checking for putting event on the canvas
     switch (type) {
+
       case "rectangle":
 
-        fabricJs.current.isDrawingMode = true; // Disable free drawing mode
+        // fabricJs.current.isDrawingMode = true; // Disable free drawing mode
         console.log('crosshair');
 
         // fabricJs ke pass current naam ke property ke pass on naam ka method hai jo ki ek parameter mai event ka naam leta hai, aur second mai ek callback, ye es callback ko register kar leta hai jab bhi ye event hoga to ye callback run mai defined logic run karega aur jo es ka parameter hai wo ye method khud hi dalta hai
@@ -754,7 +758,6 @@ function ProImageEditor() {
         fabricJs.current.on("mouse:up", (options) => {
           if (!fabricJs.current) return
           isDrawing = false;
-          fabricJs.current.isDrawingMode = false; // Disable free drawing mode
           fabricJs.current?.off("mouse:down")
           fabricJs.current?.off("mouse:up")
           fabricJs.current?.off("mouse:move")
@@ -810,8 +813,6 @@ function ProImageEditor() {
             left: RectX,
             top: RectY,
             radius: 0,
-            originX: "center",
-            originY: "center",
             fill: "rgba(255, 0, 0, 0.5)", // semi-transparent red
           }
           const retrunShape = shapeInserting(obj, type)
@@ -847,21 +848,27 @@ function ProImageEditor() {
       case "freeDrawing":
         fabricJs.current.on("mouse:down", (options) => {
           if (!fabricJs.current) return;
-          fabricJs.current.isDrawingMode = true; // Enable free drawing mode
           // 3. Set brush options
+          fabricJs.current.isDrawingMode = true; // Enable free drawing mode
           fabricJs.current.freeDrawingBrush = new PencilBrush(fabricJs.current);
 
           if (!fabricJs.current.freeDrawingBrush) {
             return
           }
-          fabricJs.current.freeDrawingBrush.color = "red"; // Set brush color
+          fabricJs.current.freeDrawingBrush.color = "green"; // Set brush color
           fabricJs.current.freeDrawingBrush.width = 5; // Set brush width
+          // fabricJs.current.freeDrawingBrush.strokeDashArray = [10, 15];  //  10px dash, 5px gap
+          // fabricJs.current.freeDrawingBrush.strokeLineJoin = "round"
+
         })
 
         // Listen for when a drawing (Path) is created
         fabricJs.current.on("path:created", (event) => {
           const path = event.path;
           if (!path) return;
+
+          // recalculate correct coordinates
+          path.setCoords();
 
           const newId = "path" + random; // generate id once
 
@@ -885,9 +892,8 @@ function ProImageEditor() {
           const maxOrder = maxFindingFn();
           setState((prev) => [{ ...obj, order: maxOrder + 1, type }, ...prev]);
 
-          fabricJs.current?.add(path);
+          // fabricJs.current?.add(path);
           fabricJs.current?.renderAll();
-          fabricJs.current?.setActiveObject(path);
 
           if (!fabricJs.current) return;
           // Turn off drawing mode
@@ -895,6 +901,7 @@ function ProImageEditor() {
           fabricJs.current?.off("mouse:down");
           fabricJs.current?.off("mouse:up");
           fabricJs.current?.off("path:created");
+          selectingItem(newId);
         });
         break;
     }
@@ -963,10 +970,12 @@ function ProImageEditor() {
                 <span onClick={() => onShapeClick({ type: "rectangle" })}>Rectangle</span>
                 <span onClick={() => onShapeClick({ type: "circle" })}>Circle</span>
                 <span onClick={() => onShapeClick({ type: "triangle" })}>Triangle</span>
-                <span onClick={() => onShapeClick({ type: "freeDrawing" })}>FreeDrawing</span>
               </div>
 
               }
+            </label>
+            <label className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer relative textColor'>
+              <span onClick={() => onShapeClick({ type: "freeDrawing" })}>FreeDrawing</span>
             </label>
             {/* file  use same htmlFor and id in input for activating that*/}
             <label
@@ -1071,7 +1080,7 @@ function ProImageEditor() {
 
                         </div>
                         <span className={`w-full flex gap-2 justify-between cursor-pointer p-2 rounded-md relative group/delete overflow-hidden`}>
-                          <span className='line-clamp-2'>{v.id}</span>
+                          <span className='line-clamp-2'>{v.id.slice(0,10)}</span>
                           {/* eyes on off */}
                           <span className=' absolute top-2 right-2 flex'>
                             {v.hideLayer ?

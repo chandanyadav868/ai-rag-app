@@ -1,4 +1,4 @@
-import TestomonialDesign from '@/app/DesignComponents/TestomonialDesign'
+import TestomonialDesign from '@/app/(main)/DesignComponents/TestomonialDesign'
 import { testomonialDetails } from '@/constant'
 import React, { useContext } from 'react'
 import { useContextStore } from './CreateContext'

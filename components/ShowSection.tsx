@@ -1,4 +1,4 @@
-import ShowDesign from '@/app/DesignComponents/ShowDesign'
+import ShowDesign from '@/app/(main)/DesignComponents/ShowDesign'
 import { slidingImage, slidingText } from '@/constant'
 import React, { useRef, useState } from 'react'
 import CopyBox from './CopyBox';

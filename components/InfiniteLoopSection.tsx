@@ -1,4 +1,4 @@
-import InfiniteDesign from '@/app/DesignComponents/InfiniteDesign'
+import InfiniteDesign from '@/app/(main)/DesignComponents/InfiniteDesign'
 import React from 'react'
 
 function InfiniteLoopSection() {

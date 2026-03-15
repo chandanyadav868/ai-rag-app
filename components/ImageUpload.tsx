@@ -1,6 +1,6 @@
 "use client"
 
-import { FileUploadResponseProps } from '@/app/image-ai/page';
+import { FileUploadResponseProps } from '@/app/(main)/image-ai/page';
 import { GoogleGenAI } from '@google/genai';
 import Image from 'next/image';
 import React, { useState } from 'react'

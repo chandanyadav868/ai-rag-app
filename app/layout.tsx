@@ -6,6 +6,7 @@ import 'highlight.js/styles/github.css'; // or any other style
 import ContextProvider from "@/components/CreateContext";
 import { SessionProvider } from "next-auth/react";
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 
 
 const geistMono = LocalFont({
@@ -30,7 +31,6 @@ export const metadata: Metadata = {
 
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-
   return (
     <html lang="en">
       <link rel="shortcut icon" href="favicorn/favicon.ico" type="image/x-icon" />
@@ -38,7 +38,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {/* header */}
         <SessionProvider>
           <ContextProvider>
-            <Headers />
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <div className={`${geistMono.variable} ${geistSans.variable} antialiased`}>{children}</div>
           </ContextProvider>

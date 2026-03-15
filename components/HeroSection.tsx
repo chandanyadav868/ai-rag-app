@@ -1,5 +1,5 @@
-import ButtonDesign from '@/app/DesignComponents/ButtonDesign'
-import SlidingDesign from '@/app/DesignComponents/SlidingDesign'
+import ButtonDesign from '@/app/(main)/DesignComponents/ButtonDesign'
+import SlidingDesign from '@/app/(main)/DesignComponents/SlidingDesign'
 import React from 'react'
 
 function HeroSection() {

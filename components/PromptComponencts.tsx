@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom';
 import ErrorComponents from './ErrorComponents';
 import InfoComponent from './InfoComponent';
 import { useRouter } from 'next/navigation';
-import { ApiEndpoint } from '@/app/classApi/apiClasses';
+import { ApiEndpoint } from '@/app/(main)/classApi/apiClasses';
 import { set } from 'mongoose';
 
 interface ErrorPropsGeminaProps {

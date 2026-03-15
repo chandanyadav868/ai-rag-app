@@ -1,4 +1,4 @@
-import PriceCard from '@/app/DesignComponents/PriceCard'
+import PriceCard from '@/app/(main)/DesignComponents/PriceCard'
 import { PriceData } from '@/constant'
 import React from 'react'
 
