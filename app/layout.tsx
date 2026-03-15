@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import LocalFont from "next/font/local";
 import './globals.css'
-import Headers from "@/components/Header";
 import 'highlight.js/styles/github.css'; // or any other style
 import ContextProvider from "@/components/CreateContext";
 import { SessionProvider } from "next-auth/react";
 import Script from "next/script";
-import { usePathname } from "next/navigation";
 
 
 const geistMono = LocalFont({
