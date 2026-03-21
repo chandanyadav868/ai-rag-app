@@ -2,7 +2,7 @@
 import { ArrowLeftSquare, ArrowRightSquare, CheckCircleIcon, Copy, Download, Edit2, EyeIcon, EyeOff, ImageUpIcon, Layers, Loader2Icon, LockKeyhole, LockKeyholeOpen, Minus, Plus, ShapesIcon, Text, Trash2Icon, UploadCloud } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from "react-dom"
-import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas, SprayBrush, CircleBrush } from 'fabric'; // browser
+import { Canvas, Rect, FabricImage, SerializedRectProps, ObjectEvents, ImageProps, SerializedImageProps, Textbox, TextboxProps, SerializedTextboxProps, ITextEvents, Triangle, Circle, PencilBrush, StaticCanvas, SprayBrush, CircleBrush, Polyline, Polygon, Line, Point } from 'fabric'; // browser
 import Image from 'next/image';
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { ai, aspectRatioImage } from '@/constant';
@@ -39,90 +39,282 @@ function ProImageEditor() {
 
   useEffect(() => {
     if (!canvasRef.current) {
-      return
+      return;
     }
 
+    // Drag over handler - prevent default to allow drop
     const dropOverImage = (e: MouseEvent) => {
-      e.preventDefault()
-      setSomethingDrop(true)
-    }
+      e.preventDefault();
+      setSomethingDrop(true);
+    };
 
+    // Drop handler - handle dropped files
     const dropImage = (e: DragEvent) => {
       e.preventDefault();
-      if (!e.dataTransfer) return
-      droppingFile(e.dataTransfer.files)
+      if (!e.dataTransfer) return;
+      droppingFile(e.dataTransfer.files);
       setSomethingDrop(false);
-      // console.log();
-    }
+    };
 
+    // Delete key handler - delete selected objects
     const deletingObj = (e: KeyboardEvent) => {
-      // console.log("key:- ", e.key);
       if (e.key === "Delete") {
-
-        if (!fabricJs.current) {
-          return
-        }
+        if (!fabricJs.current) return;
 
         const activeObjects = fabricJs.current?.getActiveObjects();
-        // console.log("allSelectedObj:- ", activeObjects);
-        // Remove from canvas
-        if (!activeObjects) return
+        if (!activeObjects) return;
 
-
-        activeObjects.forEach((obj, i) => {
-          // console.log("deletingObj:- ", obj.get("id"), i);
+        // Delete each selected object
+        activeObjects.forEach((obj) => {
           deleteLayer(obj.get("id"));
         });
       }
+    };
 
+    // Get aspect ratio based on orientation
+    const newAspectRatio = aspectRatioImage.find(
+      (v) => v.orientation === canvasOrientation
+    );
 
-    }
+    // Initialize Fabric.js canvas
+    fabricJs.current = new Canvas(canvasRef.current, {
+      width: newAspectRatio?.width,
+      height: newAspectRatio?.height,
+      backgroundColor: "azure",
+    });
 
+    // ==================== ZOOM FUNCTIONALITY ====================
 
-    const newAspectration = aspectRatioImage.find((v, _) => v.orientation === canvasOrientation);
+    // Variables for pinch-to-zoom
+    let isPinching = false;
+    let lastDistance = 0;
 
-    fabricJs.current = new Canvas(canvasRef.current, { width: newAspectration?.width, height: newAspectration?.height, backgroundColor: "azure" });
+    // Mouse wheel zoom (Desktop)
+    fabricJs.current.on("mouse:wheel", (opt) => {
+      const event = opt.e as WheelEvent;
+      event.preventDefault();
+      event.stopPropagation();
 
+      if (!fabricJs.current) return;
 
+      // Get current zoom level
+      let zoom = fabricJs.current.getZoom();
+
+      // Calculate new zoom (wheelDelta determines zoom in/out)
+      // Positive deltaY = zoom out, Negative deltaY = zoom in
+      zoom *= 0.999 ** event.deltaY;
+
+      // Limit zoom level between 0.1x and 20x
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.1) zoom = 0.1;
+
+      // Create Fabric.js Point object
+      const point = new Point(event.offsetX, event.offsetY);
+      // Zoom to pointer position (zoom where mouse is pointing)
+      fabricJs.current.zoomToPoint(
+        point,
+        zoom
+      );
+
+      fabricJs.current.requestRenderAll();
+    });
+
+    // Touch start - detect if it's a pinch gesture
+    const handleTouchStart = (e: TouchEvent) => {
+      if (!fabricJs.current) return;
+
+      // If there are 2 fingers, it's a pinch gesture
+      if (e.touches.length === 2) {
+        isPinching = true;
+
+        // Disable selection while pinching
+        fabricJs.current.selection = false;
+        fabricJs.current.forEachObject((obj) => {
+          obj.selectable = false;
+        });
+
+        // Calculate distance between two fingers
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        lastDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+      }
+    };
+
+    // Touch move - handle pinch zoom
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!fabricJs.current || !isPinching) return;
+
+      if (e.touches.length === 2) {
+        e.preventDefault(); // Prevent default browser zoom
+
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+
+        // Calculate new distance between fingers
+        const currentDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+
+        // Calculate zoom scale based on distance change
+        if (lastDistance > 0) {
+          const scale = currentDistance / lastDistance;
+          let zoom = fabricJs.current.getZoom();
+          zoom *= scale;
+
+          // Limit zoom level
+          if (zoom > 20) zoom = 20;
+          if (zoom < 0.1) zoom = 0.1;
+
+          // Get center point between two fingers
+          const centerX = (touch1.clientX + touch2.clientX) / 2;
+          const centerY = (touch1.clientY + touch2.clientY) / 2;
+
+          // Get canvas offset
+          const rect = canvasRef.current?.getBoundingClientRect();
+          const offsetX = rect ? centerX - rect.left : centerX;
+          const offsetY = rect ? centerY - rect.top : centerY;
+
+          // Create Fabric.js Point object
+          const point = new Point(offsetX, offsetY);
+
+          // Zoom to center point between fingers
+          fabricJs.current.zoomToPoint(
+            point,
+            zoom
+          );
+
+          fabricJs.current.requestRenderAll();
+        }
+
+        lastDistance = currentDistance;
+      }
+    };
+
+    // Touch end - re-enable selection
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!fabricJs.current) return;
+
+      // If pinch ended, re-enable selection
+      if (e.touches.length < 2) {
+        isPinching = false;
+        lastDistance = 0;
+
+        // Re-enable selection
+        fabricJs.current.selection = true;
+        fabricJs.current.forEachObject((obj) => {
+          obj.selectable = true;
+        });
+      }
+    };
+
+    // Pan functionality (optional - drag canvas when zoomed in)
+    let isDragging = false;
+    let lastPosX = 0;
+    let lastPosY = 0;
+
+    fabricJs.current.on("mouse:down", (opt) => {
+      const event = opt.e as MouseEvent;
+
+      // Enable panning with Alt key + drag (or middle mouse button)
+      if (event.altKey === true || event.button === 1) {
+        isDragging = true;
+        fabricJs.current!.selection = false;
+        lastPosX = event.clientX;
+        lastPosY = event.clientY;
+        fabricJs.current!.setCursor('grab');
+      }
+    });
+
+    fabricJs.current.on("mouse:move", (opt) => {
+      if (!isDragging || !fabricJs.current) return;
+
+      const event = opt.e as MouseEvent;
+      const vpt = fabricJs.current.viewportTransform;
+      if (!vpt) return;
+
+      // Calculate movement delta
+      const deltaX = event.clientX - lastPosX;
+      const deltaY = event.clientY - lastPosY;
+
+      // Update viewport position
+      vpt[4] += deltaX;
+      vpt[5] += deltaY;
+
+      fabricJs.current.requestRenderAll();
+
+      lastPosX = event.clientX;
+      lastPosY = event.clientY;
+    });
+
+    fabricJs.current.on("mouse:up", () => {
+      if (!fabricJs.current) return;
+
+      // Disable dragging
+      isDragging = false;
+      fabricJs.current.selection = true;
+      fabricJs.current.setCursor('default');
+    });
+
+    // ==================== SELECTION EVENTS ====================
+
+    // When object is selected
     fabricJs.current.on("selection:created", (e) => {
       const activeObject = e.selected[0].get("id");
-      setActiveId(activeObject); // store in useRef
-      // console.log("Selected:", activeObject);
+      setActiveId(activeObject);
     });
 
+    // When selection is updated (different object selected)
     fabricJs.current.on("selection:updated", (e) => {
       const activeObject = e.selected[0].get("id");
-      setActiveId(activeObject);;
-      // console.log("Selection updated:", activeObject);
+      setActiveId(activeObject);
     });
 
+    // When selection is cleared
     fabricJs.current.on("selection:cleared", () => {
       setActiveId(null);
-      // console.log("Selection cleared");
     });
 
+    // ==================== EVENT LISTENERS ====================
 
+    // Add window event listeners
     window.addEventListener("dragover", dropOverImage);
     window.addEventListener("drop", dropImage);
+    window.addEventListener("keydown", deletingObj);
+
+    // Add touch event listeners to canvas element
+    const canvasElement = canvasRef.current;
+    canvasElement.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvasElement.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvasElement.addEventListener("touchend", handleTouchEnd);
 
     setActiveId(null);
-    window.addEventListener("keydown", deletingObj);
-    // i want to change color of outer box when selected item in fabric.js write methods for that
+    fabricJs.current.renderAll();
 
-    fabricJs.current.renderAll()
+    // ==================== CLEANUP ====================
 
     return () => {
-      window.removeEventListener("dragover", dropOverImage)
-      window.removeEventListener("drop", dropImage)
+      // Remove all event listeners
+      window.removeEventListener("dragover", dropOverImage);
+      window.removeEventListener("drop", dropImage);
       window.removeEventListener("keydown", deletingObj);
 
-      setState([])
+      // Remove touch event listeners
+      if (canvasElement) {
+        canvasElement.removeEventListener("touchstart", handleTouchStart);
+        canvasElement.removeEventListener("touchmove", handleTouchMove);
+        canvasElement.removeEventListener("touchend", handleTouchEnd);
+      }
 
-      // ✅ Dispose the old canvas to prevent errors
+      setState([]);
+
+      // Dispose the canvas
       fabricJs.current?.dispose();
       fabricJs.current = null;
-    }
-
+    };
   }, []);
 
   useEffect(() => {
@@ -306,7 +498,7 @@ function ProImageEditor() {
     setState((prev) => [{ ...newImage, src: ImageUrl }, ...prev]);
   }
 
-  const shapeInserting = (shape: Partial<StateProps>, type: string) => {
+  const shapeInserting = (shape: Partial<StateProps>, type: string, points?: { x: number, y: number }[]) => {
     const maxOrder = maxFindingFn();
     // console.log("maxOrder:- ", maxOrder);
     // console.log("state:- ", state);
@@ -327,7 +519,7 @@ function ProImageEditor() {
 
 
 
-    let newshape: Rect | PencilBrush | Triangle<Record<string, number | string | undefined>, SerializedRectProps, ObjectEvents> | null = null;
+    let newshape: Rect | PencilBrush | Triangle<Record<string, number | string | undefined>, SerializedRectProps, ObjectEvents> | Polyline | null = null;
 
     switch (type) {
       case "rectangle":
@@ -342,6 +534,11 @@ function ProImageEditor() {
         break;
       case "circle":
         newshape = new Circle({
+          ...obj1
+        });
+        break;
+      case "polyline":
+        newshape = new Polyline([...points ?? []], {
           ...obj1
         });
         break;
@@ -691,186 +888,344 @@ function ProImageEditor() {
 
   const [startShapeDrawing, setStartShapeDrawing] = useState<boolean>(false);
   const onShapeClick = ({ type }: { type: string }) => {
-    // you are checking that fabricJs is now holding the canvas or not
-    if (!fabricJs.current) return
+    // Check if fabricJs canvas is initialized
+    if (!fabricJs.current) return;
 
     let isDrawing: boolean, RectX: number, RectY: number, Shape: Rect | Triangle;
-    // remove old listeners first
+
+    // Remove all previous event listeners to prevent conflicts
     fabricJs.current.off("mouse:down");
     fabricJs.current.off("mouse:move");
     fabricJs.current.off("mouse:up");
-    // this is also checking for putting event on the canvas
+    fabricJs.current.off("mouse:dblclick");
+
     switch (type) {
-
       case "rectangle":
-
-        // fabricJs.current.isDrawingMode = true; // Disable free drawing mode
-        console.log('crosshair');
-
-        // fabricJs ke pass current naam ke property ke pass on naam ka method hai jo ki ek parameter mai event ka naam leta hai, aur second mai ek callback, ye es callback ko register kar leta hai jab bhi ye event hoga to ye callback run mai defined logic run karega aur jo es ka parameter hai wo ye method khud hi dalta hai
         fabricJs.current.on("mouse:down", (options) => {
-          // now drawing start ho gya hai
           isDrawing = true;
-          // extract scenePoint from options
           const { scenePoint } = options;
 
-          // put scenePoint x and y in RectX and RectY, ye wo jagah hai jaha se rectangle draw karna start hoga
+          // Store starting coordinates
           RectX = scenePoint.x;
           RectY = scenePoint.y;
 
-          // ab ek object banao jo ki rectangle ke properties jo ki default hota hai ko hold karega
+          // Create rectangle with initial properties
           const obj = {
             left: RectX,
             top: RectY,
             width: 0,
             height: 0,
-            fill: "rgba(255, 0, 0, 0.5)", // semi-transparent red
-          }
+            fill: "rgba(255, 0, 0, 0.5)",
+          };
 
-          // aap shapeInserting function ko call karo jo ki ek rectangle return karega aur usko Shape variable mai store kar do
-          const retrunShape = shapeInserting(obj, type)
-          if (!retrunShape) return
-          Shape = retrunShape
-
+          const returnShape = shapeInserting(obj, type);
+          if (!returnShape) return;
+          Shape = returnShape;
         });
 
-        // agar mouse move kar rha hai canvas ke upar to ye callback run hoga
         fabricJs.current.on("mouse:move", (options) => {
-          // agar mouseDown karne par Shape variable mai kuch nahi hai to return kar do
-          if (!Shape) {
-            return
-          }
+          if (!Shape || !isDrawing) return;
 
-          // extract scenePoint from options
           const { scenePoint } = options;
 
-          // Shape ke pass ek method hota hai jiska naam set hai, jo ki banae huye rectangle ke reference ko hold karta hai, uski width aur height ko update kar do
-          // secenePoint.x ye hai ki kha tak mouse move hua hai aur RectX wo jagah hai jaha se rectangle draw karna start hua tha, to in dono ka difference hi rectangle ki width hogi, same height ke liye bhi
+          // Calculate width and height based on mouse movement
           Shape.set({
             width: scenePoint.x - RectX,
             height: scenePoint.y - RectY,
           });
 
-          // ab fabricJs ke pass ek method hai jiska naam renderAll hai, jo ki canvas ko re-render karta hai taaki naya rectangle dikhai de
-          fabricJs.current?.renderAll()
+          fabricJs.current?.renderAll();
         });
 
-        fabricJs.current.on("mouse:up", (options) => {
-          if (!fabricJs.current) return
+        fabricJs.current.on("mouse:up", () => {
+          if (!fabricJs.current) return;
           isDrawing = false;
-          fabricJs.current?.off("mouse:down")
-          fabricJs.current?.off("mouse:up")
-          fabricJs.current?.off("mouse:move")
-        })
+
+          // Clean up listeners after drawing is complete
+          fabricJs.current.off("mouse:down");
+          fabricJs.current.off("mouse:up");
+          fabricJs.current.off("mouse:move");
+        });
         break;
+
       case "triangle":
         fabricJs.current.on("mouse:down", (options) => {
           isDrawing = true;
-          // console.log("type", type);
-
           const { scenePoint } = options;
+
           RectX = scenePoint.x;
           RectY = scenePoint.y;
+
           const obj = {
             left: RectX,
             top: RectY,
             width: 0,
             height: 0,
-            fill: "rgba(255, 0, 0, 0.5)", // semi-transparent red
-          }
-          const retrunShape = shapeInserting(obj, type)
-          if (!retrunShape) return
-          Shape = retrunShape
+            fill: "rgba(255, 0, 0, 0.5)",
+          };
+
+          const returnShape = shapeInserting(obj, type);
+          if (!returnShape) return;
+          Shape = returnShape;
         });
 
         fabricJs.current.on("mouse:move", (options) => {
-          if (!Shape) return
+          if (!Shape || !isDrawing) return;
           const { scenePoint } = options;
+
           Shape.set({
             width: scenePoint.x - RectX,
             height: scenePoint.y - RectY,
           });
 
-          fabricJs.current?.renderAll()
+          fabricJs.current?.renderAll();
         });
 
-        fabricJs.current.on("mouse:up", (options) => {
+        fabricJs.current.on("mouse:up", () => {
           isDrawing = false;
-          fabricJs.current?.off("mouse:down")
-          fabricJs.current?.off("mouse:up")
-          fabricJs.current?.off("mouse:move")
-        })
+          fabricJs.current?.off("mouse:down");
+          fabricJs.current?.off("mouse:up");
+          fabricJs.current?.off("mouse:move");
+        });
         break;
+
       case "circle":
         fabricJs.current.on("mouse:down", (options) => {
           isDrawing = true;
-          // console.log("type", type);
-
           const { scenePoint } = options;
+
           RectX = scenePoint.x;
           RectY = scenePoint.y;
+
           const obj = {
             left: RectX,
             top: RectY,
             radius: 0,
-            fill: "rgba(255, 0, 0, 0.5)", // semi-transparent red
-          }
-          const retrunShape = shapeInserting(obj, type)
-          if (!retrunShape) return
-          Shape = retrunShape
+            fill: "rgba(255, 0, 0, 0.5)",
+          };
+
+          const returnShape = shapeInserting(obj, type);
+          if (!returnShape) return;
+          Shape = returnShape;
         });
 
         fabricJs.current.on("mouse:move", (options) => {
-          if (!Shape) return
+          if (!Shape || !isDrawing) return;
           const { scenePoint } = options;
+
+          // Calculate distance from starting point
           const dx = scenePoint.x - RectX;
           const dy = scenePoint.y - RectY;
-          const radius = Math.sqrt(dx * dx + dy * dy) / 2; // distance from center
+          const radius = Math.sqrt(dx * dx + dy * dy) / 2;
+
+          // Center the circle between start and current point
           Shape.set({
-            // how this center, let RectY is from where circle is drawn, dx is the distance from RectX to the current mouse position
-            top: RectY + dy / 2, // center the circle
+            left: RectX + dx / 2,
+            top: RectY + dy / 2,
             originX: "center",
             originY: "center",
-            left: RectX + dx / 2, // center the circle
             radius: radius,
           });
 
-          fabricJs.current?.renderAll()
+          fabricJs.current?.renderAll();
         });
 
-        fabricJs.current.on("mouse:up", (options) => {
+        fabricJs.current.on("mouse:up", () => {
           isDrawing = false;
-          fabricJs.current?.off("mouse:down")
-          fabricJs.current?.off("mouse:up")
-          fabricJs.current?.off("mouse:move")
-        })
+          fabricJs.current?.off("mouse:down");
+          fabricJs.current?.off("mouse:up");
+          fabricJs.current?.off("mouse:move");
+        });
         break;
-      case "freeDrawing":
-        fabricJs.current.on("mouse:down", (options) => {
-          if (!fabricJs.current) return;
-          // 3. Set brush options
-          fabricJs.current.isDrawingMode = true; // Enable free drawing mode
-          fabricJs.current.freeDrawingBrush = new PencilBrush(fabricJs.current);
 
-          if (!fabricJs.current.freeDrawingBrush) {
-            return
+      case "polyline":
+        if (!fabricJs.current) return;
+
+        const canvas = fabricJs.current;
+
+        // Array to store points in canvas coordinates
+        let points: { x: number; y: number }[] = [];
+        let polyline: Polyline | null = null;
+        let isPolylineDrawing = false;
+        let tempLine: Line | null = null; // Temporary line for preview
+
+        const newId = "path" + random;
+
+        // SINGLE CLICK → Add a new point to the polyline
+        canvas.on("mouse:down", (options) => {
+          const { scenePoint } = options;
+
+          // Add the clicked point to our points array
+          const newPoint = {
+            x: scenePoint.x,
+            y: scenePoint.y,
+          };
+
+          points.push(newPoint);
+
+          // If this is the first point, just mark that we started drawing
+          if (points.length === 1) {
+            isPolylineDrawing = true;
           }
-          fabricJs.current.freeDrawingBrush.color = "green"; // Set brush color
-          fabricJs.current.freeDrawingBrush.width = 5; // Set brush width
-          // fabricJs.current.freeDrawingBrush.strokeDashArray = [10, 15];  //  10px dash, 5px gap
-          // fabricJs.current.freeDrawingBrush.strokeLineJoin = "round"
 
-        })
+          // If we have 2 or more points, create/update the polyline
+          if (points.length >= 2) {
+            if (polyline) {
+              // Remove existing polyline to redraw with new point
+              console.log({ polyline });
+              canvas.remove(polyline);
 
-        // Listen for when a drawing (Path) is created
+            }
+
+            // Create new polyline with all points
+            // IMPORTANT: Don't set left/top, let points define everything
+            polyline = new Polyline(points, {
+              stroke: "red",
+              strokeWidth: 3,
+              fill: "transparent",
+              selectable: false,
+              objectCaching: false,
+              id: newId,
+              evented: false,
+              strokeLineCap: 'round',
+              strokeLineJoin: 'round',
+            });
+
+            canvas.add(polyline);
+          }
+
+          // Remove temp preview line if it exists
+          if (tempLine) {
+            console.log({ tempLine });
+            canvas.remove(tempLine);
+            tempLine = null;
+          }
+
+          canvas.requestRenderAll();
+        });
+
+        // MOUSE MOVE → Show preview line from last point to cursor
+        canvas.on("mouse:move", (options) => {
+          if (!isPolylineDrawing || points.length === 0) return;
+
+          const { scenePoint } = options;
+          const lastPoint = points[points.length - 1];
+
+          // Remove old preview line
+          if (tempLine) {
+            canvas.remove(tempLine);
+          }
+
+          // Create temporary line from last point to cursor
+          tempLine = new Line(
+            [lastPoint.x, lastPoint.y, scenePoint.x, scenePoint.y],
+            {
+              stroke: "red",
+              strokeWidth: 3,
+              selectable: false,
+              evented: false,
+              strokeDashArray: [5, 5], // Dashed line for preview
+              strokeLineCap: 'round',
+            }
+          );
+
+          canvas.add(tempLine);
+          canvas.requestRenderAll();
+        });
+
+        // DOUBLE CLICK → Finish drawing the polyline
+        canvas.on("mouse:dblclick", () => {
+          if (!polyline || points.length < 2) {
+            // Clean up if insufficient points
+            if (polyline) canvas.remove(polyline);
+            if (tempLine) canvas.remove(tempLine);
+
+            canvas.off("mouse:down");
+            canvas.off("mouse:move");
+            canvas.off("mouse:dblclick");
+
+            points = [];
+            polyline = null;
+            tempLine = null;
+            isPolylineDrawing = false;
+            return;
+          }
+
+          // Remove the last point (added by first click of double-click)
+          points.pop();
+
+          // Remove temp preview line
+          if (tempLine) {
+            canvas.remove(tempLine);
+            tempLine = null;
+          }
+
+          // Remove current polyline
+          canvas.remove(polyline);
+
+          // Create final polyline with correct settings
+          const finalPolyline = new Polyline(points, {
+            stroke: "red",
+            strokeWidth: 3,
+            fill: "transparent",
+            selectable: true,
+            objectCaching: true,
+            id: newId,
+            evented: true,
+            strokeLineCap: 'round',
+            strokeLineJoin: 'round',
+            // CRITICAL: Prevent automatic position normalization
+            absolutePositioned: false,
+          });
+
+          canvas.add(finalPolyline);
+
+          // Update coordinates properly
+          finalPolyline.setCoords();
+
+          // Select the completed polyline
+          canvas.setActiveObject(finalPolyline);
+
+          // Add your custom event handlers if needed
+          // shapeEventAdding(finalPolyline);
+
+          // Clean up all event listeners
+          canvas.off("mouse:down");
+          canvas.off("mouse:move");
+          canvas.off("mouse:dblclick");
+
+          // Reset state for next polyline
+          points = [];
+          polyline = null;
+          isPolylineDrawing = false;
+
+          canvas.requestRenderAll();
+        });
+
+        break;
+
+      case "freeDrawing":
+        if (!fabricJs.current) return;
+
+        // Enable free drawing mode
+        fabricJs.current.isDrawingMode = true;
+        fabricJs.current.freeDrawingBrush = new PencilBrush(fabricJs.current);
+
+        if (!fabricJs.current.freeDrawingBrush) return;
+
+        // Configure brush properties
+        fabricJs.current.freeDrawingBrush.color = "green";
+        fabricJs.current.freeDrawingBrush.width = 5;
+
+        // Listen for when the path is created
         fabricJs.current.on("path:created", (event) => {
           const path = event.path;
           if (!path) return;
 
-          // recalculate correct coordinates
+          // Update coordinates for proper positioning
           path.setCoords();
 
-          const newId = "path" + random; // generate id once
+          const newId = "path" + random;
 
           path.set({
             id: newId,
@@ -887,25 +1242,27 @@ function ProImageEditor() {
             fill: path.fill ?? "transparent",
           };
 
+          // Add your custom event handlers
           shapeEventAdding(path);
 
+          // Update state
           const maxOrder = maxFindingFn();
           setState((prev) => [{ ...obj, order: maxOrder + 1, type }, ...prev]);
 
-          // fabricJs.current?.add(path);
           fabricJs.current?.renderAll();
 
           if (!fabricJs.current) return;
-          // Turn off drawing mode
+
+          // Disable drawing mode after completion
           fabricJs.current.isDrawingMode = false;
-          fabricJs.current?.off("mouse:down");
-          fabricJs.current?.off("mouse:up");
-          fabricJs.current?.off("path:created");
+          fabricJs.current.off("path:created");
+
+          // Select the newly created path
           selectingItem(newId);
         });
         break;
     }
-  }
+  };
 
 
   const resizeCanvas = (str: string, num: number) => {
@@ -974,9 +1331,16 @@ function ProImageEditor() {
 
               }
             </label>
+
             <label className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer relative textColor'>
               <span onClick={() => onShapeClick({ type: "freeDrawing" })}>FreeDrawing</span>
             </label>
+
+            <label className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer relative textColor'>
+              <span onClick={() => onShapeClick({ type: "polyline" })}>Polyline</span>
+            </label>
+
+
             {/* file  use same htmlFor and id in input for activating that*/}
             <label
               htmlFor='file' className='flex gap-2 bg-gray-600 rounded-md p-2 cursor-pointer w-full textColor'>
@@ -1080,7 +1444,7 @@ function ProImageEditor() {
 
                         </div>
                         <span className={`w-full flex gap-2 justify-between cursor-pointer p-2 rounded-md relative group/delete overflow-hidden`}>
-                          <span className='line-clamp-2'>{v.id.slice(0,10)}</span>
+                          <span className='line-clamp-2'>{v.id.slice(0, 10)}</span>
                           {/* eyes on off */}
                           <span className=' absolute top-2 right-2 flex'>
                             {v.hideLayer ?
