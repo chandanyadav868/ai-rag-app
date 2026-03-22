@@ -24,14 +24,11 @@ function ProImageEditor() {
   // const [state, setState] = useState<StateProps[]>([]);
   const { state, setState } = useContextStore();
   const [aiEdit, setAiEdit] = useState<boolean>(false);
-  const [slidingLayer, setSlidingLayer] = useState<boolean>(true);
+  const [slidingLayer, setSlidingLayer] = useState<boolean>(false);
   const [slidingGenerateImage, setSlidingGenerateImage] = useState<boolean>(true);
   const [layerMenu, setLayerMenu] = useState<string>("Layer");
   const [scale, setScale] = useState<number>(1);
   const { setError } = useContextStore();
-
-  // console.log("state:- ", state);
-
 
   // ye function run hata hai first time jab aap ka components mounts hota hai
   const fabricJs = useRef<Canvas | null>(null);
@@ -1313,15 +1310,15 @@ function ProImageEditor() {
             </div>
             {/* text */}
             <label htmlFor="shape_insert" className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer ' onClick={addTextLayer}>
-              <Text size={22} color='black' />
+              <Text size={22} color='white' />
               <span>Text</span>
             </label>
             {/* shape */}
             <label htmlFor="shape_insert" className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer relative textColor'
               onClick={setStartShapeDrawing.bind(null, !startShapeDrawing)}
             >
-              <ShapesIcon size={22} color='black' />
-              <span>Insert</span>
+              <ShapesIcon size={22} color='white' />
+              <span>Shape</span>
 
               {startShapeDrawing && <div className='absolute bg-gray-600 rounded-md p-2 flex gap-2 flex-col right-0 top-0 z-10' id='shape_insert' style={{ transform: "translate(100%, 0px)" }}>
                 <span onClick={() => onShapeClick({ type: "rectangle" })}>Rectangle</span>
@@ -1350,7 +1347,7 @@ function ProImageEditor() {
                 </>
                 :
                 <>
-                  <ImageUpIcon size={22} color='black' />
+                  <ImageUpIcon size={22} color='white' />
                   <span>Insert</span>
                 </>
               }
@@ -1363,7 +1360,7 @@ function ProImageEditor() {
 
             {/* export */}
             <label className='flex gap-2 bg-gray-600 rounded-md w-fit p-2 cursor-pointer' onClick={exporting}>
-              <Download size={22} color='black' />
+              <Download size={22} color='white' />
               <span>Export</span>
 
             </label>
@@ -1473,7 +1470,8 @@ function ProImageEditor() {
                               }
                             </span>
 
-                            <Edit2 onClick={() => {
+                            <Edit2 onClick={(e) => {
+                               e.stopPropagation();
                               setActiveId(v.id)
                               setAiEdit((prev) => !prev)
                             }}

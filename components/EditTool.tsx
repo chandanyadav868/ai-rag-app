@@ -3,6 +3,7 @@ import { Canvas, FabricImage, FabricObject, FabricObjectProps, Group, Line, Obje
 import { Cross, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import CloseComponents from './CloseComponents';
+import { log } from 'node:util';
 
 interface EditToolProp {
     aiEditShowFn: React.Dispatch<React.SetStateAction<boolean>>;
@@ -298,9 +299,11 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
              * Create a Group containing all filled paths
              * Group acts as a union - shows image where ANY path exists
              */
+
             const clipGroup = new Group(allPaths, {
                 absolutePositioned: true,
             });
+            console.log({ allPaths, clipGroup });
 
             image.clipPath = clipGroup;
         }
@@ -336,9 +339,26 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
 
         // find your image and path objects
         const img = secondFabricJs.current.getObjects("image")[0];
-        const clipPath = secondFabricJs.current.getObjects("path")[0];
+        /**
+            * Get the clipPath (this defines the cropped region)
+        */
+        const clipPath = img.clipPath;
+        if (!clipPath) {
+            return
+        }
+        /**
+            * CRITICAL: Calculate bounding box of the clipPath
+            * This gives us the exact dimensions of the cropped area
+            * 
+            * getBoundingRect() returns:
+            * - left: x position of top-left corner
+            * - top: y position of top-left corner  
+            * - width: width of bounding box
+            * - height: height of bounding box
+        */
+        const clipBoundingRect = clipPath?.getBoundingRect();
 
-        console.log(img, selectedId);
+        // console.log('Clip bounding box:', clipBoundingRect);
 
         secondFabricJs.current.backgroundColor = "transparent"; // Set background to transparent
 
@@ -349,21 +369,27 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                 // Filter to include only the image with the specified ID
                 return obj.type === "image" && img.get("id") === selectedId;
             },
-            left: clipPath?.left ?? 0,
             quality: 1,
-            top: clipPath?.top ?? 0,
-            height: clipPath?.height ?? 0,
-            width: clipPath?.width ?? 0,
             format: "png",
+            /**
+             * CRITICAL: Define export region based on clipPath bounds
+             * This ensures we only export the cropped area
+             */
+            left: clipBoundingRect?.left,
+            top: clipBoundingRect?.top,
+            width: clipBoundingRect?.width,
+            height: clipBoundingRect?.height,
+
+            /**
+             * Optional: Filter to include only the image
+             * (removes any other objects like guides, etc.)
+             */
         })
 
         if (!imageData) return;
-
         aiImageFn(imageData)
 
         // fileInserting();
-        console.log("Cropped image exported as cropped-image.png");
-
         console.log("imageData:- ", imageData);
     };
 
@@ -400,7 +426,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                         {/* tooling shape */}
                         <div className='flex gap-2'>
                             {
-                                toolsTask.map((v,i) => (
+                                toolsTask.map((v, i) => (
                                     <span key={i}
                                         onClick={() => v.onclick()}
                                         className="font-bold bg-gray-800 cursor-pointer rounded-md p-1 px-2 zoomingOutIn">
