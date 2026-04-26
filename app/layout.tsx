@@ -20,10 +20,36 @@ const geistSans = LocalFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Poslish Ai',
-  description: 'This website for the Ai Image Editing and Generation',
+  title: {
+    default: 'Polish AI - Pro Image & GIF Studio',
+    template: '%s | Polish AI'
+  },
+  description: 'The ultimate AI-powered creative studio. Edit images, remove objects, and create professional GIFs with our advanced online tools.',
+  keywords: ['AI Image Editor', 'GIF Maker', 'Object Removal', 'AI Background Remover', 'Online Image Studio', 'Polish AI'],
+  authors: [{ name: 'Polish AI Team' }],
+  creator: 'Polish AI',
+  publisher: 'Polish AI',
+  metadataBase: new URL('https://polish-ai.com'), // Placeholder domain
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Polish AI - Pro Image & GIF Studio',
+    description: 'Transform your photos with AI and create professional GIFs in seconds.',
+    url: 'https://polish-ai.com',
+    siteName: 'Polish AI',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Polish AI - Pro Image & GIF Studio',
+    description: 'The ultimate AI-powered creative studio for images and GIFs.',
+  },
+  manifest: '/site.webmanifest',
   icons: {
     icon: '/favicorn/favicon.ico',
+    apple: '/favicorn/apple-touch-icon.png',
   },
 }
 
