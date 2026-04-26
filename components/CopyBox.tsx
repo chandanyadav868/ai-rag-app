@@ -1,18 +1,20 @@
+import { cn } from '@/utils/util';
 import { Copy, CopyCheck } from 'lucide-react'
 import React from 'react'
 
-interface CopyBoxProps {
+interface CopyBoxProps{
     copyRef: React.MutableRefObject<(HTMLParagraphElement | null)[]>;
     copying: { id: number, active: boolean } | undefined;
     copyToClipboard: (index: number) => void;
     text: string;
     index: number;
-    width?:number | undefined
+
+    className?:string
 }
 
-function CopyBox({ copyRef, copyToClipboard, copying, text, index,width }: CopyBoxProps) {    
+function CopyBox({ copyRef, copyToClipboard, copying, text, index,className }: CopyBoxProps) {    
     return (
-        <div className={`shrink-0 outline-1 outline-white/10 backdrop-blur-2xl rounded-md mt-6 h-auto bg-white/10 mx-auto px-2 py-2 transform hover:-rotate-2 duration-300 ease-in-out`} style={{width:`${width}%`}}>
+        <div className={cn(`shrink-0 outline-1 outline-white/10 backdrop-blur-2xl rounded-md mt-6 h-auto bg-white/10 mx-auto px-2 py-2 transform hover:-rotate-2 duration-300 ease-in-out ${className}`)}>
             {copying?.active && copying.id === index ?
                 <CopyCheck color='green' className='relative left-[90%] cursor-pointer' style={{ zIndex: 55 }} />
                 :

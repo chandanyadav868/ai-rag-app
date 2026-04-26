@@ -2,6 +2,7 @@ import ShowDesign from '@/app/(main)/DesignComponents/ShowDesign'
 import { slidingImage, slidingText } from '@/constant'
 import React, { useRef, useState } from 'react'
 import CopyBox from './CopyBox';
+import AnimatedSection from './AnimatedSection';
 
 function ShowSection() {
   const copyRef = useRef<(HTMLParagraphElement | null)[]>([]);
@@ -23,25 +24,27 @@ function ShowSection() {
 
   return (
     <>
-      {/* <h1 className='hero-Section-Heading mb-4'>Transformation</h1> */}
-    <div className='w-[80%] mx-auto outline-1 bg-[#1a1919] outline-black p-2 flex gap-2 justify-center px-1 rounded-md flex-wrap'>
+      <AnimatedSection className='mx-auto w-full max-w-7xl rounded-3xl border border-white/5 bg-[#121212]/80 backdrop-blur-sm px-4 py-8 sm:px-8 lg:px-12 shadow-2xl overflow-hidden hover:border-white/10 transition-colors'>
+        <div className='flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-center'>
 
-      <div className='flex flex-col flex-1 px-2'>
-        <h1 className='show-Section-Heading'>Transform Images Into Different Aspects</h1>
-        <p className='commonText'>Edit and enhance your images while keeping their original details intact.</p>
+          <div className='flex min-w-0 flex-1 flex-col px-1 sm:px-2 z-10'>
+            <h1 className='show-Section-Heading tracking-tight mb-4'>Transform Images Into Different Aspects</h1>
+            <p className='commonText text-gray-400'>Edit and enhance your images while keeping their original details intact.</p>
 
-        <div className='flex overflow-x-scroll gap-4 mt-6 pb-2 w-[800px] copyingSectionScrollbar mx-auto'>
-        {slidingText.map((v, index) => (
-          <CopyBox key={index} copyRef={copyRef} copying={copying} copyToClipboard={copyToClipboard} width={40} index={index} text={v.text??''} />
-        ))}
+            <div className='copyingSectionScrollbar mx-auto mt-8 flex w-full gap-4 overflow-x-auto pb-4 max-sm:flex-col'>
+            {slidingText.map((v, index) => (
+              <CopyBox key={index} copyRef={copyRef} copying={copying} copyToClipboard={copyToClipboard} className='max-sm:w-full w-[40%] bg-white/[0.03] border-white/10 hover:bg-white/[0.06] transition-colors rounded-2xl p-4' index={index} text={v.text??''} />
+            ))}
+            </div>
+          </div>
+
+          <AnimatedSection delay={300} className='w-full max-w-2xl shrink-0'>
+            {slidingImage.map((image, index) => (
+              <ShowDesign key={index} landscapeThumnail={image.LandscapeImage} potraitThumnail={image.portraitImage} squareThumnail={image.SquareImage} />
+            ))}
+          </AnimatedSection>
         </div>
-      </div>
-
-      {/* ShowDesign */}
-      {slidingImage.map((image, index) => (
-        <ShowDesign key={index} landscapeThumnail={image.LandscapeImage} potraitThumnail={image.portraitImage} squareThumnail={image.SquareImage} />
-      ))}
-    </div>
+      </AnimatedSection>
     </>
   )
 }

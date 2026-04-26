@@ -337,7 +337,7 @@ export const Models = [
     {
         family: "Gemini",
         free: true,
-        type: "Image-generation",
+        type: "Text-generation",
         name: "Gemini 2.5 Flash",
         value: "gemini-2.5-flash",
         new: DateDiffrence("06/28/2025")
@@ -345,10 +345,66 @@ export const Models = [
     {
         family: "Gemini",
         free: true,
-        type: "Image-generation",
+        type: "Text-generation",
+        name: "Gemini 2.5 Flash-Lite",
+        value: "gemini-2.5-flash-lite",
+        new: false
+    },
+    {
+        family: "Gemini",
+        free: true,
+        type: "Text-generation",
         name: "Gemini 2.5 Pro",
         value: "gemini-2.5-pro",
         new: DateDiffrence("06/28/2025")
+    },
+    {
+        family: "Gemini",
+        free: true,
+        type: "Text-generation",
+        name: "Gemini 3 Flash Preview",
+        value: "gemini-3-flash-preview",
+        new: false
+    },
+    {
+        family: "Gemini",
+        free: false,
+        type: "Text-generation",
+        name: "Gemini 3 Pro Preview",
+        value: "gemini-3-pro-preview",
+        new: false
+    },
+    {
+        family: "Gemini",
+        free: true,
+        type: "Text-generation",
+        name: "Gemini 3.1 Flash-Lite Preview",
+        value: "gemini-3.1-flash-lite-preview",
+        new: false
+    },
+    {
+        family: "Gemini",
+        free: false,
+        type: "Text-generation",
+        name: "Gemini 3.1 Pro Preview",
+        value: "gemini-3.1-pro-preview",
+        new: false
+    },
+    {
+        family: "Gemma",
+        free: true,
+        type: "Open-model",
+        name: "Gemma 3 27B Instruct",
+        value: "gemma-3-27b-it",
+        new: false
+    },
+    {
+        family: "Gemma",
+        free: true,
+        type: "Open-model",
+        name: "Gemma 4 31B Instruct",
+        value: "gemma-4-31b-it",
+        new: DateDiffrence("04/02/2026")
     }
 ]
 
@@ -429,7 +485,18 @@ export const FontFamily = [
     "Georgia",
     "Trebuchet MS",
     "Impact",
-    "Comic Sans MS"
+    "Comic Sans MS",
+    // Common Google Fonts (loaded on demand)
+    "Roboto",
+    "Inter",
+    "Poppins",
+    "Open Sans",
+    "Montserrat",
+    "Lato",
+    "Merriweather",
+    "Source Sans Pro",
+    "Playfair Display",
+    "Noto Sans"
 ]
 
 

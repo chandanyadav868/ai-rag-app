@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import LocalFont from "next/font/local";
 import './globals.css'
-import 'highlight.js/styles/github.css'; // or any other style
+import 'highlight.js/styles/github-dark.css'; // switched to dark theme
 import ContextProvider from "@/components/CreateContext";
 import { SessionProvider } from "next-auth/react";
 import Script from "next/script";

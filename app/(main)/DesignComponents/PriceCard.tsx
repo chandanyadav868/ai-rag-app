@@ -3,7 +3,7 @@
 import React from 'react'
 import { ApiEndpoint } from '../classApi/apiClasses';
 import { useContextStore } from '@/components/CreateContext';
-import { Check, CheckSquare, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 
 
 interface PriceCardProps {
@@ -25,7 +25,16 @@ interface PriceCardProps {
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: {
+      key: string | undefined;
+      amount: string | number;
+      currency: string;
+      order_id: string;
+      handler: (response: unknown) => Promise<void>;
+      theme: {
+        color: string;
+      };
+    }) => { open: () => void };
   }
 }
 
@@ -45,7 +54,7 @@ function PriceCard({ data }: { data: PriceCardProps }) {
         currency: response.data.currency,
         order_id: response.data.orderId,
 
-        handler: async function (response: any) {
+        handler: async function () {
           // console.log("Payment successful:", response);
           // Optionally, you can verify the payment on the server side here
           try {
@@ -76,9 +85,9 @@ function PriceCard({ data }: { data: PriceCardProps }) {
   }
 
   return (
-    <div className='w-[350px] outline-1 outline-gray-500 hover:outline-gray-300 bg-black text-white rounded-md p-4 flex flex-col gap-4'>
+    <div className='flex h-full w-full flex-col gap-4 rounded-2xl bg-black p-4 text-white outline-1 outline-gray-500 hover:outline-gray-300'>
 
-      <div className='h-[450px] flex flex-col gap-2'>
+      <div className='flex min-h-[420px] flex-1 flex-col gap-2'>
         <div className='font-bold text-2xl'>{data.type}</div>
 
         <div className='flex'>

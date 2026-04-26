@@ -1,22 +1,24 @@
 import PriceCard from '@/app/(main)/DesignComponents/PriceCard'
 import { PriceData } from '@/constant'
 import React from 'react'
+import AnimatedSection from './AnimatedSection'
 
 function PriceComponets() {
   return (
-    <div className='w-[80%] mx-auto mt-4 flex flex-col flex-wrap justify-center items-center gap-6'>
-      <div>
-        <h1 className='hero-Section-Heading'>Transparent Pricing</h1>
-        <p className='commonText'>Choose the right plan for you</p>
+    <AnimatedSection className='mx-auto mt-20 flex w-full max-w-7xl flex-col items-center gap-10 px-4 sm:px-6 lg:px-8'>
+      <div className="text-center">
+        <h1 className='hero-Section-Heading tracking-tight'>Transparent Pricing</h1>
+        <p className='commonText text-gray-400 mt-2'>Choose the plan that fits your creative needs</p>
       </div>
 
-      {/* pricing cards */}
-      <div className='flex gap-4 justify-center items-center flex-wrap'>
+      <div className='grid w-full gap-6 md:grid-cols-2 lg:grid-cols-4'>
         {PriceData.map((v,i)=>(
-            <PriceCard key={i} data={v}/>
+            <AnimatedSection key={i} delay={i * 150} className='h-full'>
+                <PriceCard data={v}/>
+            </AnimatedSection>
         ))}
       </div>
-    </div>
+    </AnimatedSection>
   )
 }
 

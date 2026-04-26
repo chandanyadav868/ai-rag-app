@@ -1,117 +1,272 @@
 "use client"
-import { HeaderList } from '@/constant'
-import { CircleUser, LogOut } from 'lucide-react'
+
+import { ApiEndpoint } from '@/app/(main)/classApi/apiClasses'
+import { CircleUser, ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { signOut, useSession } from "next-auth/react"
 import Image from 'next/image'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
-import { useSession, signOut } from "next-auth/react"
 import { useContextStore } from './CreateContext'
-import { ApiEndpoint } from '@/app/(main)/classApi/apiClasses'
+
+type NavLinkItem = {
+  label: string;
+  href: string;
+};
+
+type NavDropdownItem = {
+  label: string;
+  children: NavLinkItem[];
+};
+
+type NavItem = NavLinkItem | NavDropdownItem;
+
+const navigationGroups: NavItem[] = [
+  {
+    label: "Home",
+    href: "/",
+  },
+  {
+    label: "Tools",
+    children: [
+      // { label: "Image Editing", href: "/image-editing" },
+      { label: "Image AI", href: "/image-ai" },
+      { label: "GIF Maker", href: "/gif-maker" },
+      // { label: "Chat AI", href: "/chat-ai" },
+      // { label: "Pdf AI", href: "/pdf-ai" },
+      // { label: "Hugging Face", href: "/huggingface" },
+    ],
+  },
+  {
+    label: "Company",
+    children: [
+      { label: "About", href: "/about" },
+      { label: "Feedback", href: "/feedback" },
+      { label: "Disclaimer", href: "/desclaimer" },
+    ],
+  },
+];
 
 function Headers() {
   const [profileBox, setProfileBox] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const profileBoxRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const { setLoginUserData, setError } = useContextStore();
-  const { auth } = useParams();
-  // console.log("auth:--", auth);
-
-  // console.log("Session:-- --- --",session);
-
-  const { data, status, update } = useSession()
+  const pathname = usePathname();
+  const { data } = useSession();
 
   useEffect(() => {
+    if (!data?.user?.email) return;
+
     const responseJson = async () => {
       try {
-        const response = await ApiEndpoint.Post('/mongoose', {}, { email: data?.user.email });
-        // console.log(response);
+        const response = await ApiEndpoint.Post('/mongoose', {}, { email: data.user.email });
         setLoginUserData(response.data);
       } catch (error) {
-        // console.log('Error in Feedbac page.ts ', error);
         const errorData = error as { message: string }
-        // console.log(error);
-        
         const errorJson = JSON.parse(errorData.message) as { error: { message: string, stack: string } }
-        // console.log('Errorin Feedback:- ', errorJson.error.message);
         setError({ type: 'error', message: errorJson.error.message })
       }
-
     }
 
     responseJson();
-  }, [data?.user.id])
+  }, [data?.user?.email, data?.user?.id, setError, setLoginUserData])
 
-  useEffect(() => {    
-    // i am doing like this because i can remove this function from click when i unmounts the components
-    // this function have parameter e of which type is MouseEvent
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-
-      // console.log("proCur", profileBoxRef.current, "E.target", e.target);
-      // check that profileBoxRef.current have tag element attach not the null then check that profileBoxRef.current have methods of contains which will check that e.target which are at the end is the html tags , find where you click is under the profileBox containing div undar or not,
       if (profileBoxRef.current && !profileBoxRef.current.contains(e.target as Node)) {
-        // console.log("2:- proCur", profileBoxRef.current, "E.target", e.target);
         setProfileBox(false)
       }
+
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setOpenDropdown(null);
+      }
     }
-    // aap check karo ki profileBox ki value true ho gyi hai or nhi agar yes then attach addEventListner to the document of which event will be mousedown, and a function in which custome logic written
-    if (profileBox) {
+
+    if (profileBox || menuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [profileBox]);
+  }, [profileBox, menuOpen]);
 
+  useEffect(() => {
+    setMenuOpen(false);
+    setOpenDropdown(null);
+    setProfileBox(false);
+  }, [pathname]);
+
+  const isAuthPage = pathname?.startsWith("/login");
+
+  const isActiveLink = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname?.startsWith(`${href}/`);
+  };
+
+  const isGroupActive = (children: ReadonlyArray<{ label: string; href: string }>) => {
+    return children.some((item) => isActiveLink(item.href));
+  };
+
+  const hasChildren = (item: NavItem): item is NavDropdownItem => {
+    return 'children' in item;
+  };
+
+  if (isAuthPage) {
+    return null;
+  }
 
   return (
-    <>
-      {(auth === "signin" || auth === "signup") ?
-        <></>
-        :
-        <>
-          <div className='header-Section gap-12'>
-            <header>
-              <nav className='flex gap-8'>
-                {HeaderList.map((nav, i) => (
-                  <Link key={i} className='font-semibold text-xl hover:underline underline-offset-2 decoration-amber-50' href={nav.link}>{nav.name}</Link>
-                ))}
-              </nav>
-            </header>
+    <div ref={menuRef} className='header-Section'>
+      <div className='flex w-full items-center justify-between gap-3'>
+        <Link href="/" className='text-lg font-black tracking-wide text-white sm:text-xl'>
+          AI App
+        </Link>
 
-            <div ref={profileBoxRef} className='relative'>
-             {!data && <Link href={"/login/signin"} className='font-black bg-white text-black px-4 py-2 rounded-md'>Login</Link>}
-            {data && 
-            <>
-              <span onClick={() => setProfileBox((prev => !prev))} className='flex justify-center items-center relative cursor-pointer'>
-                {data?.user?.avatar ? <Image src={data?.user?.avatar} alt="user avatar" height={34} width={34} className='rounded-full' /> : <CircleUser color='white' className='bg-black p-2 rounded-full w-[44px] h-[44px] ' />}
-              </span>
+        <header className='hidden lg:block'>
+          <nav className='flex items-center gap-2'>
+            {navigationGroups.map((item) => (
+              hasChildren(item) ? (
+                <div
+                  key={item.label}
+                  className='relative'
+                  onMouseEnter={() => setOpenDropdown(item.label)}
+                  onMouseLeave={() => setOpenDropdown((prev) => prev === item.label ? null : prev)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown((prev) => prev === item.label ? null : item.label)}
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-white/10 ${isGroupActive(item.children) ? 'bg-white text-black' : 'text-white/90'}`}
+                  >
+                    {item.label}
+                    <ChevronDown size={16} className={`transition ${openDropdown === item.label ? 'rotate-180' : ''}`} />
+                  </button>
 
-              {profileBox && data &&
-                <div className={`p-2 bg-black text-white font-semibold rounded-md absolute mt-4 flex flex-col gap-2`} style={{transform:`translate(calc(-50% + 22px))`}}>
-                  <span>{data?.user?.name}</span>
-                  <span>{data?.user?.email}</span>
-                  <span className='text-red-400 font-bold cursor-pointer py-0.5 px-1 rounded-md w-fit'>
-                    {
-                      data?.user?.email ?
-                        <>
-                          <LogOut onClick={() => {
-                            signOut()
-                          }} size={22} />
-                        </>
-                        :
-                        <>
-                        </>
-                    }
-                  </span>
+                  {openDropdown === item.label && (
+                    <div className='absolute right-0 top-full mt-3 min-w-[220px] rounded-2xl border border-white/10 bg-[#0c0c0d] p-2 shadow-2xl'>
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={`block rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white/10 ${isActiveLink(child.href) ? 'bg-white text-black' : 'text-white/85'}`}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              }
+              ) : (
+                <Link
+                  key={item.href}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-white/10 ${isActiveLink(item.href) ? 'bg-white text-black' : 'text-white/90'}`}
+                  href={item.href}
+                >
+                  {item.label}
+                </Link>
+              )
+            ))}
+          </nav>
+        </header>
+
+        <div className='flex items-center gap-2'>
+          <div ref={profileBoxRef} className='relative hidden sm:block'>
+            {!data && <Link href={"/login/signin"} className='rounded-full bg-white px-4 py-2 font-black text-black'>Login</Link>}
+            {data &&
+              <>
+                <span onClick={() => setProfileBox((prev => !prev))} className='flex cursor-pointer items-center justify-center'>
+                  {data?.user?.avatar ? <Image src={data.user.avatar} alt="user avatar" height={40} width={40} className='rounded-full object-cover' /> : <CircleUser color='white' className='h-[44px] w-[44px] rounded-full bg-black p-2' />}
+                </span>
+
+                {profileBox &&
+                  <div className='absolute right-0 mt-4 flex min-w-[220px] flex-col gap-2 rounded-2xl border border-white/10 bg-black p-4 text-sm font-semibold text-white shadow-2xl'>
+                    <span>{data?.user?.name}</span>
+                    <span className='break-all text-white/70'>{data?.user?.email}</span>
+                    <button
+                      type="button"
+                      className='mt-1 flex w-fit items-center gap-2 rounded-full bg-white/8 px-3 py-2 text-red-400'
+                      onClick={() => signOut()}
+                    >
+                      <LogOut size={18} />
+                      Logout
+                    </button>
+                  </div>
+                }
               </>
-            } 
-            </div>
+            }
           </div>
-        </>}
-    </>
+
+          <button
+            type="button"
+            className='inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white lg:hidden'
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-label="Toggle navigation"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <div className='mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0c0c0d] p-4 lg:hidden'>
+          {navigationGroups.map((item) => (
+            hasChildren(item) ? (
+              <div key={item.label} className='rounded-2xl border border-white/8 bg-white/[0.03] p-2'>
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown((prev) => prev === item.label ? null : item.label)}
+                  className='flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-white'
+                >
+                  <span>{item.label}</span>
+                  <ChevronDown size={16} className={`transition ${openDropdown === item.label ? 'rotate-180' : ''}`} />
+                </button>
+
+                {openDropdown === item.label && (
+                  <div className='mt-2 flex flex-col gap-1'>
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={`rounded-xl px-3 py-2 text-sm transition ${isActiveLink(child.href) ? 'bg-white text-black' : 'text-white/80 hover:bg-white/8'}`}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rounded-xl px-3 py-3 text-sm font-semibold ${isActiveLink(item.href) ? 'bg-white text-black' : 'bg-white/[0.03] text-white'}`}
+              >
+                {item.label}
+              </Link>
+            )
+          ))}
+
+          {!data ? (
+            <Link href="/login/signin" className='rounded-xl bg-white px-3 py-3 text-center text-sm font-black text-black sm:hidden'>
+              Login
+            </Link>
+          ) : (
+            <div className='flex flex-col gap-2 rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-sm sm:hidden'>
+              <span className='font-semibold'>{data?.user?.name}</span>
+              <span className='break-all text-white/70'>{data?.user?.email}</span>
+              <button type="button" onClick={() => signOut()} className='flex items-center gap-2 text-red-400'>
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

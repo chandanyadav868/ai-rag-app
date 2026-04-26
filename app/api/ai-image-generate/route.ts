@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
         // ye method gemina ke api ko call karta hai, with object body
         let imageGeneration;
 
-        // const modelList = await ai.models.list();
+        const modelList = await ai.models.list();
+        // console.log(JSON.stringify(modelList));
 
         try {
             imageGeneration = await ai.models.generateContent({

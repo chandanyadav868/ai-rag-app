@@ -7,7 +7,7 @@ body {
 
 /* spacing leave */
 .commonSpacingLeaveForHeader{
-  @apply pt-24
+  @apply pt-28 sm:pt-32
 }
 
 body{
@@ -142,6 +142,16 @@ button:active {
   display: none; /* Chrome, Safari, Opera */
 }
 
+#imageEdittingContainer .canvas-container {
+  background: #ffffff;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+#imageEdittingContainer .canvas-container .upper-canvas {
+  background: transparent !important;
+}
+
 .prose {
     --tw-prose-links: #489dee;
     --tw-prose-pre-code:#000;
@@ -190,6 +200,36 @@ button:active {
         font-weight: 500;
     }
 
+/* Styles for copy button injected via dangerouslySetInnerHTML */
+.markdown-copy-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.markdown-copy-button:hover {
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  border-color: rgba(255,255,255,0.12);
+}
+.markdown-copy-button.copied {
+  background: rgba(16,185,129,0.12);
+  border-color: rgba(16,185,129,0.2);
+  color: rgba(16,185,129,0.95);
+}
+
 
 
 .customeSelectUlli{
@@ -228,6 +268,67 @@ button:active {
 .spanStyle{
     display: flex;
     flex-wrap: wrap;
+}
+
+.editorRange {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 14px;
+  border-radius: 9999px;
+  cursor: ew-resize;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.92) 0%, rgba(45, 212, 191, 0.92) var(--range-percent), rgba(255,255,255,0.09) var(--range-percent), rgba(255,255,255,0.09) 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.55),
+    0 0 0 1px rgba(8, 145, 178, 0.08);
+}
+
+.editorRange::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.editorRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  height: 24px;
+  width: 24px;
+  border-radius: 9999px;
+  border: 2px solid rgba(6, 182, 212, 0.95);
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(207, 250, 254, 0.95) 45%, rgba(34, 211, 238, 0.92) 100%);
+  box-shadow:
+    0 10px 20px rgba(6, 182, 212, 0.28),
+    0 0 0 4px rgba(34, 211, 238, 0.14);
+}
+
+.editorRange::-moz-range-track {
+  height: 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.92) 0%, rgba(45, 212, 191, 0.92) var(--range-percent), rgba(255,255,255,0.09) var(--range-percent), rgba(255,255,255,0.09) 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.55),
+    0 0 0 1px rgba(8, 145, 178, 0.08);
+}
+
+.editorRange::-moz-range-thumb {
+  height: 24px;
+  width: 24px;
+  border-radius: 9999px;
+  border: 2px solid rgba(6, 182, 212, 0.95);
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(207, 250, 254, 0.95) 45%, rgba(34, 211, 238, 0.92) 100%);
+  box-shadow:
+    0 10px 20px rgba(6, 182, 212, 0.28),
+    0 0 0 4px rgba(34, 211, 238, 0.14);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -402,19 +503,96 @@ input[type="number"]::-webkit-outer-spin-button {
 
 @layer utilities {
   .hero-Section-Heading {
-    @apply text-5xl max-md:text-4xl font-bold text-center leading-13
+    @apply text-4xl font-bold text-center leading-tight sm:text-5xl lg:text-6xl
   }
   .show-Section-Heading {
-    @apply text-5xl text-center max-md:text-3xl font-bold
+    @apply text-3xl text-center font-bold sm:text-4xl lg:text-5xl
   }
   .header-Section {
-    @apply top-0 left-1/2 transform -translate-x-1/2 flex bg-[#1e2126]/50 backdrop-blur-2xl px-4 py-4 justify-around items-center fixed z-50 w-fit mx-auto mt-4 rounded-md max-lg:w-full
+    @apply fixed top-0 left-1/2 z-50 mx-auto mt-3 w-[calc(100%-1rem)] max-w-7xl -translate-x-1/2 rounded-3xl border border-white/10 bg-[#1e2126]/70 px-4 py-3 backdrop-blur-2xl sm:mt-4 sm:w-[calc(100%-2rem)] sm:px-5
   }
   .commonText{
-    @apply font-medium mt-4 text-center text-xl text-gray-400 max-md:text-sm
+    @apply mt-4 text-center text-sm font-medium text-gray-400 sm:text-lg
   }
   .textColor{
     @apply text-white
   }
 }
 
+/* Page layout for PDF tools (left tools, right preview) */
+:root {
+  --pdf-tools-left-width: 80vw;
+}
+
+@media (min-width: 1080px) {
+  :root { --pdf-tools-left-width: 40vw; }
+}
+
+.pdf-tools-page {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1080px) {
+  .pdf-tools-page { grid-template-columns: var(--pdf-tools-left-width) 1fr; }
+}
+
+.tools-panel {
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+}
+
+.pdf-preview-panel {
+  display: flex;
+  align-items: start;
+  justify-content: center;
+  padding-top: 1rem;
+}
+
+.pdf-preview-panel iframe {
+  width: 210mm;
+  height: 297mm;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Ensure highlight.js code blocks match site dark theme */
+pre code.hljs, code.hljs, .hljs {
+  background: transparent !important;
+  color: inherit !important;
+}
+.hljs::selection {
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── RightSide panel scrollbar ───────────────────────────────
+   Thin, dark-themed scrollbar for the editor / preview area.
+────────────────────────────────────────────────────────────── */
+.rightside-scrollbar {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 120, 180, 0.45) transparent;
+}
+
+/* Chrome / Safari / Edge */
+.rightside-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.rightside-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rightside-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 120, 180, 0.40);
+  border-radius: 9999px;
+}
+
+.rightside-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 150, 220, 0.70);
+}
+
+.rightside-scrollbar::-webkit-scrollbar-button {
+  display: none;
+}

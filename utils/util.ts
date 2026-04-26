@@ -13,6 +13,14 @@ export interface ObjectProps {
     source: string
 }
 
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+
 // const folderPath = path.join(process.cwd(), "public", "uploaded_pdf.json")
 
 
