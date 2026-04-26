@@ -3,7 +3,8 @@
 
 import { FileUploadResponseProps } from "@/app/(main)/image-ai/page";
 import Markdown from "@/components/Markdown";
-import RIghtSide from "@/components/RIghtSide";
+import dynamic from "next/dynamic";
+const RIghtSide = dynamic(() => import("@/components/RIghtSide"), { ssr: false });
 import { Models } from "@/constant";
 import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
 import { AudioLines, Bot, Check, Copy, FileText, FolderOpen, ImagePlus, Loader2, Menu, MessageSquareText, Mic, MoreHorizontal, PanelLeftClose, PanelLeftOpen, PenLine, Plus, Send, Sparkles, Square, Trash2, User, X } from "lucide-react";
