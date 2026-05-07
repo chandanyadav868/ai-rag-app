@@ -4,8 +4,12 @@ import { Grid3X3, Layers3, Maximize2, MenuSquare, Minus, Move, Plus, Redo2, Undo
 import React, { useEffect } from 'react';
 import { InfoActionButton } from './InfoActionButton';
 
+import { GifTimeline } from './GifTimeline';
+
+import { useGifEditor } from '../_hooks/useGifEditor';
+
 interface EditorCanvasWorkspaceProps {
-  editor: ReturnType<typeof import('../_hooks/useImageEditor').useImageEditor>;
+  editor: ReturnType<typeof useGifEditor>;
 }
 
 export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
@@ -18,10 +22,10 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   }, []);
 
   return (
-    <section className='relative min-h-screen w-full bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
-      <div className='flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-6'>
+    <section className='relative flex h-screen w-full flex-col bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
+      <div className='flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-6 shrink-0'>
         <div>
-          <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>Canvas Stage</div>
+          <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>GIF Canvas Stage</div>
           <div className='mt-1 flex flex-wrap items-center gap-2 text-sm text-white/75'>
             <span className='rounded-full bg-white/8 px-3 py-1'>{editor.canvasDimensions.width}x{editor.canvasDimensions.height}</span>
             <span className='rounded-full bg-white/8 px-3 py-1'>{editor.state.length} layers</span>
@@ -49,23 +53,19 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         </div>
       </div>
 
-      <div className='flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6 flex-wrap'>
+      <div className='flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6 flex-wrap shrink-0'>
         <div className='flex flex-wrap items-center gap-2 text-xs text-white/65'>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
+          {/* <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
             <Move size={14} />
             Hold `Alt` and drag to pan
-          </span>
+          </span> */}
           <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
             <Maximize2 size={14} />
             Scroll or pinch to zoom
           </span>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
-            <Grid3X3 size={14} />
-            `Delete` removes selected layers
-          </span>
         </div>
 
-        <div className='flex items-center gap-2 w-[100%] justify-center'>
+        <div className='flex items-center gap-2 w-[100%] justify-center sm:w-auto'>
           <button
             onClick={editor.undo}
             disabled={!editor.canUndo}
@@ -83,20 +83,20 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
             <Redo2 size={20} />
           </button>
 
-          <InfoActionButton
-            icon={Plus}
-            label='Zoom In'
-            description='Increase the canvas viewport scale without changing the export size.'
-            onClick={() => editor.resizeCanvas("ZoomIn", 0.1)}
-            compact
-          />
-          <InfoActionButton
-            icon={Minus}
-            label='Zoom Out'
-            description='Decrease the canvas viewport scale to see more of the workspace.'
-            onClick={() => editor.resizeCanvas("ZoomOut", 0.1)}
-            compact
-          />
+          <button
+            onClick={() => editor.setViewportScale(prev => Math.min(prev + 0.1, 5))}
+            className='p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10'
+            title="Zoom In"
+          >
+            <Plus size={18} />
+          </button>
+          <button
+            onClick={() => editor.setViewportScale(prev => Math.max(prev - 0.1, 0.1))}
+            className='p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10'
+            title="Zoom Out"
+          >
+            <Minus size={18} />
+          </button>
         </div>
       </div>
 
@@ -105,19 +105,17 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         onClick={(e) => {
           if (e.target === e.currentTarget) editor.deselectAll();
         }}
-        className='relative h-[calc(100vh-220px)] w-full overflow-auto custom-scrollbar bg-black/20'
+        className='relative flex-1 w-full overflow-auto custom-scrollbar bg-black/20'
       >
         <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[100vh_100vw]'>
           <div
             ref={editor.canvasDivRef}
             onClick={(e) => e.stopPropagation()}
-            className='relative flex items-center justify-center'
+            className='relative flex items-center justify-center shadow-2xl'
             style={{
-              transform: `scale(${editor.viewportScale})`,
-              transformOrigin: 'center center',
-              width: editor.canvasDimensions.width,
-              height: editor.canvasDimensions.height,
-              transition: 'transform 0.1s ease-out',
+              width: editor.canvasDimensions.width * editor.viewportScale,
+              height: editor.canvasDimensions.height * editor.viewportScale,
+              transition: 'all 0.1s ease-out',
             }}
           >
             <canvas
@@ -138,6 +136,17 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
           </div>
         )}
       </div>
+
+      <GifTimeline
+        frames={editor.frames}
+        removeFrame={editor.removeFrame}
+        addFrame={editor.addFrame}
+        clearFrames={editor.clearFrames}
+        exportGif={editor.exportGif}
+        isPlaying={editor.isPlaying}
+        setIsPlaying={editor.setIsPlaying}
+        previewIdx={editor.previewIdx}
+      />
     </section>
   );
 }

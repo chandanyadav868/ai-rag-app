@@ -54,6 +54,8 @@ export const metadata: Metadata = {
 }
 
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
@@ -64,9 +66,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <ContextProvider>
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <div className={`${geistMono.variable} ${geistSans.variable} antialiased`}>{children}</div>
+            <Toaster position="top-center" richColors theme="dark" />
           </ContextProvider>
         </SessionProvider>
       </body>
     </html>
-  )
+  );
 }

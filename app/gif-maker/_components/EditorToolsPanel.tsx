@@ -8,8 +8,10 @@ import { createPortal } from 'react-dom';
 import { InfoActionButton } from './InfoActionButton';
 import { InsertImageModal } from './InsertImageModal';
 
+import { useGifEditor } from '../_hooks/useGifEditor';
+
 interface EditorToolsPanelProps {
-  editor: ReturnType<typeof import('../_hooks/useImageEditor').useImageEditor>;
+  editor: ReturnType<typeof useGifEditor>;
 }
 
 type ExportFormatOption = "png" | "jpeg" | "webp";
@@ -63,7 +65,7 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
               <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>Workspace</div>
               <div className='flex gap-2'>
                 <button
-                  onClick={() => router.push('/image-home-screen')}
+                  onClick={() => router.push('/gif-home-screen')}
                   className='p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all'
                   title="Go to Home"
                 >

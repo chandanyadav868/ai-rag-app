@@ -29,9 +29,8 @@ const navigationGroups: NavItem[] = [
   {
     label: "Tools",
     children: [
-      // { label: "Image Editing", href: "/image-editing" },
-      { label: "Image AI", href: "/image-ai" },
-      { label: "GIF Maker", href: "/gif-maker" },
+      { label: "Image Editing", href: "/image-home-screen" },
+      { label: "GIF Maker", href: "/gif-home-screen" },
       // { label: "Chat AI", href: "/chat-ai" },
       // { label: "Pdf AI", href: "/pdf-ai" },
       // { label: "Hugging Face", href: "/huggingface" },

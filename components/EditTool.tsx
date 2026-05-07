@@ -21,6 +21,8 @@ import {
   Layers3,
   MousePointer2,
   PenTool,
+  Plus,
+  Minus,
   Square,
   Trash2,
   WandSparkles,
@@ -56,6 +58,16 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
   const [canvasReady, setCanvasReady] = useState(false);
   const [sourceSummary, setSourceSummary] = useState({ width: 0, height: 0 });
   const [statusText, setStatusText] = useState("Choose a crop tool to start building your mask.");
+  const [viewportScale, setViewportScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const updateZoom = (mode: "ZoomIn" | "ZoomOut" | "Initial", amount = 0.1) => {
+    setViewportScale((prev) => {
+      if (mode === "ZoomIn") return Number((prev + amount).toFixed(2));
+      if (mode === "ZoomOut") return Math.max(0.1, Number((prev - amount).toFixed(2)));
+      return 1;
+    });
+  };
 
   const generateId = (prefix: string) => `${prefix}_${uuidv4().split("-")[0]}`;
 
@@ -626,11 +638,14 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
 
       const sourceWidth = Math.max(1, clone.getScaledWidth());
       const sourceHeight = Math.max(1, clone.getScaledHeight());
-      const maxStageWidth = Math.max(420, Math.min(window.innerWidth - 420, 980));
-      const maxStageHeight = Math.max(320, Math.min(window.innerHeight - 240, 680));
+      
+      // Determine the maximum available space for the crop stage
+      const maxStageWidth = window.innerWidth - 420; 
+      const maxStageHeight = window.innerHeight - 300;
+
       const fitScale = Math.min(
-        (maxStageWidth - 80) / sourceWidth,
-        (maxStageHeight - 80) / sourceHeight,
+        (maxStageWidth) / sourceWidth,
+        (maxStageHeight) / sourceHeight,
         1,
       );
 
@@ -639,26 +654,53 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
         top: 0,
         originX: "left",
         originY: "top",
-        scaleX: (clone.scaleX ?? 1) * fitScale,
-        scaleY: (clone.scaleY ?? 1) * fitScale,
         selectable: false,
         evented: false,
         hoverCursor: "default",
       });
 
-      const stageWidth = Math.max(360, Math.min(maxStageWidth, Math.ceil(clone.getScaledWidth() + 96)));
-      const stageHeight = Math.max(280, Math.min(maxStageHeight, Math.ceil(clone.getScaledHeight() + 96)));
+      // Apply premium selection styling matching user request
+      FabricObject.prototype.set({
+        borderColor: '#8b5cf6', // Violet 500
+        borderScaleFactor: 2,
+        cornerColor: '#ffffff',
+        cornerStrokeColor: '#8b5cf6',
+        cornerSize: 12,
+        cornerStyle: 'circle',
+        transparentCorners: false,
+        padding: 0,
+        borderDashArray: null,
+      });
 
       const canvas = new Canvas(canvasElementRef.current, {
-        width: stageWidth,
-        height: stageHeight,
-        backgroundColor: "#f8fafc",
+        width: sourceWidth,
+        height: sourceHeight,
+        backgroundColor: "#0f172a",
         selection: true,
       });
 
-      clone.set({
-        left: (stageWidth - clone.getScaledWidth()) / 2,
-        top: (stageHeight - clone.getScaledHeight()) / 2,
+      // Enforce custom premium styling matching user request
+      canvas.on("object:added", (e) => {
+        const obj = e.target;
+        obj.set({
+          borderColor: '#8b5cf6',
+          borderScaleFactor: 2,
+          cornerColor: '#ffffff',
+          cornerStrokeColor: '#8b5cf6',
+          cornerSize: 12,
+          transparentCorners: false,
+          padding: 0,
+          borderDashArray: null,
+        });
+
+        if (obj.controls) {
+          ['tl', 'tr', 'bl', 'br'].forEach(key => {
+            if (obj.controls[key]) (obj.controls[key] as any).cornerStyle = 'circle';
+          });
+          ['mt', 'mb', 'ml', 'mr'].forEach(key => {
+            if (obj.controls[key]) (obj.controls[key] as any).cornerStyle = 'rect';
+          });
+        }
       });
 
       canvas.add(clone);
@@ -668,9 +710,10 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
       sourceObjectRef.current = clone;
       editCanvasRef.current = canvas;
       setSourceSummary({
-        width: Math.round(clone.getScaledWidth()),
-        height: Math.round(clone.getScaledHeight()),
+        width: Math.round(sourceWidth),
+        height: Math.round(sourceHeight),
       });
+      setViewportScale(fitScale);
       setCanvasReady(true);
       setMaskCount(0);
       setSelectedMaskId(null);
@@ -717,9 +760,25 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
 
     window.addEventListener("keydown", handleDeleteKey);
 
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        const delta = event.deltaY > 0 ? -0.1 : 0.1;
+        updateZoom(delta > 0 ? "ZoomIn" : "ZoomOut", Math.abs(delta));
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("wheel", handleWheel, { passive: false });
+    }
+
     return () => {
       disposed = true;
       window.removeEventListener("keydown", handleDeleteKey);
+      if (container) {
+        container.removeEventListener("wheel", handleWheel);
+      }
       clearTemporaryListeners();
       if (editCanvasRef.current) {
         editCanvasRef.current.dispose().catch(() => undefined);
@@ -857,26 +916,63 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
 
           <section className='flex min-h-[420px] flex-col bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#0b1325_0%,#09111f_100%)]'>
             <div className='border-b border-white/10 px-5 py-4 md:px-6'>
-              <div className='flex flex-wrap items-center gap-3'>
-                <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
-                  {maskCount} crop mask{maskCount === 1 ? "" : "s"}
-                </span>
-                <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
-                  Active tool: {activeTool}
-                </span>
-                {selectedMaskId && (
-                  <span className='rounded-full bg-emerald-400/15 px-4 py-2 text-sm text-emerald-100'>
-                    Selected: {selectedMaskId}
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <div className='flex flex-wrap items-center gap-3'>
+                  <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
+                    {maskCount} crop mask{maskCount === 1 ? "" : "s"}
                   </span>
-                )}
+                  <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
+                    Active tool: {activeTool}
+                  </span>
+                  {selectedMaskId && (
+                    <span className='rounded-full bg-emerald-400/15 px-4 py-2 text-sm text-emerald-100'>
+                      Selected: {selectedMaskId}
+                    </span>
+                  )}
+                </div>
+                
+                <div className='flex items-center gap-2'>
+                   <button 
+                    onClick={() => updateZoom("ZoomOut")}
+                    className='rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition'
+                    title="Zoom Out"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className='min-w-[4rem] text-center text-xs font-bold text-cyan-400'>
+                    {Math.round(viewportScale * 100)}%
+                  </span>
+                  <button 
+                    onClick={() => updateZoom("ZoomIn")}
+                    className='rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition'
+                    title="Zoom In"
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button 
+                    onClick={() => updateZoom("Initial")}
+                    className='ml-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white transition'
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
               <p className='mt-3 text-sm leading-6 text-white/65'>{statusText}</p>
             </div>
 
-            <div className='flex flex-1 items-center justify-center p-4 md:p-6'>
-              <div className='overflow-auto rounded-[32px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl'>
-                <div className='rounded-[28px] bg-[linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-3'>
-                  <canvas ref={canvasElementRef} className='block rounded-[20px] shadow-[0_18px_60px_rgba(0,0,0,0.35)]' />
+            <div ref={containerRef} className='flex flex-1 items-center justify-center p-4 md:p-6 overflow-hidden'>
+              <div className='h-full w-full overflow-auto rounded-[32px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl custom-scrollbar'>
+                <div className='flex min-h-full min-w-full items-center justify-center'>
+                  <div 
+                    style={{ 
+                      transform: `scale(${viewportScale})`, 
+                      transformOrigin: 'center center',
+                      transition: 'transform 0.1s ease-out'
+                    }}
+                    className='rounded-[28px] bg-[linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-3'
+                  >
+                    <canvas ref={canvasElementRef} className='block rounded-[20px] shadow-[0_18px_60px_rgba(0,0,0,0.35)]' />
+                  </div>
                 </div>
               </div>
             </div>

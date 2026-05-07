@@ -3,8 +3,9 @@ import Link from 'next/link'
 import React from 'react'
 
 const servicesLinks = [
-  { name: "Image AI", link: "/image-ai" },
-  { name: "Gif Maker", link: "/gif-maker" },
+  { name: "Image AI", link: "/image-home-screen" },
+  { name: "Gif Maker", link: "/gif-home-screen" },
+  { name: "SVG Editor", link: "/svg-editor" },
 ];
 
 const companyLinks = [
@@ -21,24 +22,24 @@ function Footer() {
       <div className='mx-auto flex w-full max-w-7xl flex-col gap-10 sm:flex-row sm:items-start sm:justify-between'>
 
         <div className='flex items-center justify-center sm:justify-start'>
-          <Image src={'/favicorn/android-chrome-192x192.png'} alt='AI App logo' width={1000} height={1000} className='my-auto w-[96px] rounded-full sm:w-[120px]'/>
+          <Image src={'/favicorn/android-chrome-192x192.png'} alt='AI App logo' width={1000} height={1000} className='my-auto w-[96px] rounded-full sm:w-[120px]' />
         </div>
 
         <div className='flex flex-col gap-10 sm:flex-row sm:gap-20 text-center sm:text-left'>
           <div className='flex flex-col gap-4'>
             <div className='font-bold text-xl text-white'>Services</div>
             <div className='flex flex-col gap-2'>
-              {servicesLinks.map(({link,name})=>(
-                  <Link key={link} className='font-medium text-gray-400 transition-colors hover:text-white' href={link}>{name}</Link>
+              {servicesLinks.map(({ link, name }) => (
+                <Link key={link} className='font-medium text-gray-400 transition-colors hover:text-white' href={link}>{name}</Link>
               ))}
             </div>
           </div>
-          
+
           <div className='flex flex-col gap-4'>
             <div className='font-bold text-xl text-white'>Company</div>
             <div className='flex flex-col gap-2'>
-              {companyLinks.map(({link,name})=>(
-                  <Link key={link} className='font-medium text-gray-400 transition-colors hover:text-white' href={link}>{name}</Link>
+              {companyLinks.map(({ link, name }) => (
+                <Link key={link} className='font-medium text-gray-400 transition-colors hover:text-white' href={link}>{name}</Link>
               ))}
             </div>
           </div>

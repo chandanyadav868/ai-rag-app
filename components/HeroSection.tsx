@@ -28,7 +28,7 @@ function HeroSection() {
             Social Media
           </span>
         </h1>
-        
+
         <p className='commonText text-gray-400 md:text-xl max-w-2xl mx-auto font-light mb-10'>
           The all-in-one creative studio. Generate stunning images with AI and craft professional animated GIFs — all in your browser, no software needed.
         </p>
@@ -36,13 +36,13 @@ function HeroSection() {
         {/* CTA Buttons */}
         <div className='flex flex-wrap items-center justify-center gap-4 mb-14'>
           <Link
-            href='/image-ai'
+            href='/image-home-screen'
             className='flex items-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-cyan-600 px-8 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(147,51,234,0.4)] transition-all hover:scale-105 hover:shadow-[0_0_32px_rgba(147,51,234,0.6)]'
           >
             <Sparkles size={18} /> Try Image AI
           </Link>
           <Link
-            href='/gif-maker'
+            href='/gif-home-screen'
             className='flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-8 py-3.5 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10 hover:border-white/30 hover:scale-105'
           >
             <Clapperboard size={18} /> Open GIF Maker
@@ -66,7 +66,7 @@ function HeroSection() {
           <SlidingDesign />
         </div>
       </AnimatedSection>
-      
+
     </section>
   )
 }

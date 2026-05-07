@@ -7,6 +7,10 @@ import { EditorLayerPanel } from './_components/EditorLayerPanel';
 import { EditorToolsPanel } from './_components/EditorToolsPanel';
 import { useImageEditor } from './_hooks/useImageEditor';
 
+import { MaskStudio } from './_components/MaskStudio';
+
+import { ChevronLeft, ChevronRight, Layers, MousePointer2, SquareSlash } from 'lucide-react';
+
 function ProImageEditor() {
   const editor = useImageEditor();
   
@@ -27,6 +31,15 @@ function ProImageEditor() {
         />,
         document.getElementById("imageEdittingContainer") || document.body
       )}
+
+      <MaskStudio
+        isOpen={editor.maskStudioOpen}
+        onClose={() => editor.setMaskStudioOpen(false)}
+        selectedId={editor.activeId}
+        mainFabricCanvas={editor.fabricJs}
+        onApply={(url, opts) => editor.applyMask(url, opts)}
+        assets={editor.assets}
+      />
     </div>
   )
 }

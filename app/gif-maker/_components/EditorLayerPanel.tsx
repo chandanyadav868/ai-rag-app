@@ -7,8 +7,10 @@ import React from 'react';
 import { AssetLibrary } from './AssetLibrary';
 import { InfoActionButton } from './InfoActionButton';
 
+import { useGifEditor } from '../_hooks/useGifEditor';
+
 interface EditorLayerPanelProps {
-  editor: ReturnType<typeof import('../_hooks/useImageEditor').useImageEditor>;
+  editor: ReturnType<typeof useGifEditor>;
 }
 
 export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {

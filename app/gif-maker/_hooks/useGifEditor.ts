@@ -25,7 +25,7 @@ import {
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 
 type PanelTab = "Layer" | "Property" | "Assets";
-type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline";
+type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline" | "pen" | "directSelect";
 type TemporaryCanvasEvent = "mouse:down" | "mouse:move" | "mouse:up" | "mouse:dblclick" | "path:created";
 type TemporaryCanvasHandler = (event: CanvasEvents[TemporaryCanvasEvent]) => void;
 export type ExportCanvasFormat = "png" | "jpeg" | "webp";
@@ -37,7 +37,7 @@ export interface ExportCanvasOptions {
   filename: string;
 }
 
-export function useImageEditor() {
+export function useGifEditor() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasDivRef = useRef<HTMLDivElement | null>(null);
   const fabricJs = useRef<Canvas | null>(null);
@@ -45,7 +45,7 @@ export function useImageEditor() {
   const temporaryCanvasDblClickRef = useRef<((event: MouseEvent) => void) | null>(null);
 
   const { state, setState, setError } = useContextStore();
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1280, height: 720 });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 600, height: 400 });
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -56,6 +56,17 @@ export function useImageEditor() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [viewportScale, setViewportScale] = useState(1);
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
+
+  useEffect(() => {
+    if (fabricJs.current) {
+      fabricJs.current.setZoom(viewportScale);
+      fabricJs.current.setDimensions({
+        width: canvasDimensions.width * viewportScale,
+        height: canvasDimensions.height * viewportScale
+      });
+      fabricJs.current.requestRenderAll();
+    }
+  }, [viewportScale, canvasDimensions]);
   const [brushType, setBrushType] = useState<"pencil" | "spray" | "pattern" | "eraser">("pencil");
   const [eraserSize, setEraserSize] = useState(20);
 
@@ -66,6 +77,15 @@ export function useImageEditor() {
   const [fontLoading, setFontLoading] = useState(false);
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const isHistoryAction = useRef(false);
+
+  // GIF specific state
+  const [frames, setFrames] = useState<string[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [previewIdx, setPreviewIdx] = useState(0);
+
+  // Pen Tool state
+  const [penPoints, setPenPoints] = useState<any[]>([]);
+  const [isDrawingPen, setIsDrawingPen] = useState(false);
 
   const maskStudioOpenRef = useRef(maskStudioOpen);
   const aiEditRef_val = useRef(aiEdit);
@@ -79,9 +99,16 @@ export function useImageEditor() {
   }, [aiEdit]);
 
   const aiEditRef = useRef(aiEdit);
+  // GIF playback logic
   useEffect(() => {
-    aiEditRef.current = aiEdit;
-  }, [aiEdit]);
+    let interval: NodeJS.Timeout;
+    if (isPlaying && frames.length > 0) {
+      interval = setInterval(() => {
+        setPreviewIdx((prev) => (prev + 1) % frames.length);
+      }, 500); // 500ms per frame
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, frames.length]);
 
   useEffect(() => {
     if (fabricJs.current && fabricJs.current.isDrawingMode) {
@@ -122,7 +149,7 @@ export function useImageEditor() {
   const [pendingProject, setPendingProject] = useState<any | null>(null);
 
   useEffect(() => {
-    const savedMetadata = localStorage.getItem('polish_ai_projects_metadata');
+    const savedMetadata = localStorage.getItem('gif_projects_metadata');
     let projectsList = [];
     if (savedMetadata) {
       projectsList = JSON.parse(savedMetadata);
@@ -140,7 +167,7 @@ export function useImageEditor() {
     } else if (pid) {
       const metadata = projectsList.find((p: any) => p.id === pid);
       if (metadata) {
-        const projectData = localStorage.getItem(`polish_ai_project_data_${pid}`);
+        const projectData = localStorage.getItem(`gif_project_data_${pid}`);
         if (projectData) {
           setPendingProject({ id: pid, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
           setView("editor");
@@ -191,15 +218,15 @@ export function useImageEditor() {
       lastEdited: Date.now(),
     };
 
-    localStorage.setItem(`polish_ai_project_data_${id}`, JSON.stringify(projectData));
+    localStorage.setItem(`gif_project_data_${id}`, JSON.stringify(projectData));
     const updatedMetadata = [metadata, ...recentProjects.filter(p => p.id !== id)].slice(0, 50);
-    localStorage.setItem('polish_ai_projects_metadata', JSON.stringify(updatedMetadata));
+    localStorage.setItem('gif_projects_metadata', JSON.stringify(updatedMetadata));
     setRecentProjects(updatedMetadata);
     setCurrentProjectId(id);
   };
 
   const loadProject = async (id: string) => {
-    const projectData = localStorage.getItem(`polish_ai_project_data_${id}`);
+    const projectData = localStorage.getItem(`gif_project_data_${id}`);
     const metadata = recentProjects.find(p => p.id === id);
     if (projectData && metadata) {
       setPendingProject({ id, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
@@ -521,8 +548,8 @@ export function useImageEditor() {
       ? Math.max(320, Math.floor(window.innerWidth * 0.5) - 80)
       : Math.max(280, window.innerWidth - 32);
     const availableHeight = desktop
-      ? Math.max(260, window.innerHeight - 190)
-      : Math.max(240, window.innerHeight - 220);
+      ? Math.max(260, window.innerHeight - 320)
+      : Math.max(240, window.innerHeight - 380);
 
     const widthRatio = availableWidth / dims.width;
     const heightRatio = availableHeight / dims.height;
@@ -560,7 +587,16 @@ export function useImageEditor() {
       height: canvasDimensions.height,
       backgroundColor: "#ffffff",
       preserveObjectStacking: true,
+      enableRetinaScaling: true,
+      imageSmoothingEnabled: true,
     });
+
+    // Handle high-quality zooming via Fabric instead of CSS
+    const handleZoom = (scale: number) => {
+      if (!fabricJs.current) return;
+      fabricJs.current.setZoom(scale);
+      fabricJs.current.requestRenderAll();
+    };
 
     // Enforce custom premium styling on every object added to canvas
     fabricJs.current.on("object:added", (e) => {
@@ -1116,6 +1152,98 @@ export function useImageEditor() {
     anchor.click();
   };
 
+  const addFrame = () => {
+    if (!fabricJs.current) return;
+    fabricJs.current.discardActiveObject();
+    
+    // Reset zoom before capturing frame to ensure clean export
+    const currentZoom = fabricJs.current.getZoom();
+    const currentVpt = fabricJs.current.viewportTransform;
+    fabricJs.current.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    fabricJs.current.renderAll();
+    
+    const dataUrl = fabricJs.current.toDataURL({
+      format: 'png',
+      quality: 1,
+      multiplier: 1
+    });
+    
+    // Restore zoom
+    if (currentVpt) {
+      fabricJs.current.setViewportTransform(currentVpt);
+      fabricJs.current.renderAll();
+    }
+    
+    setFrames((prev) => [...prev, dataUrl]);
+    toast.success("Frame added!");
+  };
+
+  const removeFrame = (index: number) => {
+    setFrames((prev) => prev.filter((_, i) => i !== index));
+    if (frames.length <= 1) setIsPlaying(false);
+  };
+
+  const clearFrames = () => {
+    setFrames([]);
+    setIsPlaying(false);
+  };
+
+  const exportGif = async () => {
+    if (frames.length === 0) {
+      toast.error("Please add at least one frame before exporting.");
+      return;
+    }
+    
+    toast.info("Preparing GIF export...");
+    
+    try {
+      // @ts-ignore
+      const GIF = (await import('gif.js')).default;
+      
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        workerScript: '/gif.worker.js',
+        width: canvasDimensions.width,
+        height: canvasDimensions.height,
+        background: '#ffffff'
+      });
+      
+      const imagePromises = frames.map(src => {
+        return new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      });
+      
+      const images = await Promise.all(imagePromises);
+      
+      images.forEach(img => {
+        gif.addFrame(img, { delay: 500, copy: true });
+      });
+      
+      gif.on('finished', (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'animated.gif';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("GIF exported successfully!");
+      });
+      
+      gif.render();
+      
+    } catch (error) {
+      console.error("Error creating GIF:", error);
+      toast.error("There was an error creating the GIF.");
+    }
+  };
+
   const selectingItem = (layerId: string) => {
     const canvas = fabricJs.current;
     if (!canvas) return;
@@ -1643,6 +1771,7 @@ export function useImageEditor() {
     state,
     uploadImageGemina,
     viewportScale,
+    setViewportScale,
     addTextLayer,
     aiImageFn,
     checkingBox,
@@ -1680,5 +1809,15 @@ export function useImageEditor() {
     attachTransformListeners,
     selectedIds,
     setSelectedIds,
+    frames,
+    setFrames,
+    addFrame,
+    removeFrame,
+    clearFrames,
+    exportGif,
+    isPlaying,
+    setIsPlaying,
+    previewIdx,
+    setPreviewIdx,
   };
 }
