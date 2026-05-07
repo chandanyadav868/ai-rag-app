@@ -17,24 +17,24 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
   const sortedLayers = editor.state.slice().sort((a, b) => b.order - a.order);
 
   return (
-    <aside className={`fixed right-0 top-0 z-30 h-screen w-[min(92vw,460px)] border-l border-white/10 bg-[#0a1728]/95 backdrop-blur-xl transition-transform duration-300 ${editor.rightPanelOpen ? 'translate-x-0' : 'translate-x-[calc(100%-0px)]'}`}>
+    <aside className={`fixed right-0 top-0 z-30 h-screen w-[min(95vw,420px)] border-l border-white/10 bg-[#0a1728]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.rightPanelOpen ? 'translate-x-0' : 'translate-x-[calc(100%-0px)]'}`}>
       <button
         type='button'
         onClick={() => editor.setRightPanelOpen((prev) => !prev)}
-        className='absolute left-0 top-1/2 flex h-16 w-5 -translate-x-full -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-white/10 bg-[#0a1728] text-white shadow-xl'
+        className='absolute left-0 top-1/2 flex h-14 w-4 -translate-x-full -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-white/10 bg-[#0a1728] text-white shadow-xl transition-all hover:bg-cyan-500 group'
         aria-label='Toggle layer inspector panel'
       >
-        {editor.rightPanelOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        {editor.rightPanelOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
       <div className='flex h-full flex-col'>
-        <div className='border-b border-white/10 px-5 py-5'>
+        <div className='border-b border-white/10 px-4 py-4 md:px-5 md:py-5'>
           <div className='flex items-center justify-between gap-3'>
             <div>
-              <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>Inspector</div>
-              <h2 className='mt-2 text-xl font-black text-white xl:text-2xl'>Layers & Properties</h2>
+              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Inspector</div>
+              <h2 className='mt-1 text-lg font-black text-white'>Layers</h2>
             </div>
-            <div className='rounded-full bg-cyan-400/15 p-3 text-cyan-100'>
-              <Layers size={18} />
+            <div className='rounded-2xl bg-cyan-400/10 p-2.5 text-cyan-400'>
+              <Layers size={16} />
             </div>
           </div>
 
@@ -88,7 +88,7 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                 <div
                   key={layer.id}
                   onClick={() => editor.selectingItem(layer.id)}
-                  className={`rounded-3xl border p-4 transition ${editor.selectedIds.includes(layer.id) ? 'border-cyan-300/60 bg-cyan-400/10' : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.07]'}`}
+                  className={`rounded-2xl border p-3 transition ${editor.selectedIds.includes(layer.id) ? 'border-cyan-400/50 bg-cyan-400/10' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                 >
                   <div className='flex items-start justify-between gap-3'>
                     <div className='min-w-0'>
@@ -109,12 +109,12 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                   </div>
 
                   {layer.src && layer.type === "image" && (
-                    <div className='mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-2'>
-                      <Image src={layer.src} alt='preview' width={240} height={160} className='h-24 w-full object-contain' />
+                    <div className='mt-3 overflow-hidden rounded-xl border border-white/5 bg-black/20 p-1.5'>
+                      <Image src={layer.src} alt='preview' width={200} height={120} className='h-20 w-full object-contain opacity-70' />
                     </div>
                   )}
 
-                  <div className='mt-4 grid grid-cols-3 gap-2'>
+                  <div className='mt-3 grid grid-cols-4 gap-1.5'>
                     <InfoActionButton
                       icon={layer.hideLayer ? EyeOff : EyeIcon}
                       label={layer.hideLayer ? 'Show Layer' : 'Hide Layer'}

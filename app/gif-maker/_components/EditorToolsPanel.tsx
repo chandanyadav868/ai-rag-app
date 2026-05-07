@@ -50,26 +50,26 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
 
   return (
     <>
-      <aside className={`fixed left-0 top-0 z-30 h-screen w-[min(90vw,380px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-300 ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
+      <aside className={`fixed left-0 top-0 z-30 h-screen w-[min(90vw,340px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
         <button
           type='button'
           onClick={() => editor.setLeftPanelOpen((prev) => !prev)}
-          className='absolute right-0 top-1/2 flex h-16 w-5 translate-y-1/2 translate-x-full items-center justify-center rounded-r-2xl border border-l-0 border-white/10 bg-[#09182b] text-white shadow-xl'
+          className='absolute right-0 top-1/2 flex h-14 w-4 translate-y-1/2 translate-x-full items-center justify-center rounded-r-xl border border-l-0 border-white/10 bg-[#09182b] text-white shadow-xl transition-all hover:bg-cyan-500 group'
           aria-label='Toggle image editor panel'
         >
-          {editor.leftPanelOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          {editor.leftPanelOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
         <div className='flex h-full flex-col'>
-          <div className='border-b border-white/10 px-5 py-5'>
+          <div className='border-b border-white/10 px-4 py-4 md:px-5 md:py-5'>
             <div className='flex items-center justify-between'>
-              <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>Workspace</div>
+              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Workspace</div>
               <div className='flex gap-2'>
                 <button
                   onClick={() => router.push('/gif-home-screen')}
-                  className='p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all'
+                  className='p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all'
                   title="Go to Home"
                 >
-                  <Home size={14} />
+                  <Home size={12} />
                 </button>
                 <button
                   onClick={() => {
@@ -80,24 +80,23 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                   className='p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all'
                   title="Save Project"
                 >
-                  <Save size={14} />
+                  <Save size={12} />
                 </button>
               </div>
             </div>
-            <h1 className='mt-2 text-2xl font-black text-white'>Image Editor</h1>
-            <p className='mt-2 text-sm leading-6 text-white/70'>
-              Create, arrange, annotate, and generate new assets from your canvas in one cleaner workspace.
+            <h1 className='mt-1 text-lg font-black text-white'>Gif Maker</h1>
+            <p className='mt-2 text-[10px] font-medium leading-relaxed text-white/40 uppercase tracking-tight'>
+              Create and animate your workspace.
             </p>
           </div>
 
-          <div className='historyScrollbar flex-1 space-y-6 overflow-y-auto overflow-x-visible px-4 py-5 pb-24'>
+          <div className='historyScrollbar flex-1 space-y-4 overflow-y-auto overflow-x-visible px-4 py-4 pb-24'>
 
-            <section className='rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
-              <div className='mb-3'>
-                <h2 className='text-sm font-semibold text-white'>Custom Size</h2>
-                <p className='text-xs text-white/60'>Set exact pixel dimensions for your canvas.</p>
+            <section className='rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+              <div className='mb-2'>
+                <h2 className='text-[10px] font-black uppercase tracking-wider text-white/80'>Custom Size</h2>
               </div>
-              <div className='flex gap-3'>
+              <div className='flex gap-2'>
                 <div className='flex-1'>
                   <label className='text-[10px] uppercase tracking-wider text-white/40'>Width</label>
                   <input
@@ -123,10 +122,9 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
               </div>
             </section>
 
-            <section className='rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
+            <section className='rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
               <div className='mb-3'>
-                <h2 className='text-sm font-semibold text-white'>Quick Actions</h2>
-                <p className='text-xs text-white/60'>Most-used editing actions in one focused tool row.</p>
+                <h2 className='text-[10px] font-black uppercase tracking-wider text-white/80'>Quick Actions</h2>
               </div>
 
               <div className='grid grid-cols-2 gap-3'>

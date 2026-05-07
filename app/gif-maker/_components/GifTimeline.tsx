@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Trash2, Play, Square, Plus, Download, Loader2 } from 'lucide-react';
+import { Trash2, Play, Square, Plus, Download, Loader2, X } from 'lucide-react';
 
 interface GifTimelineProps {
   frames: string[];
@@ -26,6 +26,8 @@ export function GifTimeline({
   previewIdx,
   isExporting = false
 }: GifTimelineProps) {
+  const [confirmingDelete, setConfirmingDelete] = React.useState<number | null>(null);
+
   return (
     <div className='mt-auto border-t border-white/10 bg-[#09182b]/95 p-4 sm:p-6 backdrop-blur-xl shrink-0'>
       <div className='flex flex-col gap-4'>
@@ -47,12 +49,44 @@ export function GifTimeline({
                 <div className='absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-bold text-white sm:text-[10px]'>
                   #{idx + 1}
                 </div>
+                
+                {/* Delete Button (Icon) */}
                 <button
-                  onClick={() => removeFrame(idx)}
-                  className='absolute inset-0 flex items-center justify-center bg-rose-500/80 opacity-0 transition group-hover:opacity-100'
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmingDelete(idx);
+                  }}
+                  className='absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/80 text-white opacity-0 transition group-hover:opacity-100 hover:bg-rose-600'
+                  title="Delete Frame"
                 >
-                  <Trash2 size={14} className='text-white' />
+                  <Trash2 size={12} />
                 </button>
+
+                {/* Confirmation Box Overlay */}
+                {confirmingDelete === idx && (
+                  <div className='absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#09182b]/95 p-1 backdrop-blur-sm animate-in fade-in duration-200'>
+                    <div className='text-[8px] font-black uppercase tracking-tighter text-white mb-1'>Delete?</div>
+                    <div className='flex gap-1.5'>
+                      <button
+                        onClick={() => {
+                          removeFrame(idx);
+                          setConfirmingDelete(null);
+                        }}
+                        className='flex h-6 w-6 items-center justify-center rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors'
+                        title="Yes, Delete"
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(null)}
+                        className='flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors'
+                        title="Cancel"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

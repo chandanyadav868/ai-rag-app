@@ -166,6 +166,14 @@ export function useImageEditor() {
     }
   }, []);
 
+  // Handle mobile default panel state
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setLeftPanelOpen(false);
+      setRightPanelOpen(false);
+    }
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('polish_ai_assets', JSON.stringify(assets));
   }, [assets]);

@@ -5,7 +5,6 @@ import React from 'react'
 const servicesLinks = [
   { name: "Image AI", link: "/image-home-screen" },
   { name: "Gif Maker", link: "/gif-home-screen" },
-  { name: "SVG Editor", link: "/svg-editor" },
 ];
 
 const companyLinks = [

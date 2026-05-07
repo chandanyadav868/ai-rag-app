@@ -15,7 +15,7 @@ import {
 } from 'fabric';
 import {
   CircleIcon,
-  BrushCleaning,
+  Brush,
   Crop,
   Download,
   Layers3,
@@ -59,6 +59,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
   const [sourceSummary, setSourceSummary] = useState({ width: 0, height: 0 });
   const [statusText, setStatusText] = useState("Choose a crop tool to start building your mask.");
   const [viewportScale, setViewportScale] = useState(1);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const updateZoom = (mode: "ZoomIn" | "ZoomOut" | "Initial", amount = 0.1) => {
@@ -638,10 +639,10 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
 
       const sourceWidth = Math.max(1, clone.getScaledWidth());
       const sourceHeight = Math.max(1, clone.getScaledHeight());
-      
+
       // Determine the maximum available space for the crop stage
-      const maxStageWidth = window.innerWidth - 420; 
-      const maxStageHeight = window.innerHeight - 300;
+      const maxStageWidth = window.innerWidth - 80; // Full width minus small margin
+      const maxStageHeight = window.innerHeight - 150;
 
       const fitScale = Math.min(
         (maxStageWidth) / sourceWidth,
@@ -820,7 +821,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
     {
       key: "freeDraw" as const,
       label: "Free Draw",
-      icon: BrushCleaning,
+      icon: Brush,
       description: "Paint a mask for detailed cropping",
       onClick: startFreeDrawCrop,
     },
@@ -829,13 +830,10 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
   return (
     <div className='fixed inset-0 z-[70] bg-[#020617]/80 p-4 backdrop-blur-xl md:p-6'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#081221] text-white shadow-[0_30px_120px_rgba(0,0,0,0.45)]'>
-        <div className='flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-6'>
+        <div className='flex items-center justify-between flex-wrap gap-4 border-b border-white/10 px-5 py-4 md:px-8'>
           <div>
             <div className='text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/70'>Crop Studio</div>
             <h2 className='mt-2 text-2xl font-black text-white'>Refine Your Selection</h2>
-            <p className='mt-2 max-w-2xl text-sm leading-6 text-white/65'>
-              Build one crop or combine rectangle, circle, and polygon masks together. Export merges every mask into one clean clipped result.
-            </p>
           </div>
 
           <button
@@ -848,190 +846,121 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
           </button>
         </div>
 
-        <div className='grid flex-1 gap-0 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]'>
-          <aside className='border-b border-white/10 bg-[#09182b] p-5 lg:border-b-0 lg:border-r'>
-            <div className='rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
+        <div className='relative flex-1 overflow-hidden flex flex-col'>
+          {/* Open Sidebar Button */}
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className='absolute left-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#09182b]/90 text-white shadow-2xl backdrop-blur-xl transition-all hover:bg-cyan-500 hover:text-black animate-in fade-in zoom-in duration-300'
+              title="Open Crop Tools"
+            >
+              <Crop size={20} />
+            </button>
+          )}
+
+          {/* Floating Sidebar */}
+          <aside className={`absolute left-6 top-6 z-40 w-64 rounded-[32px] border border-white/10 bg-[#09182b]/95 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
+            <div className='flex items-center justify-between mb-6'>
               <div className='flex items-center gap-3'>
                 <div className='rounded-2xl bg-cyan-400/15 p-3 text-cyan-100'>
                   <Crop size={18} />
                 </div>
                 <div>
                   <div className='text-sm font-semibold text-white'>Crop Tools</div>
-                  <div className='text-xs text-white/60'>Switch tools any time while editing.</div>
+                  <div className='text-[10px] uppercase tracking-widest text-white/40'>Masking</div>
                 </div>
               </div>
-
-              <div className='mt-4 grid gap-3'>
-                {toolButtons.map((tool) => {
-                  const Icon = tool.icon;
-                  return (
-                    <button
-                      key={tool.key}
-                      type='button'
-                      onClick={tool.onClick}
-                      className={`rounded-2xl border p-3 text-left transition ${
-                        activeTool === tool.key
-                          ? 'border-cyan-300/60 bg-cyan-400/15 text-white'
-                          : 'border-white/10 bg-[#081221] text-white/85 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className='flex items-center gap-3'>
-                        <div className='rounded-xl bg-white/5 p-2'>
-                          <Icon size={16} />
-                        </div>
-                        <div>
-                          <div className='text-sm font-semibold'>{tool.label}</div>
-                          <div className='text-xs text-white/60'>{tool.description}</div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className='p-2 rounded-xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all'
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div className='mt-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
-              <div className='flex items-center gap-3'>
-                <div className='rounded-2xl bg-emerald-400/15 p-3 text-emerald-100'>
-                  <Layers3 size={18} />
-                </div>
-                <div>
-                  <div className='text-sm font-semibold text-white'>Selection Summary</div>
-                  <div className='text-xs text-white/60'>Current working object inside the crop stage.</div>
-                </div>
-              </div>
-
-              <div className='mt-4 grid grid-cols-2 gap-3'>
-                <div className='rounded-2xl border border-white/10 bg-[#081221] p-3'>
-                  <div className='text-xs uppercase tracking-[0.2em] text-white/45'>Width</div>
-                  <div className='mt-2 text-lg font-bold text-white'>{sourceSummary.width}px</div>
-                </div>
-                <div className='rounded-2xl border border-white/10 bg-[#081221] p-3'>
-                  <div className='text-xs uppercase tracking-[0.2em] text-white/45'>Height</div>
-                  <div className='mt-2 text-lg font-bold text-white'>{sourceSummary.height}px</div>
-                </div>
-              </div>
+            <div className='flex flex-col gap-3 items-center justify-center'>
+              {toolButtons.map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <button
+                    key={tool.key}
+                    type='button'
+                    onClick={() => {
+                      tool.onClick();
+                      setSidebarOpen(false);
+                    }}
+                    title={tool.label}
+                    className={`flex h-14 w-full items-center justify-center rounded-2xl border transition-all duration-300 ${activeTool === tool.key
+                      ? 'border-cyan-300/60 bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                      : 'border-white/5 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                      }`}
+                  >
+                    <Icon size={20} />
+                  </button>
+                );
+              })}
             </div>
           </aside>
 
-          <section className='flex min-h-[420px] flex-col bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#0b1325_0%,#09111f_100%)]'>
-            <div className='border-b border-white/10 px-5 py-4 md:px-6'>
-              <div className='flex flex-wrap items-center justify-between gap-3'>
-                <div className='flex flex-wrap items-center gap-3'>
-                  <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
-                    {maskCount} crop mask{maskCount === 1 ? "" : "s"}
-                  </span>
-                  <span className='rounded-full bg-white/8 px-4 py-2 text-sm text-white/80'>
-                    Active tool: {activeTool}
-                  </span>
-                  {selectedMaskId && (
-                    <span className='rounded-full bg-emerald-400/15 px-4 py-2 text-sm text-emerald-100'>
-                      Selected: {selectedMaskId}
-                    </span>
-                  )}
+          <section className='flex flex-1 flex-col bg-[#050c17]'>
+            <div className='border-b border-white/10 px-8 py-5 flex items-center justify-end flex-wrap gap-4 bg-[#09182b]/30 backdrop-blur-md'>
+
+              <div className='flex items-center gap-6 flex-wrap justify-center'>
+
+                <div className='flex items-center gap-2 bg-black/20 rounded-xl p-1 px-3 border border-white/5'>
+                  <button onClick={() => updateZoom("ZoomOut")} className='p-1.5 text-white/40 hover:text-white transition'><Minus size={14} /></button>
+                  <span className='min-w-[3rem] text-center text-[11px] font-black text-cyan-400 tabular-nums'>{Math.round(viewportScale * 100)}%</span>
+                  <button onClick={() => updateZoom("ZoomIn")} className='p-1.5 text-white/40 hover:text-white transition'><Plus size={14} /></button>
                 </div>
-                
-                <div className='flex items-center gap-2'>
-                   <button 
-                    onClick={() => updateZoom("ZoomOut")}
-                    className='rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition'
-                    title="Zoom Out"
+
+                <div className='flex items-center gap-2 flex-wrap'>
+                  <button
+                    onClick={removeSelectedMask}
+                    disabled={!selectedMaskId}
+                    className={`h-10 px-4 rounded-xl border transition-all uppercase tracking-widest text-[10px] font-black border-red-500 ${selectedMaskId
+                      ? 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 shadow-lg shadow-red-500/10'
+                      : 'border-white/5 bg-white/5 text-white/40 opacity-20 cursor-not-allowed'
+                      }`}
                   >
-                    <Minus size={16} />
+                    Delete
                   </button>
-                  <span className='min-w-[4rem] text-center text-xs font-bold text-cyan-400'>
-                    {Math.round(viewportScale * 100)}%
-                  </span>
-                  <button 
-                    onClick={() => updateZoom("ZoomIn")}
-                    className='rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition'
-                    title="Zoom In"
+                  <button
+                    onClick={clearAllMasks}
+                    disabled={!maskCount}
+                    className={`h-10 px-4 rounded-xl border transition-all uppercase tracking-widest text-[10px] font-black ${maskCount > 0
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 shadow-lg shadow-amber-500/10'
+                      : 'border-white/5 bg-white/5 text-white/40 opacity-20 cursor-not-allowed'
+                      }`}
                   >
-                    <Plus size={16} />
+                    Clear
                   </button>
-                  <button 
-                    onClick={() => updateZoom("Initial")}
-                    className='ml-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white transition'
+                  <button
+                    onClick={exportCroppedAsset}
+                    disabled={!canvasReady}
+                    className='h-10 px-6 rounded-xl bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition-all active:scale-95'
                   >
-                    Reset
+                    Export
                   </button>
                 </div>
+
               </div>
-              <p className='mt-3 text-sm leading-6 text-white/65'>{statusText}</p>
             </div>
 
-            <div ref={containerRef} className='flex flex-1 items-center justify-center p-4 md:p-6 overflow-hidden'>
-              <div className='h-full w-full overflow-auto rounded-[32px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl custom-scrollbar'>
-                <div className='flex min-h-full min-w-full items-center justify-center'>
-                  <div 
-                    style={{ 
-                      transform: `scale(${viewportScale})`, 
-                      transformOrigin: 'center center',
-                      transition: 'transform 0.1s ease-out'
-                    }}
-                    className='rounded-[28px] bg-[linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-3'
-                  >
-                    <canvas ref={canvasElementRef} className='block rounded-[20px] shadow-[0_18px_60px_rgba(0,0,0,0.35)]' />
-                  </div>
+            <div ref={containerRef} className='flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px]'>
+              <div className='absolute inset-0 flex items-center justify-center p-0'>
+                <div
+                  style={{
+                    transform: `scale(${viewportScale})`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.1s ease-out'
+                  }}
+                  className='relative'
+                >
+                  <canvas ref={canvasElementRef} className='block shadow-[0_64px_128px_rgba(0,0,0,0.8)]' />
                 </div>
               </div>
             </div>
           </section>
-
-          <aside className='border-t border-white/10 bg-[#09182b] p-5 lg:border-l lg:border-t-0'>
-            <div className='rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
-              <div className='flex items-center gap-3'>
-                <div className='rounded-2xl bg-fuchsia-400/15 p-3 text-fuchsia-100'>
-                  <WandSparkles size={18} />
-                </div>
-                <div>
-                  <div className='text-sm font-semibold text-white'>Export Actions</div>
-                  <div className='text-xs text-white/60'>Mixed crop masks are grouped together on export.</div>
-                </div>
-              </div>
-
-              <div className='mt-4 grid gap-3'>
-                <button
-                  type='button'
-                  onClick={removeSelectedMask}
-                  disabled={!selectedMaskId}
-                  className='inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#081221] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45'
-                >
-                  <Trash2 size={16} />
-                  Remove Selected Mask
-                </button>
-
-                <button
-                  type='button'
-                  onClick={clearAllMasks}
-                  disabled={!maskCount}
-                  className='inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#081221] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45'
-                >
-                  <Layers3 size={16} />
-                  Clear All Masks
-                </button>
-
-                <button
-                  type='button'
-                  onClick={exportCroppedAsset}
-                  disabled={!canvasReady}
-                  className='inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-300/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-45'
-                >
-                  <Download size={16} />
-                  Export Cropped Result
-                </button>
-              </div>
-            </div>
-
-            <div className='mt-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
-              <div className='text-sm font-semibold text-white'>How It Works</div>
-              <div className='mt-3 space-y-3 text-sm leading-6 text-white/65'>
-                <p>`Rectangle` and `Circle` are drag tools for fast mask placement.</p>
-                <p>`Polygon` lets you click point-by-point, then double-click to close the crop area.</p>
-                <p>Every mask you add is combined during export, so you can build complex grouped crops without losing control.</p>
-              </div>
-            </div>
-          </aside>
         </div>
       </div>
     </div>

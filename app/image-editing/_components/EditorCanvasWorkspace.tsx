@@ -19,13 +19,13 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
 
   return (
     <section className='relative min-h-screen w-full bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
-      <div className='flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-6'>
-        <div>
-          <div className='text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200/70'>Canvas Stage</div>
-          <div className='mt-1 flex flex-wrap items-center gap-2 text-sm text-white/75'>
-            <span className='rounded-full bg-white/8 px-3 py-1'>{editor.canvasDimensions.width}x{editor.canvasDimensions.height}</span>
-            <span className='rounded-full bg-white/8 px-3 py-1'>{editor.state.length} layers</span>
-            {editor.activeId && <span className='rounded-full bg-cyan-400/15 px-3 py-1 text-cyan-100'>Selected: {editor.activeId.slice(0, 14)}</span>}
+      <div className='flex items-center justify-between gap-2 border-b border-white/10 px-3 py-3 sm:px-6'>
+        <div className="min-w-0">
+          <div className='hidden xs:block text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Canvas</div>
+          <div className='mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-white/60'>
+            <span className='rounded-lg bg-white/5 px-2 py-1 border border-white/5'>{editor.canvasDimensions.width}×{editor.canvasDimensions.height}</span>
+            <span className='rounded-lg bg-white/5 px-2 py-1 border border-white/5'>{editor.state.length} L</span>
+            {editor.activeId && <span className='rounded-lg bg-cyan-400/10 px-2 py-1 text-cyan-400 border border-cyan-400/20 truncate max-w-[120px]'>ID: {editor.activeId.slice(0, 8)}</span>}
           </div>
         </div>
 
@@ -49,38 +49,34 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         </div>
       </div>
 
-      <div className='flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6 flex-wrap'>
-        <div className='flex flex-wrap items-center gap-2 text-xs text-white/65'>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
-            <Move size={14} />
-            Hold `Alt` and drag to pan
+      <div className='flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-6'>
+        <div className='hidden sm:flex flex-wrap items-center gap-2 text-[11px] text-white/40'>
+          <span className='inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5'>
+            <Move size={12} />
+            Alt + Drag to pan
           </span>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
-            <Maximize2 size={14} />
-            Scroll or pinch to zoom
-          </span>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-2'>
-            <Grid3X3 size={14} />
-            `Delete` removes selected layers
+          <span className='inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5'>
+            <Maximize2 size={12} />
+            Pinch to zoom
           </span>
         </div>
 
-        <div className='flex items-center gap-2 w-[100%] justify-center'>
+        <div className='flex items-center gap-1.5 w-full sm:w-auto justify-center sm:justify-end'>
           <button
             onClick={editor.undo}
             disabled={!editor.canUndo}
-            className='flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed border border-white/10'
-            title="Undo (Ctrl+Z)"
+            className='flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 border border-white/5'
+            title="Undo"
           >
-            <Undo2 size={20} />
+            <Undo2 size={16} />
           </button>
           <button
             onClick={editor.redo}
             disabled={!editor.canRedo}
-            className='flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed border border-white/10 mr-2'
-            title="Redo (Ctrl+Shift+Z)"
+            className='flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 border border-white/5 mr-1'
+            title="Redo"
           >
-            <Redo2 size={20} />
+            <Redo2 size={16} />
           </button>
 
           <InfoActionButton
@@ -105,7 +101,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         onClick={(e) => {
           if (e.target === e.currentTarget) editor.deselectAll();
         }}
-        className='relative h-[calc(100vh-220px)] w-full overflow-auto custom-scrollbar bg-black/20'
+        className='relative h-[calc(100vh-140px)] w-full overflow-auto custom-scrollbar bg-black/10'
       >
         <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[100vh_100vw]'>
           <div
