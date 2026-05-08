@@ -110,6 +110,11 @@ declare global {
         geminaUploadedUri?: string
         globalCompositeOperation?: BlendMode
         currentlyUploading?: boolean
+        rxTL?: number
+        rxTR?: number
+        rxBL?: number
+        rxBR?: number
+        brushColor?: string
     }
 
     export type PositionProps = "bringFront" | "sendBack" | "bringForward" | "sendBackward"

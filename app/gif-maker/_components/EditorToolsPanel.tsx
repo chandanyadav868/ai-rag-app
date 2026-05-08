@@ -51,14 +51,6 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
   return (
     <>
       <aside className={`fixed left-0 top-0 z-30 h-screen w-[min(90vw,340px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
-        <button
-          type='button'
-          onClick={() => editor.setLeftPanelOpen((prev) => !prev)}
-          className='absolute right-0 top-1/2 flex h-14 w-4 translate-y-1/2 translate-x-full items-center justify-center rounded-r-xl border border-l-0 border-white/10 bg-[#09182b] text-white shadow-xl transition-all hover:bg-cyan-500 group'
-          aria-label='Toggle image editor panel'
-        >
-          {editor.leftPanelOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-        </button>
         <div className='flex h-full flex-col'>
           <div className='border-b border-white/10 px-4 py-4 md:px-5 md:py-5'>
             <div className='flex items-center justify-between'>
@@ -81,6 +73,13 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                   title="Save Project"
                 >
                   <Save size={12} />
+                </button>
+                <button
+                  onClick={() => editor.setLeftPanelOpen(false)}
+                  className='p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all'
+                  title="Close Panel"
+                >
+                  <X size={12} />
                 </button>
               </div>
             </div>

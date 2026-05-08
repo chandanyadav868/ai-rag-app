@@ -21,10 +21,11 @@ import {
   StaticCanvas,
   Textbox,
   Triangle,
+  filters,
 } from 'fabric';
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 
-type PanelTab = "Layer" | "Property" | "Assets";
+type PanelTab = "Layer" | "Property" | "Assets" | "AI Features";
 type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline";
 type TemporaryCanvasEvent = "mouse:down" | "mouse:move" | "mouse:up" | "mouse:dblclick" | "path:created";
 type TemporaryCanvasHandler = (event: CanvasEvents[TemporaryCanvasEvent]) => void;
@@ -233,16 +234,19 @@ export function useImageEditor() {
       if (view === "editor" && fabricJs.current && pendingProject) {
         const { id, data, width, height, isNew } = pendingProject;
 
+        // Lock history during load
+        isHistoryAction.current = true;
+
         // Ensure dimensions are correct
         setCanvasDimensions({ width, height });
-        fabricJs.current.setDimensions({ width, height });
+        if (fabricJs.current) fabricJs.current.setDimensions({ width, height });
 
         if (isNew) {
-          fabricJs.current.clear();
-          fabricJs.current.backgroundColor = "#ffffff";
+          fabricJs.current?.clear();
+          if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
           setCurrentProjectId(null);
         } else if (data) {
-          await fabricJs.current.loadFromJSON(data);
+          await fabricJs.current?.loadFromJSON(data);
           setCurrentProjectId(id);
 
           // Rebuild layers state from loaded objects
@@ -273,9 +277,10 @@ export function useImageEditor() {
           setState(newLayersState.sort((a, b) => b.order - a.order));
         }
 
-        fabricJs.current.renderAll();
+        fabricJs.current?.renderAll();
         fitCanvasToViewport({ width, height });
         setPendingProject(null);
+        isHistoryAction.current = false;
       }
     };
     handlePending();
@@ -818,7 +823,7 @@ export function useImageEditor() {
       fabricJs.current?.dispose();
       fabricJs.current = null;
     };
-  }, [canvasDimensions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // Only initialize once on mount
 
   useEffect(() => {
     fitCanvasToViewport(canvasDimensions);
@@ -898,10 +903,11 @@ export function useImageEditor() {
       }, ...prev]);
     } catch (error) {
       console.error("Failed to load image:", error);
+      toast.error("Failed to load image. This may be due to CORS restrictions on the source website.");
     }
   };
 
-  const applyMask = async (maskDataUrl: string, options: { left: number, top: number, scaleX: number, scaleY: number, angle: number }) => {
+  const applyMask = async (maskDataUrl: string, options: { left: number, top: number, scaleX: number, scaleY: number, angle: number, feather?: number }) => {
     if (!fabricJs.current) return;
     const activeObject = fabricJs.current.getActiveObject();
     if (!activeObject) {
@@ -924,6 +930,12 @@ export function useImageEditor() {
         originY: 'center',
         absolutePositioned: false 
       });
+      
+      // Apply feathering if requested
+      if (options.feather && options.feather > 0) {
+        maskImage.filters = [new filters.Blur({ blur: options.feather / 100 })]; // Normalize feather to 0-1 range for Fabric Blur
+        maskImage.applyFilters();
+      }
 
       activeObject.set({
         clipPath: maskImage,
@@ -1686,6 +1698,7 @@ export function useImageEditor() {
     saveProject,
     currentProjectId,
     attachTransformListeners,
+    saveHistory,
     selectedIds,
     setSelectedIds,
   };

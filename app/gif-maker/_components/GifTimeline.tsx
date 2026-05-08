@@ -50,13 +50,13 @@ export function GifTimeline({
                   #{idx + 1}
                 </div>
                 
-                {/* Delete Button (Icon) */}
+                {/* Delete Button (Icon) - Subtle but visible */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setConfirmingDelete(idx);
                   }}
-                  className='absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/80 text-white opacity-0 transition group-hover:opacity-100 hover:bg-rose-600'
+                  className='absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-md transition-all hover:bg-rose-500 hover:scale-110'
                   title="Delete Frame"
                 >
                   <Trash2 size={12} />

@@ -80,6 +80,25 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
           </button>
 
           <InfoActionButton
+            icon={MenuSquare}
+            label='Tools'
+            description='Open the tools and AI panel.'
+            onClick={() => editor.setLeftPanelOpen(true)}
+            active={editor.leftPanelOpen}
+            compact
+          />
+          <InfoActionButton
+            icon={Layers3}
+            label='Layers'
+            description='Open the layer and properties sidebar.'
+            onClick={() => editor.setRightPanelOpen(true)}
+            active={editor.rightPanelOpen}
+            compact
+          />
+
+          <div className="w-px h-6 bg-white/10 mx-1" />
+
+          <InfoActionButton
             icon={Plus}
             label='Zoom In'
             description='Increase the canvas viewport scale without changing the export size.'

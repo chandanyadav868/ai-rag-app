@@ -118,15 +118,12 @@ export function InsertImageModal({ isOpen, onClose, onUrlInsert, onFileUpload }:
               <ClipboardPaste size={14} />
               Paste Image (Ctrl+V)
             </label>
-            <div
-              onPaste={handlePaste}
-              tabIndex={0}
-              className='group relative flex h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-white/5 transition hover:border-cyan-500/50 hover:bg-white/10 focus:border-cyan-500 focus:outline-none'
-            >
-              <div className='rounded-full bg-purple-400/10 p-2 text-purple-400 group-hover:scale-110 transition'>
-                <ClipboardPaste size={20} />
-              </div>
-              <p className='mt-2 text-xs text-white/40'>Click here and press <b>Ctrl+V</b> to paste</p>
+            <div className='relative group'>
+              <textarea
+                placeholder="Paste image here (Ctrl+V)..."
+                onPaste={handlePaste}
+                className="w-full h-32 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 p-4 text-[10px] font-black uppercase tracking-widest text-white focus:border-cyan-500/50 focus:bg-white/10 transition-all text-center resize-none flex items-center justify-center"
+              />
             </div>
           </div>
 

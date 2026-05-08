@@ -12,6 +12,9 @@ import {
   Polygon,
   Polyline,
   Rect,
+  filters,
+  FabricImage,
+  StaticCanvas,
 } from 'fabric';
 import {
   CircleIcon,
@@ -60,6 +63,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
   const [statusText, setStatusText] = useState("Choose a crop tool to start building your mask.");
   const [viewportScale, setViewportScale] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [feather, setFeather] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const updateZoom = (mode: "ZoomIn" | "ZoomOut" | "Initial", amount = 0.1) => {
@@ -589,7 +593,26 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
     const previousClipPath = sourceObject.clipPath;
 
     maskObjects.forEach((object) => object.set("visible", false));
-    sourceObject.clipPath = clipPath;
+
+    // Apply feathering to the clipPath
+    if (feather > 0) {
+      const clipCanvas = new StaticCanvas(undefined, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+      clipCanvas.add(clipPath);
+      clipCanvas.renderAll();
+      
+      const clipDataUrl = clipCanvas.toDataURL();
+      const clipImage = await FabricImage.fromURL(clipDataUrl);
+      clipImage.set({ absolutePositioned: true });
+      clipImage.filters = [new filters.Blur({ blur: feather / 100 })];
+      clipImage.applyFilters();
+      
+      sourceObject.clipPath = clipImage;
+    } else {
+      sourceObject.clipPath = clipPath;
+    }
     canvas.backgroundColor = "transparent";
     canvas.discardActiveObject();
     canvas.requestRenderAll();
@@ -788,6 +811,28 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
       sourceObjectRef.current = null;
     };
   }, [fabricjs, selectedId]);
+  
+  // Real-time preview of feathering using shadow
+  useEffect(() => {
+    const canvas = editCanvasRef.current;
+    if (!canvas) return;
+    
+    const masks = getMaskObjects();
+    masks.forEach(mask => {
+      if (feather > 0) {
+        mask.set('shadow', {
+          color: MASK_STROKE,
+          blur: feather,
+          offsetX: 0,
+          offsetY: 0,
+          nonScaling: true
+        });
+      } else {
+        mask.set('shadow', null);
+      }
+    });
+    canvas.requestRenderAll();
+  }, [feather]);
 
   const toolButtons = [
     {
@@ -859,26 +904,17 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
           )}
 
           {/* Floating Sidebar */}
-          <aside className={`absolute left-6 top-6 z-40 w-64 rounded-[32px] border border-white/10 bg-[#09182b]/95 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
-            <div className='flex items-center justify-between mb-6'>
-              <div className='flex items-center gap-3'>
-                <div className='rounded-2xl bg-cyan-400/15 p-3 text-cyan-100'>
-                  <Crop size={18} />
-                </div>
-                <div>
-                  <div className='text-sm font-semibold text-white'>Crop Tools</div>
-                  <div className='text-[10px] uppercase tracking-widest text-white/40'>Masking</div>
-                </div>
-              </div>
+          <aside className={`absolute left-6 top-6 z-40 w-24 rounded-[32px] border border-white/10 bg-[#09182b]/95 p-4 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
+            <div className='flex flex-col items-center gap-4'>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className='p-2 rounded-xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all'
               >
                 <X size={18} />
               </button>
-            </div>
 
-            <div className='flex flex-col gap-3 items-center justify-center'>
+              <div className='w-full h-px bg-white/10 my-1' />
+
               {toolButtons.map((tool) => {
                 const Icon = tool.icon;
                 return (
@@ -887,15 +923,17 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                     type='button'
                     onClick={() => {
                       tool.onClick();
-                      setSidebarOpen(false);
                     }}
                     title={tool.label}
-                    className={`flex h-14 w-full items-center justify-center rounded-2xl border transition-all duration-300 ${activeTool === tool.key
+                    className={`group relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300 ${activeTool === tool.key
                       ? 'border-cyan-300/60 bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                      : 'border-white/5 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                      : 'border-white/5 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
                       }`}
                   >
                     <Icon size={20} />
+                    {activeTool === tool.key && (
+                      <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-cyan-400 rounded-full" />
+                    )}
                   </button>
                 );
               })}
@@ -911,6 +949,20 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                   <button onClick={() => updateZoom("ZoomOut")} className='p-1.5 text-white/40 hover:text-white transition'><Minus size={14} /></button>
                   <span className='min-w-[3rem] text-center text-[11px] font-black text-cyan-400 tabular-nums'>{Math.round(viewportScale * 100)}%</span>
                   <button onClick={() => updateZoom("ZoomIn")} className='p-1.5 text-white/40 hover:text-white transition'><Plus size={14} /></button>
+                </div>
+
+                <div className='flex items-center gap-4 bg-black/20 rounded-xl py-1 px-4 border border-white/5'>
+                  <span className='text-[10px] font-black uppercase tracking-widest text-white/40 whitespace-nowrap'>Feather</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={feather}
+                    onChange={(e) => setFeather(parseInt(e.target.value))}
+                    className="w-24 h-1 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
+                  />
+                  <span className='min-w-[1.5rem] text-[11px] font-black text-cyan-400 tabular-nums'>{feather}px</span>
                 </div>
 
                 <div className='flex items-center gap-2 flex-wrap'>
