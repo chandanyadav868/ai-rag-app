@@ -915,6 +915,12 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
             <ActionButton icon={<FlipVertical2 size={16} />} label="Flip V" onClick={() => applyChanges({ flipY: !activeItem.flipY })} active={activeItem.flipY} />
           </div>
 
+          <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Skew / Slant</h4>
+            <RangeField label="Skew X" value={activeItem.skewX} min={-80} max={80} step={1} onChange={(v) => applyChanges({ skewX: v })} />
+            <RangeField label="Skew Y" value={activeItem.skewY} min={-80} max={80} step={1} onChange={(v) => applyChanges({ skewY: v })} />
+          </div>
+
           {(isShape || isImage) && (
             <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
               <div className='flex items-center justify-between'>
