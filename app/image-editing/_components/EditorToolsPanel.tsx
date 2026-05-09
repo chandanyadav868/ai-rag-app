@@ -2,7 +2,7 @@
 
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { aspectRatioImage } from '@/constant';
-import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eraser, FolderArchive, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
@@ -399,23 +399,37 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
               </label>
             </div>
 
-            <div className='mt-6 flex gap-3'>
-              <button
-                type='button'
-                onClick={() => setExportDialogOpen(false)}
-                className='flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/[0.08]'
-              >
-                Cancel
-              </button>
+            <div className='mt-6 space-y-3'>
+              <div className='flex gap-3'>
+                <button
+                  type='button'
+                  onClick={() => setExportDialogOpen(false)}
+                  className='flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/[0.08]'
+                >
+                  Cancel
+                </button>
+                <button
+                  type='button'
+                  onClick={() => {
+                    editor.exportCanvas(exportForm);
+                    setExportDialogOpen(false);
+                  }}
+                  className='flex-1 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/25'
+                >
+                  Export
+                </button>
+              </div>
+
               <button
                 type='button'
                 onClick={() => {
-                  editor.exportCanvas(exportForm);
+                  editor.bulkExportAsZip();
                   setExportDialogOpen(false);
                 }}
-                className='flex-1 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/25'
+                className='w-full flex items-center justify-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-400/10 px-4 py-3 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/20'
               >
-                Export
+                <FolderArchive size={18} />
+                Bulk Assets (Export All Layers to ZIP)
               </button>
             </div>
           </div>

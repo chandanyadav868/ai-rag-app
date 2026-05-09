@@ -115,18 +115,44 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         </div>
       </div>
 
-      <div
-        id='workspace-scroll-container'
-        onClick={(e) => {
-          if (e.target === e.currentTarget) editor.deselectAll();
-        }}
-        className='relative h-[calc(100vh-140px)] w-full overflow-auto custom-scrollbar bg-black/10'
-      >
-        <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[100vh_100vw]'>
+      <div className="relative w-full h-[calc(100vh-140px)]">
+        {/* Floating Page Navigation - As requested in Red Rectangle position */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 py-2 px-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar max-w-[30vw] py-1">
+            {editor.pages.map((page: any, idx: number) => (
+              <button
+                key={page.id}
+                onClick={() => editor.switchPage(idx)}
+                className={`group relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 ${editor.activePageIndex === idx ? 'border-cyan-400 bg-cyan-400/20 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05] text-white/40'}`}
+              >
+                <span className="text-[11px] font-black">{idx + 1}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-white/10 mx-1" />
+
+          <button
+            onClick={editor.addPage}
+            className="group flex h-9 items-center gap-2.5 px-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 text-cyan-400 transition-all hover:bg-cyan-400 hover:text-black hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] active:scale-95"
+          >
+            <Plus size={16} strokeWidth={3} />
+            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Add Page</span>
+          </button>
+        </div>
+
+        <div
+          id='workspace-scroll-container'
+          onClick={(e) => {
+            if (e.target === e.currentTarget) editor.deselectAll();
+          }}
+          className='h-full w-full overflow-auto custom-scrollbar bg-black/10'
+        >
+        <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[40vh_40vw]'>
           <div
             ref={editor.canvasDivRef}
             onClick={(e) => e.stopPropagation()}
-            className='relative flex items-center justify-center'
+            className='relative flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.2)]'
             style={{
               transform: `scale(${editor.viewportScale})`,
               transformOrigin: 'center center',
@@ -153,6 +179,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
           </div>
         )}
       </div>
-    </section>
-  );
+    </div>
+  </section>
+);
 }

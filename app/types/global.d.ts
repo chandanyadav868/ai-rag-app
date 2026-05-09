@@ -115,6 +115,7 @@ declare global {
         rxBL?: number
         rxBR?: number
         brushColor?: string
+        assetId?: string
     }
 
     export type PositionProps = "bringFront" | "sendBack" | "bringForward" | "sendBackward"

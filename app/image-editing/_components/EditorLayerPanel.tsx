@@ -17,6 +17,7 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
   const sortedLayers = editor.state.slice().sort((a, b) => b.order - a.order);
   const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
+  const [copyToPageLayerId, setCopyToPageLayerId] = React.useState<string | null>(null);
 
   // Close floating panel when layer selection changes or panel changes
   React.useEffect(() => {
@@ -97,154 +98,166 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
             <AIFeatures editor={editor} />
           ) : (
             <div className='space-y-3'>
-              {sortedLayers.length === 0 && (
-                <div className='rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-6 text-center'>
-                  <div className='text-base font-semibold text-white'>No layers yet</div>
-                  <div className='mt-2 text-sm leading-6 text-white/65'>
-                    Add text, upload an image, or draw a shape to start building your composition.
-                  </div>
-                </div>
-              )}
+            <div className='space-y-6'>
+              {editor.pages.map((page: any, pIdx: number) => {
+                const isPageActive = editor.activePageIndex === pIdx;
+                const pageLayers = isPageActive ? sortedLayers : (page.layers || []);
 
-              {sortedLayers.map((layer) => (
-                <div
-                  key={layer.id}
-                  onClick={() => editor.selectingItem(layer.id)}
-                  className={`relative rounded-2xl border p-3 transition-all duration-300 ${editor.selectedIds.includes(layer.id) ? 'border-cyan-400/50 bg-cyan-400/5' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
-                >
-                  <div className='flex items-start justify-between gap-3'>
-                    <div className='min-w-0 flex-1'>
-                      <div className='truncate text-[13px] font-bold text-white'>{layer.id}</div>
-                      <div className='mt-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-white/30'>{layer.type}</div>
-                    </div>
-
-                    <div className='flex items-center gap-1 shrink-0 relative'>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          editor.showHideLayer(layer.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-all ${layer.hideLayer ? 'bg-rose-500/10 text-rose-400' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
-                        title={layer.hideLayer ? 'Show' : 'Hide'}
-                      >
-                        {layer.hideLayer ? <EyeOff size={14} /> : <EyeIcon size={14} />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          editor.lockLayer(layer.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-all ${layer.layerlock ? 'bg-amber-500/10 text-amber-400' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
-                        title={layer.layerlock ? 'Unlock' : 'Lock'}
-                      >
-                        {layer.layerlock ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          editor.saveLayerAsAsset(layer.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-all hover:bg-cyan-500/10 text-white/40 hover:text-cyan-400`}
-                        title="Save to Assets"
-                      >
-                        <PlusSquare size={14} />
-                      </button>
-                      <div className='w-px h-4 bg-white/10 mx-0.5' />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(openMenuId === layer.id ? null : layer.id);
-                        }}
-                        className={`p-1.5 rounded-lg transition-all ${openMenuId === layer.id ? 'bg-cyan-400 text-black' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
-                      >
-                        <MoreVertical size={14} />
-                      </button>
-                    </div>
-
-                      {openMenuId === layer.id && (
-                        <>
-                          <div 
-                            className='fixed inset-0 z-40' 
+                return (
+                  <div key={page.id} className="space-y-3">
+                    <div className="flex items-center justify-between px-1 bg-white/5 py-2 px-3 rounded-xl border border-white/5">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${isPageActive ? 'bg-cyan-400/20 text-cyan-400' : 'bg-white/5 text-white/20'}`}>
+                          <Layers size={12} />
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${isPageActive ? 'text-white' : 'text-white/40'}`}>
+                          {page.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {!isPageActive && (
+                          <button 
+                            onClick={() => editor.switchPage(pIdx)}
+                            className="text-[9px] font-bold text-cyan-400/60 hover:text-cyan-400 uppercase tracking-wider"
+                          >
+                            Switch
+                          </button>
+                        )}
+                        {editor.pages.length > 1 && (
+                          <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenMenuId(null);
+                              editor.deletePage(pIdx);
                             }}
-                          />
-                          <div className='absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0f172a] shadow-2xl animate-in fade-in zoom-in-95 duration-200'>
-                            <div className='grid grid-cols-1 p-1 pb-8'>
-                              <MenuAction
-                                icon={layer.hideLayer ? EyeOff : EyeIcon}
-                                label={layer.hideLayer ? 'Show' : 'Hide'}
-                                onClick={() => {
-                                  editor.showHideLayer(layer.id);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <MenuAction
-                                icon={layer.layerlock ? LockKeyhole : LockKeyholeOpen}
-                                label={layer.layerlock ? 'Unlock' : 'Lock'}
-                                onClick={() => {
-                                  editor.lockLayer(layer.id);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <MenuAction
-                                icon={Crop}
-                                label='Crop'
-                                onClick={() => {
-                                  editor.setActiveId(layer.id);
-                                  editor.setAiEdit(true);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <MenuAction
-                                icon={Copy}
-                                label='Duplicate'
-                                onClick={() => {
-                                  editor.copyLayer(layer.id);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <MenuAction
-                                icon={Scissors}
-                                label='Mask Studio'
-                                onClick={() => {
-                                  editor.setActiveId(layer.id);
-                                  editor.setMaskStudioOpen(true);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <MenuAction
-                                icon={PlusSquare}
-                                label='Save to Assets'
-                                onClick={() => {
-                                  editor.saveLayerAsAsset(layer.id);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                              <div className='my-1 border-t border-white/5' />
-                              <MenuAction
-                                icon={Trash2Icon}
-                                label='Delete Layer'
-                                danger
-                                onClick={() => {
-                                  editor.deleteLayer(layer.id);
-                                  setOpenMenuId(null);
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      )}
+                            className="text-rose-400/40 hover:text-rose-400 transition-colors"
+                            title="Delete Page"
+                          >
+                            <Trash2Icon size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                  {layer.src && layer.type === "image" && (
-                    <div className='mt-3 overflow-hidden rounded-xl border border-white/5 bg-black/20 p-1'>
-                      <Image src={layer.src} alt='preview' width={240} height={160} className='h-16 w-full object-contain opacity-80' />
+                    <div className="space-y-2 border-l border-white/5 ml-0.5 pl-4">
+                      {pageLayers.length === 0 && (
+                        <div className='text-[10px] text-white/20 italic py-2'>Empty canvas</div>
+                      )}
+                      
+                      {pageLayers.slice().sort((a: any, b: any) => b.order - a.order).map((layer: any) => (
+                        <div
+                          key={layer.id}
+                          onClick={() => {
+                            if (!isPageActive) {
+                              editor.switchPage(pIdx);
+                            }
+                            editor.selectingItem(layer.id);
+                          }}
+                          className={`relative rounded-xl border p-2.5 transition-all duration-300 ${editor.selectedIds.includes(layer.id) && isPageActive ? 'border-cyan-400/50 bg-cyan-400/5' : 'border-white/5 bg-white/[0.01] hover:bg-white/[0.04]'}`}
+                        >
+                          <div className='flex items-start justify-between gap-3'>
+                            <div className='min-w-0 flex-1'>
+                              <div className='truncate text-[12px] font-bold text-white/80'>{layer.id}</div>
+                              <div className='mt-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-white/20'>{layer.type}</div>
+                            </div>
+
+                            {isPageActive && (
+                              <div className='flex items-center gap-1 shrink-0'>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    editor.showHideLayer(layer.id);
+                                  }}
+                                  className={`p-1 rounded-md transition-all ${layer.hideLayer ? 'text-rose-400' : 'text-white/20 hover:text-white'}`}
+                                >
+                                  {layer.hideLayer ? <EyeOff size={12} /> : <EyeIcon size={12} />}
+                                </button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(openMenuId === layer.id ? null : layer.id);
+                                    }}
+                                    className={`p-1 rounded-md transition-all ${openMenuId === layer.id ? 'text-cyan-400 bg-cyan-400/10' : 'text-white/20 hover:text-white'}`}
+                                  >
+                                    <MoreVertical size={12} />
+                                  </button>
+
+                                  {openMenuId === layer.id && (
+                                    <div className="absolute right-0 top-full z-[60] mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1b2b] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                                      <MenuAction 
+                                        icon={Copy} 
+                                        label="Duplicate Layer" 
+                                        onClick={() => {
+                                          editor.copyLayer(layer.id);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <MenuAction 
+                                        icon={Scissors} 
+                                        label="Masking Studio" 
+                                        onClick={() => {
+                                          editor.selectingItem(layer.id);
+                                          editor.setMaskStudioOpen(true);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <MenuAction 
+                                        icon={Layers} 
+                                        label="Copy to Page" 
+                                        onClick={() => {
+                                          setCopyToPageLayerId(layer.id);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <MenuAction 
+                                        icon={Crop} 
+                                        label="Crop Selection" 
+                                        onClick={() => {
+                                          editor.selectingItem(layer.id);
+                                          editor.setAiEdit(true);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <MenuAction 
+                                        icon={layer.layerlock ? LockKeyholeOpen : LockKeyhole} 
+                                        label={layer.layerlock ? "Unlock Layer" : "Lock Layer"} 
+                                        onClick={() => {
+                                          editor.lockLayer(layer.id);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <MenuAction 
+                                        icon={PlusSquare} 
+                                        label="Save as Asset" 
+                                        onClick={() => {
+                                          editor.setAssetSaveLayerId(layer.id);
+                                          editor.setAssetSaveOpen(true);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                      <div className="my-1 h-px bg-white/5" />
+                                      <MenuAction 
+                                        icon={Trash2Icon} 
+                                        label="Delete Layer" 
+                                        danger 
+                                        onClick={() => {
+                                          editor.deleteLayer(layer.id);
+                                          setOpenMenuId(null);
+                                        }} 
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
+            </div>
             </div>
           )}
         </div>
@@ -300,6 +313,51 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                 className='mt-8 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-all'
               >
                 Cancel Process
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Copy to Page Modal */}
+      {copyToPageLayerId && createPortal(
+        <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300'>
+          <div className='w-full max-w-sm rounded-[40px] border border-white/10 bg-[#0a1728] p-8 shadow-2xl scale-in-center animate-in zoom-in-95 duration-300'>
+            <div className='flex flex-col items-center text-center'>
+              <div className='mb-6 rounded-3xl bg-cyan-400/15 p-5 text-cyan-400 shadow-lg shadow-cyan-400/10'>
+                <Copy size={32} />
+              </div>
+              <h2 className='text-2xl font-black text-white'>Copy to Page</h2>
+              <p className='mt-2 text-xs font-bold uppercase tracking-widest text-white/30'>Select destination canvas</p>
+              
+              <div className='mt-8 w-full max-h-[40vh] overflow-y-auto custom-scrollbar space-y-3 pr-2'>
+                {editor.pages.map((page: any, idx: number) => (
+                  <button 
+                    key={page.id}
+                    onClick={() => {
+                      editor.copyLayerToPage(copyToPageLayerId, idx);
+                      setCopyToPageLayerId(null);
+                    }}
+                    className={`w-full group flex items-center justify-between rounded-2xl border p-4 transition-all ${editor.activePageIndex === idx ? 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-cyan-400/30'}`}
+                    disabled={editor.activePageIndex === idx}
+                  >
+                    <div className='flex items-center gap-3'>
+                      <div className='flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-[10px] font-black text-white/40 group-hover:text-cyan-400 transition-colors'>
+                        {idx + 1}
+                      </div>
+                      <span className='text-sm font-bold text-white group-hover:text-cyan-400 transition-colors'>{page.name}</span>
+                    </div>
+                    {editor.activePageIndex === idx && <span className='text-[8px] font-black uppercase text-white/20'>(Current)</span>}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCopyToPageLayerId(null)}
+                className='mt-8 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-all'
+              >
+                Cancel
               </button>
             </div>
           </div>

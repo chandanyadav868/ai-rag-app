@@ -24,6 +24,9 @@ import {
   filters,
 } from 'fabric';
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import { storeLocalAsset, getLocalAsset, storeLocalFont, getAllLocalFonts, getAllLocalAssets, StoredAsset } from '@/lib/persistent-storage';
 
 type PanelTab = "Layer" | "Property" | "Assets" | "AI Features";
 type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline";
@@ -69,23 +72,74 @@ export function useImageEditor() {
   const [assetSaveOpen, setAssetSaveOpen] = useState(false);
   const [assetSaveLayerId, setAssetSaveLayerId] = useState<string | null>(null);
   const [assetSaveToPublic, setAssetSaveToPublic] = useState(false);
+  const [pages, setPages] = useState<{ id: string, name: string, data: any, layers: any[], width: number, height: number, viewportScale?: number }[]>([
+    { id: uuidv4(), name: "Page 1", data: null, layers: [], width: 1280, height: 720, viewportScale: 1 }
+  ]);
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const isHistoryAction = useRef(false);
+  const maskStudioOpenRef = useRef(false);
+  const aiEditRef = useRef(aiEdit);
+  const pagesRef = useRef(pages);
+  const activePageIndexRef = useRef(activePageIndex);
 
-  const maskStudioOpenRef = useRef(maskStudioOpen);
-  const aiEditRef_val = useRef(aiEdit);
+  const syncCurrentPageToData = () => {
+    if (!fabricJs.current) return pagesRef.current;
+    
+    // toObject handles custom properties array correctly in Fabric v6
+    const currentData = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'clipPath', 'filters', 'radius', 'rx', 'ry', 'assetId']);
+    const latestPages = [...pagesRef.current];
+    const currentIndex = activePageIndexRef.current;
+    
+    if (latestPages[currentIndex]) {
+      latestPages[currentIndex] = {
+        ...latestPages[currentIndex],
+        data: currentData,
+        layers: [...state],
+        width: canvasDimensions.width,
+        height: canvasDimensions.height,
+        viewportScale: viewportScale
+      };
+    }
+    return latestPages;
+  };
+
+  const rehydrateCanvasData = async (data: any) => {
+    if (!data || !data.objects) return data;
+    
+    const rehydrateObjects = async (objs: any[]) => {
+      for (const obj of objs) {
+        if (obj.assetId) {
+          const storedAsset = await getLocalAsset(obj.assetId);
+          if (storedAsset) {
+            obj.src = URL.createObjectURL(storedAsset.blob);
+          }
+        }
+        if (obj.objects) {
+          await rehydrateObjects(obj.objects);
+        }
+      }
+    };
+
+    await rehydrateObjects(data.objects);
+    return data;
+  };
+
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
+  useEffect(() => {
+    activePageIndexRef.current = activePageIndex;
+  }, [activePageIndex]);
 
   useEffect(() => {
     maskStudioOpenRef.current = maskStudioOpen;
   }, [maskStudioOpen]);
 
   useEffect(() => {
-    aiEditRef_val.current = aiEdit;
-  }, [aiEdit]);
-
-  const aiEditRef = useRef(aiEdit);
-  useEffect(() => {
     aiEditRef.current = aiEdit;
   }, [aiEdit]);
+
 
   useEffect(() => {
     if (fabricJs.current && fabricJs.current.isDrawingMode) {
@@ -144,9 +198,27 @@ export function useImageEditor() {
     } else if (pid) {
       const metadata = projectsList.find((p: any) => p.id === pid);
       if (metadata) {
-        const projectData = localStorage.getItem(`polish_ai_project_data_${pid}`);
-        if (projectData) {
-          setPendingProject({ id: pid, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
+        const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${pid}`);
+        if (projectDataRaw) {
+          const parsed = JSON.parse(projectDataRaw);
+          if (parsed.pages) {
+            setPages(parsed.pages);
+            pagesRef.current = parsed.pages;
+            const activeIdx = parsed.activePageIndex || 0;
+            setActivePageIndex(activeIdx);
+            activePageIndexRef.current = activeIdx;
+            
+            const activePage = parsed.pages[activeIdx];
+            setPendingProject({ 
+              id: pid, 
+              data: activePage.data, 
+              width: activePage.width || metadata.width, 
+              height: activePage.height || metadata.height 
+            });
+          } else {
+            // Legacy load
+            setPendingProject({ id: pid, data: parsed, width: metadata.width, height: metadata.height });
+          }
           setView("editor");
         }
       }
@@ -161,13 +233,37 @@ export function useImageEditor() {
     if (savedFonts) {
       const fonts = JSON.parse(savedFonts);
       setCustomFonts(fonts);
-      fonts.forEach((font: any) => {
-        const fontFace = new FontFace(font.name, `url(${font.data})`);
+      // Native fonts from LocalStorage metadata (if still using both)
+    }
+
+    // Load persistent fonts from IndexedDB
+    const loadPersistentFonts = async () => {
+      const storedFonts = await getAllLocalFonts();
+      for (const font of storedFonts) {
+        const fontFace = new FontFace(font.name, `url(${URL.createObjectURL(font.blob)})`);
         fontFace.load().then((loadedFace) => {
           document.fonts.add(loadedFace);
-        }).catch(err => console.error("Font loading error:", err));
+          setCustomFonts(prev => {
+            if (prev.find(f => f.name === font.name)) return prev;
+            return [...prev, { name: font.name, data: URL.createObjectURL(font.blob) }];
+          });
+        }).catch(err => console.error("Persistent Font loading error:", err));
+      }
+    };
+    loadPersistentFonts();
+    
+    // Load persistent assets from IndexedDB
+    const loadPersistentAssets = async () => {
+      const storedAssets = await getAllLocalAssets();
+      setAssets(prev => {
+        const existingIds = new Set(prev.map(a => a.id));
+        const newAssets = storedAssets
+          .filter(a => !existingIds.has(a.id))
+          .map(a => ({ id: a.id, src: URL.createObjectURL(a.blob), name: a.name }));
+        return [...prev, ...newAssets];
       });
-    }
+    };
+    loadPersistentAssets();
 
     // Load fonts from Appwrite
     const loadPublicFonts = async () => {
@@ -218,6 +314,161 @@ export function useImageEditor() {
     }
   }, []);
 
+  const addPage = async () => {
+    if (!fabricJs.current || isHistoryAction.current) return;
+    
+    // 1. Sync current page first
+    const updatedPages = syncCurrentPageToData();
+    const currentData = updatedPages[activePageIndexRef.current].data;
+
+    // 2. Create new page (cloned from current or empty)
+    const newPage = {
+      id: uuidv4(),
+      name: `Page ${updatedPages.length + 1}`,
+      data: currentData,
+      layers: [...state],
+      width: canvasDimensions.width,
+      height: canvasDimensions.height,
+      viewportScale: viewportScale
+    };
+    
+    const finalPages = [...updatedPages, newPage];
+    const newPageIndex = finalPages.length - 1;
+
+    // 3. Update states immediately to avoid race conditions
+    pagesRef.current = finalPages;
+    activePageIndexRef.current = newPageIndex;
+    setPages(finalPages);
+    setActivePageIndex(newPageIndex);
+    
+    // 4. Reload canvas to ensure object independence
+    isHistoryAction.current = true;
+    try {
+      fabricJs.current.clear();
+      const rehydratedData = await rehydrateCanvasData(currentData);
+      await fabricJs.current.loadFromJSON(rehydratedData);
+      fabricJs.current.getObjects().forEach(obj => attachTransformListeners(obj));
+      fabricJs.current.renderAll();
+      syncCanvasToState();
+      toast.success("New page added from current canvas!");
+    } catch (err) {
+      console.error("Add page error:", err);
+    } finally {
+      isHistoryAction.current = false;
+    }
+  };
+
+  const switchPage = async (index: number) => {
+    if (!fabricJs.current || index === activePageIndexRef.current || isHistoryAction.current) return;
+    
+    // 1. Save current page state
+    const updatedPages = syncCurrentPageToData();
+
+    // 2. Load target page
+    const targetPage = updatedPages[index];
+    isHistoryAction.current = true;
+    
+    try {
+      fabricJs.current.clear();
+      // Set target page dimensions
+      const targetWidth = targetPage.width || 1280;
+      const targetHeight = targetPage.height || 720;
+      setCanvasDimensions({ width: targetWidth, height: targetHeight });
+      fabricJs.current.setDimensions({ width: targetWidth, height: targetHeight });
+      
+      // Restore viewport scale if exists, else fit
+      if (targetPage.viewportScale) {
+        setViewportScale(targetPage.viewportScale);
+      } else {
+        fitCanvasToViewport({ width: targetWidth, height: targetHeight });
+      }
+
+      if (targetPage.data) {
+        const rehydratedData = await rehydrateCanvasData(targetPage.data);
+        await fabricJs.current.loadFromJSON(rehydratedData);
+        
+        // Re-attach listeners to new objects
+        fabricJs.current.getObjects().forEach(obj => attachTransformListeners(obj));
+      } else {
+        fabricJs.current.backgroundColor = "#ffffff";
+      }
+      fabricJs.current.renderAll();
+      syncCanvasToState();
+      
+      // Update states immediately to avoid race conditions
+      pagesRef.current = updatedPages;
+      activePageIndexRef.current = index;
+      setPages(updatedPages);
+      setActivePageIndex(index);
+      setState(targetPage.layers || []);
+    } catch (err) {
+      console.error("Page switch error:", err);
+      toast.error("Failed to switch page smoothly.");
+    } finally {
+      isHistoryAction.current = false;
+    }
+    
+    toast.info(`Switched to ${targetPage.name}`);
+  };
+
+  const deletePage = async (index: number) => {
+    if (pages.length <= 1) {
+      toast.error("You must have at least one page.");
+      return;
+    }
+    
+    const isDeletingActive = index === activePageIndex;
+    const newPages = pages.filter((_, i) => i !== index);
+    
+    let nextIndex = activePageIndex;
+    if (isDeletingActive) {
+      nextIndex = Math.min(index, newPages.length - 1);
+    } else if (index < activePageIndex) {
+      nextIndex = activePageIndex - 1;
+    }
+
+    // Update states immediately to avoid race conditions
+    pagesRef.current = newPages;
+    activePageIndexRef.current = nextIndex;
+    setPages(newPages);
+    setActivePageIndex(nextIndex);
+
+    if (isDeletingActive && fabricJs.current) {
+      const targetPage = newPages[nextIndex];
+      isHistoryAction.current = true;
+      try {
+        fabricJs.current.clear();
+        // Set target page dimensions
+        const targetWidth = targetPage.width || 1280;
+        const targetHeight = targetPage.height || 720;
+        setCanvasDimensions({ width: targetWidth, height: targetHeight });
+        fabricJs.current.setDimensions({ width: targetWidth, height: targetHeight });
+        
+        // Restore viewport scale
+        if (targetPage.viewportScale) {
+          setViewportScale(targetPage.viewportScale);
+        } else {
+          fitCanvasToViewport({ width: targetWidth, height: targetHeight });
+        }
+
+        if (targetPage.data) {
+          await fabricJs.current.loadFromJSON(targetPage.data);
+          fabricJs.current.getObjects().forEach(obj => attachTransformListeners(obj));
+        } else {
+          fabricJs.current.backgroundColor = "#ffffff";
+        }
+        fabricJs.current.renderAll();
+        setState(targetPage.layers || []);
+      } catch (err) {
+        console.error("Delete switch error:", err);
+      } finally {
+        isHistoryAction.current = false;
+      }
+    }
+    
+    toast.success("Page deleted");
+  };
+
   useEffect(() => {
     localStorage.setItem('polish_ai_assets', JSON.stringify(assets));
   }, [assets]);
@@ -232,8 +483,17 @@ export function useImageEditor() {
       multiplier: 200 / canvasDimensions.width
     });
 
-    // Ensure custom properties like 'id' are included
-    const projectData = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY']);
+    // 1. Sync current page state before global save
+    const latestPages = syncCurrentPageToData();
+    const currentIndex = activePageIndexRef.current;
+
+    const projectData = {
+      pages: latestPages,
+      activePageIndex: currentIndex,
+      width: canvasDimensions.width,
+      height: canvasDimensions.height
+    };
+
     const metadata = {
       id,
       name: projectName || (recentProjects.find(p => p.id === id)?.name) || `Project ${recentProjects.length + 1}`,
@@ -248,24 +508,63 @@ export function useImageEditor() {
     localStorage.setItem('polish_ai_projects_metadata', JSON.stringify(updatedMetadata));
     setRecentProjects(updatedMetadata);
     setCurrentProjectId(id);
+    setPages(latestPages);
   };
 
   const loadProject = async (id: string) => {
-    const projectData = localStorage.getItem(`polish_ai_project_data_${id}`);
+    const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${id}`);
     const metadata = recentProjects.find(p => p.id === id);
-    if (projectData && metadata) {
-      setPendingProject({ id, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
+    if (projectDataRaw && metadata) {
+      const parsed = JSON.parse(projectDataRaw);
+      if (parsed.pages) {
+        // Multi-page format
+        setPages(parsed.pages);
+        pagesRef.current = parsed.pages;
+        const activeIdx = parsed.activePageIndex || 0;
+        setActivePageIndex(activeIdx);
+        activePageIndexRef.current = activeIdx;
+
+        const activePage = parsed.pages[activeIdx];
+        setPendingProject({ 
+          id, 
+          data: activePage.data, 
+          width: activePage.width || metadata.width, 
+          height: activePage.height || metadata.height 
+        });
+      } else {
+        // Legacy project format
+        const legacyWidth = metadata.width || 1280;
+        const legacyHeight = metadata.height || 720;
+        const newPages = [{ id: uuidv4(), name: "Page 1", data: parsed, layers: [], width: legacyWidth, height: legacyHeight }];
+        setPages(newPages);
+        pagesRef.current = newPages;
+        setActivePageIndex(0);
+        activePageIndexRef.current = 0;
+        setPendingProject({ id, data: parsed, width: legacyWidth, height: legacyHeight });
+      }
       setView("editor");
     }
   };
 
   const createNewProject = (width: number, height: number) => {
+    setPages([{ id: uuidv4(), name: "Page 1", data: null, layers: [], width, height }]);
+    setActivePageIndex(0);
     setPendingProject({ width, height, isNew: true });
     setView("editor");
   };
 
   const updateCanvasDimensions = (width: number, height: number) => {
     setCanvasDimensions({ width, height });
+    
+    // Update active page dimensions and scale in the pages array
+    setPages(prev => {
+      const next = [...prev];
+      if (next[activePageIndex]) {
+        next[activePageIndex] = { ...next[activePageIndex], width, height, viewportScale };
+      }
+      return next;
+    });
+
     if (fabricJs.current) {
       fabricJs.current.setDimensions({ width, height });
       fitCanvasToViewport({ width, height });
@@ -285,39 +584,24 @@ export function useImageEditor() {
         if (fabricJs.current) fabricJs.current.setDimensions({ width, height });
 
         if (isNew) {
-          fabricJs.current?.clear();
+        fabricJs.current?.clear();
           if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
           setCurrentProjectId(null);
+          setState([]);
         } else if (data) {
-          await fabricJs.current?.loadFromJSON(data);
+          const rehydratedData = await rehydrateCanvasData(data);
+          await fabricJs.current?.loadFromJSON(rehydratedData);
           setCurrentProjectId(id);
+          
+          // Force render after load
+          fabricJs.current?.requestRenderAll();
 
           // Rebuild layers state from loaded objects
           const objects = fabricJs.current.getObjects();
-          const newLayersState: any[] = [];
-
-          objects.forEach((obj: any) => {
-            // Attach listeners to restored objects
-            attachTransformListeners(obj);
-
-            // Extract state data
-            newLayersState.push({
-              id: obj.get("id"),
-              type: obj.get("type") === "textbox" ? "text" : (obj.get("type") === "image" ? "image" : "shape"),
-              width: obj.width * obj.scaleX,
-              height: obj.height * obj.scaleY,
-              top: obj.top,
-              left: obj.left,
-              angle: obj.angle,
-              fill: obj.fill,
-              stroke: obj.stroke,
-              strokeWidth: obj.strokeWidth,
-              layerlock: obj.get("layerlock") || false,
-              order: obj.get("order") || 0,
-            });
-          });
-
-          setState(newLayersState.sort((a, b) => b.order - a.order));
+          objects.forEach((obj: any) => attachTransformListeners(obj));
+          
+          // Synchronize state from the loaded canvas
+          syncCanvasToState();
         }
 
         fabricJs.current?.renderAll();
@@ -476,7 +760,7 @@ export function useImageEditor() {
 
   const saveHistory = () => {
     if (!fabricJs.current || isHistoryAction.current) return;
-    const json = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+    const json = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
     setHistory((prev) => [json, ...prev].slice(0, 10));
     setRedoStack([]);
   };
@@ -485,7 +769,7 @@ export function useImageEditor() {
     if (!fabricJs.current || history.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
     const prevJson = history[0];
 
     await fabricJs.current.loadFromJSON(prevJson);
@@ -502,7 +786,7 @@ export function useImageEditor() {
     if (!fabricJs.current || redoStack.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
     const nextJson = redoStack[0];
 
     await fabricJs.current.loadFromJSON(nextJson);
@@ -881,16 +1165,17 @@ export function useImageEditor() {
     window.addEventListener("drop", dropImage);
     window.addEventListener("keydown", deletingObj);
 
-    const handlePaste = (e: ClipboardEvent) => {
-      if (maskStudioOpenRef.current || aiEditRef_val.current) return; // Use Refs for latest state
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (maskStudioOpenRef.current || aiEditRef.current) return; // Use Refs for latest state
       const items = e.clipboardData?.items;
       if (!items) return;
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf("image") !== -1) {
           const blob = items[i].getAsFile();
           if (blob) {
+            const assetId = await storeLocalAsset(blob, `pasted_${Date.now()}`);
             const imageUrl = URL.createObjectURL(blob);
-            addImageToCanvas(imageUrl);
+            await addImageToCanvas(imageUrl, { assetId });
           }
         }
       }
@@ -904,11 +1189,20 @@ export function useImageEditor() {
       window.removeEventListener("drop", dropImage);
       window.removeEventListener("keydown", deletingObj);
       window.removeEventListener("paste", handlePaste);
-      canvasElement.removeEventListener("touchstart", handleTouchStart);
-      canvasElement.removeEventListener("touchmove", handleTouchMove);
-      canvasElement.removeEventListener("touchend", handleTouchEnd);
-      fabricJs.current?.dispose();
-      fabricJs.current = null;
+      if (canvasElement) {
+        canvasElement.removeEventListener("touchstart", handleTouchStart);
+        canvasElement.removeEventListener("touchmove", handleTouchMove);
+        canvasElement.removeEventListener("touchend", handleTouchEnd);
+      }
+      
+      if (fabricJs.current) {
+        try {
+          fabricJs.current.dispose();
+        } catch (e) {
+          console.warn("Fabric dispose warning:", e);
+        }
+        fabricJs.current = null;
+      }
     };
   }, []); // Only initialize once on mount
 
@@ -921,15 +1215,16 @@ export function useImageEditor() {
       fitCanvasToViewport(canvasDimensions);
     };
 
-    window.addEventListener("resize", handleResize);
+    window.removeEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
     };
   }, [canvasDimensions]);
 
-  const addImageToCanvas = async (imageUrl: string) => {
+  const addImageToCanvas = async (imageUrl: string, options: { assetId?: string } = {}) => {
     if (!fabricJs.current) return;
     const canvas = fabricJs.current;
+    const { assetId } = options;
 
     try {
       const image = await FabricImage.fromURL(imageUrl, { crossOrigin: "anonymous" });
@@ -963,10 +1258,12 @@ export function useImageEditor() {
         angle: 0,
         layerlock: false,
         src: imageUrl,
+        assetId: assetId
       };
 
       image.set({
         id: nextLayer.id,
+        assetId: assetId,
         left,
         top,
         angle: nextLayer.angle,
@@ -1041,8 +1338,10 @@ export function useImageEditor() {
 
   const fileInserting = async (files: FileList) => {
     if (!files.length) return;
-    const imageUrl = URL.createObjectURL(files[0]);
-    await addImageToCanvas(imageUrl);
+    const file = files[0];
+    const assetId = await storeLocalAsset(file, file.name);
+    const imageUrl = URL.createObjectURL(file);
+    await addImageToCanvas(imageUrl, { assetId });
   };
 
   const insertImageFromUrl = async (url: string) => {
@@ -1181,6 +1480,108 @@ export function useImageEditor() {
       renderCanvas();
       return { ...item, layerlock: nextLock };
     }));
+  };
+
+  const copyLayerToPage = async (layerId: string, targetPageIndex: number) => {
+    if (!fabricJs.current || targetPageIndex === activePageIndex) return;
+
+    const targetObj = fabricJs.current.getObjects().find(o => o.get("id") === layerId);
+    const layerData = state.find(l => l.id === layerId);
+    if (!targetObj || !layerData) return;
+
+    try {
+      // 1. Clone the fabric object
+      const clonedObj = await targetObj.clone();
+      const newId = generateLayerId(String(targetObj.type ?? "layer"));
+      clonedObj.set({ id: newId });
+
+      // 2. Prepare the layer state
+      const newLayerState = { ...layerData, id: newId };
+
+      // 3. Inject into target page's JSON data
+      setPages(prev => {
+        const next = [...prev];
+        const targetPage = next[targetPageIndex];
+        
+        // Deserialize target page data to add the new object
+        // We use a temporary static canvas for this if targetPage.data exists
+        const updatedData = { ...targetPage.data };
+        if (!updatedData.objects) updatedData.objects = [];
+        
+        const objJson = clonedObj.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+        updatedData.objects.push(objJson);
+
+        next[targetPageIndex] = {
+          ...targetPage,
+          data: updatedData,
+          layers: [...(targetPage.layers || []), newLayerState]
+        };
+        return next;
+      });
+
+      toast.success(`Copied to ${pages[targetPageIndex].name}`);
+    } catch (err) {
+      console.error("Copy to page error:", err);
+      toast.error("Failed to copy layer to target page.");
+    }
+  };
+
+  const bulkExportAsZip = async () => {
+    if (!fabricJs.current || pagesRef.current.length === 0) return;
+
+    const zip = new JSZip();
+    const toastId = toast.loading("Generating ZIP with all elements...");
+
+    try {
+      // 1. Sync current page first to ensure latest changes are caught
+      const allPages = syncCurrentPageToData();
+
+      // 2. Process each page
+      for (let pIdx = 0; pIdx < allPages.length; pIdx++) {
+        const page = allPages[pIdx];
+        const pageName = page.name || `Page ${pIdx + 1}`;
+        const pageFolder = zip.folder(pageName);
+        if (!pageFolder) continue;
+
+        // Create a temporary off-screen canvas
+        const tempCanvas = new StaticCanvas(undefined, {
+          width: page.width || 1280,
+          height: page.height || 720,
+        });
+
+        if (page.data) {
+          await tempCanvas.loadFromJSON(page.data);
+          const objects = tempCanvas.getObjects();
+
+          // Export each object as a separate PNG
+          for (let oIdx = 0; oIdx < objects.length; oIdx++) {
+            const obj = objects[oIdx];
+            
+            // Get data URL for the individual object
+            const dataUrl = obj.toDataURL({
+              format: 'png',
+              quality: 1,
+              enableRetinaScaling: true
+            });
+
+            const base64Data = dataUrl.split(',')[1];
+            const safeId = (obj.get('id') || `layer_${oIdx}`).replace(/[^a-z0-9]/gi, '_');
+            const fileName = `${oIdx + 1}_${obj.type}_${safeId}.png`;
+            pageFolder.file(fileName, base64Data, { base64: true });
+          }
+        }
+        
+        tempCanvas.dispose();
+      }
+
+      // 3. Generate ZIP and trigger download
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `${(currentProjectId || 'project').slice(0, 8)}_assets.zip`);
+      toast.success("Bulk export complete!", { id: toastId });
+    } catch (error) {
+      console.error("Bulk export error:", error);
+      toast.error("Failed to generate bulk export.", { id: toastId });
+    }
   };
 
   const exportCanvas = (options?: Partial<ExportCanvasOptions>) => {
@@ -1793,5 +2194,12 @@ export function useImageEditor() {
     assetSaveLayerId,
     setAssetSaveLayerId,
     confirmSaveAsset,
+    copyLayerToPage,
+    pages,
+    activePageIndex,
+    addPage,
+    switchPage,
+    deletePage,
+    bulkExportAsZip,
   };
 }
