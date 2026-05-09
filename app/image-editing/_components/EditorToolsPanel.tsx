@@ -2,7 +2,7 @@
 
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { aspectRatioImage } from '@/constant';
-import { ChevronLeft, ChevronRight, Download, Eraser, FolderArchive, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eraser, FolderArchive, Home, ImageUpIcon, MousePointer2, PenTool, Plus, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
@@ -226,6 +226,14 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                   description='Click multiple points to create a connected line path, then double-click to finish it.'
                   onClick={() => editor.onShapeClick("polyline")}
                   active={editor.activeTool === "polyline"}
+                />
+
+                <InfoActionButton
+                  icon={Plus}
+                  label='Add Page'
+                  description='Create a new page by cloning the current canvas state.'
+                  onClick={editor.addPage}
+                  className='col-span-2'
                 />
 
                 <InfoActionButton

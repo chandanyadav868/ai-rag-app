@@ -995,6 +995,26 @@ export function useImageEditor() {
       setActiveId(null);
     });
 
+    // Fix for canvas jumping when editing text
+    fabricJs.current.on("text:editing:entered", () => {
+      const container = document.getElementById('workspace-scroll-container');
+      if (container) {
+        const scrollLeft = container.scrollLeft;
+        const scrollTop = container.scrollTop;
+        
+        // Use both requestAnimationFrame and a small timeout to ensure we catch any browser-native scroll-into-view
+        requestAnimationFrame(() => {
+          container.scrollLeft = scrollLeft;
+          container.scrollTop = scrollTop;
+        });
+        
+        setTimeout(() => {
+          container.scrollLeft = scrollLeft;
+          container.scrollTop = scrollTop;
+        }, 0);
+      }
+    });
+
     let isPinching = false;
     let lastDistance = 0;
     let isDragging = false;

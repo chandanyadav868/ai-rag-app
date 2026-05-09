@@ -120,8 +120,16 @@ function Headers() {
   return (
     <div ref={menuRef} className='header-Section'>
       <div className='flex w-full items-center justify-between gap-3'>
-        <Link href="/" className='text-lg font-black tracking-wide text-white sm:text-xl'>
-          AI App
+        <Link href="/" className='flex items-center gap-3 transition-transform active:scale-95 group'>
+          <div className="relative h-9 w-9 md:h-10 md:w-10 overflow-hidden rounded-xl bg-white/10 p-1 ring-1 ring-white/20 group-hover:ring-cyan-500/50 transition-all">
+            <Image
+              src="/favicorn/android-chrome-192x192.png"
+              alt="AI App Logo"
+              fill
+              className="object-contain p-1.5 rounded-xl"
+              priority
+            />
+          </div>
         </Link>
 
         <header className='hidden lg:block'>

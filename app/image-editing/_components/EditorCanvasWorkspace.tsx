@@ -18,7 +18,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   }, []);
 
   return (
-    <section className='relative min-h-screen w-full bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
+    <section className='relative h-full flex flex-col overflow-hidden w-full bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
       <div className='flex items-center justify-between gap-2 border-b border-white/10 px-3 py-3 sm:px-6'>
         <div className="min-w-0">
           <div className='hidden xs:block text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Canvas</div>
@@ -115,9 +115,9 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         </div>
       </div>
 
-      <div className="relative w-full h-[calc(100vh-140px)]">
-        {/* Floating Page Navigation - As requested in Red Rectangle position */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 py-2 px-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
+      <div className="relative w-full flex-1 min-h-0">
+        {/* Floating Page Navigation - Restored to top position with lower z-index */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 py-2 px-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
           <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar max-w-[30vw] py-1">
             {editor.pages.map((page: any, idx: number) => (
               <button
@@ -148,38 +148,38 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
           }}
           className='h-full w-full overflow-auto custom-scrollbar bg-black/10'
         >
-        <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[40vh_40vw]'>
-          <div
-            ref={editor.canvasDivRef}
-            onClick={(e) => e.stopPropagation()}
-            className='relative flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.2)]'
-            style={{
-              transform: `scale(${editor.viewportScale})`,
-              transformOrigin: 'center center',
-              width: editor.canvasDimensions.width,
-              height: editor.canvasDimensions.height,
-              transition: 'transform 0.1s ease-out',
-            }}
-          >
-            <canvas
-              ref={editor.canvasRef}
-              id='fabricJsCanvas'
+          <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[40vh_40vw]'>
+            <div
+              ref={editor.canvasDivRef}
               onClick={(e) => e.stopPropagation()}
-              className='bg-transparent'
-            />
-          </div>
-        </div>
-
-        {editor.somethingDrop && (
-          <div className='absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-300 bg-cyan-300/10 backdrop-blur-sm sm:inset-6'>
-            <div className='rounded-2xl bg-[#081221] px-5 py-4 text-center shadow-2xl'>
-              <div className='text-lg font-bold text-white'>Drop image to insert</div>
-              <div className='mt-1 text-sm text-white/70'>Supported files will be added as editable canvas layers.</div>
+              className='relative flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.2)]'
+              style={{
+                transform: `scale(${editor.viewportScale})`,
+                transformOrigin: 'center center',
+                width: editor.canvasDimensions.width,
+                height: editor.canvasDimensions.height,
+                transition: 'transform 0.1s ease-out',
+              }}
+            >
+              <canvas
+                ref={editor.canvasRef}
+                id='fabricJsCanvas'
+                onClick={(e) => e.stopPropagation()}
+                className='bg-transparent'
+              />
             </div>
           </div>
-        )}
+
+          {editor.somethingDrop && (
+            <div className='absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-300 bg-cyan-300/10 backdrop-blur-sm sm:inset-6'>
+              <div className='rounded-2xl bg-[#081221] px-5 py-4 text-center shadow-2xl'>
+                <div className='text-lg font-bold text-white'>Drop image to insert</div>
+                <div className='mt-1 text-sm text-white/70'>Supported files will be added as editable canvas layers.</div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
 }

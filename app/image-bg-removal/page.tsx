@@ -174,10 +174,10 @@ export default function ImageBgRemovalPage() {
               <Wand2 size={16} />
               <span className="text-[10px] font-black uppercase tracking-[0.3em]">Next-Gen Neural Magic</span>
             </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-6 duration-1000">
+            <h1 className="text-4xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-6 duration-1000">
               Remove Background <br /> <span className="text-cyan-400">Instantly.</span>
             </h1>
-            <p className="text-xl text-white/40 font-medium max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <p className="text-base md:text-xl text-white/40 font-medium max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 px-4">
               Professional-grade background removal powered by the same MODNet engine used in our Pro Editor. 
               Everything happens in your browser. 100% Private. 100% Fast.
             </p>
@@ -185,7 +185,7 @@ export default function ImageBgRemovalPage() {
 
           {/* Model Load Section */}
           {!isModelLoaded && (
-            <div className="max-w-xl mx-auto p-12 rounded-[48px] border border-white/10 bg-[#09182b]/80 backdrop-blur-3xl text-center space-y-8 shadow-2xl animate-in zoom-in duration-700 relative overflow-hidden group">
+            <div className="max-w-xl mx-auto p-8 md:p-12 rounded-[48px] border border-white/10 bg-[#09182b]/80 backdrop-blur-3xl text-center space-y-8 shadow-2xl animate-in zoom-in duration-700 relative overflow-hidden group mx-4">
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <div className="w-24 h-24 rounded-[32px] bg-cyan-500/10 flex items-center justify-center text-cyan-400 mx-auto relative z-10">
                     <BrainCircuit size={48} className={status === 'loading' ? 'animate-pulse' : ''} />
@@ -236,28 +236,28 @@ export default function ImageBgRemovalPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-3 rounded-2xl bg-white/5 border border-white/10 text-white/80 px-6 py-4 text-[10px] font-black uppercase tracking-widest transition hover:bg-white/10 active:scale-95"
-                            >
-                                <Plus size={16} />
-                                Add More
-                            </button>
-                            <button
-                                onClick={processAll}
-                                disabled={isProcessingAll || images.every(i => i.status === 'completed')}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-3 rounded-2xl bg-white text-black px-8 py-4 text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 disabled:opacity-30 shadow-xl shadow-cyan-500/10"
-                            >
-                                {isProcessingAll ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                                Process All
-                            </button>
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 text-white/80 px-4 py-3 md:px-6 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-white/10 active:scale-95"
+                                >
+                                    <Plus size={14} />
+                                    Add More
+                                </button>
+                                <button
+                                    onClick={processAll}
+                                    disabled={isProcessingAll || images.every(i => i.status === 'completed')}
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-white text-black px-4 py-3 md:px-8 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 disabled:opacity-30 shadow-xl shadow-cyan-500/10"
+                                >
+                                    {isProcessingAll ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                                    Process All
+                                </button>
                             {images.some(i => i.status === 'completed') && (
                                 <button
                                     onClick={downloadAll}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-3 rounded-2xl bg-cyan-500 text-black px-8 py-4 text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 shadow-xl shadow-cyan-500/20"
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 text-black px-4 py-3 md:px-8 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 shadow-xl shadow-cyan-500/20"
                                 >
-                                    <Download size={16} />
+                                    <Download size={14} />
                                     Export All
                                 </button>
                             )}
@@ -281,9 +281,9 @@ export default function ImageBgRemovalPage() {
                                 <div className="p-8 rounded-[40px] bg-white/5 text-white/20 group-hover:bg-cyan-500 group-hover:text-black transition-all duration-700 group-hover:rotate-12">
                                     <Upload size={56} />
                                 </div>
-                                <div className="text-center space-y-3 relative z-10">
-                                    <h3 className="text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">Drop Images Here</h3>
-                                    <p className="text-base text-white/30 font-medium">PNG, JPG or WEBP. Max resolution: 4096px.</p>
+                                <div className="text-center space-y-3 relative z-10 px-6">
+                                    <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">Choose or Drop Images Here</h3>
+                                    <p className="text-sm md:text-base text-white/30 font-medium">PNG, JPG or WEBP. Max resolution: 4096px.</p>
                                 </div>
                                 <div className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40 group-hover:text-white/80 transition-all">
                                     Select Multiple Files
@@ -298,14 +298,14 @@ export default function ImageBgRemovalPage() {
                                 />
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
                                 {images.map((img) => (
                                     <div key={img.id} className="group relative flex flex-col rounded-[48px] overflow-hidden bg-white/[0.02] border border-white/10 shadow-xl transition-all hover:border-cyan-500/20">
                                         {/* Image Preview Container */}
                                         <div className="relative aspect-square overflow-hidden bg-[#050c17] flex items-center justify-center group/card" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '16px 16px' }}>
                                             <img 
                                                 src={img.processedUrl || img.originalUrl} 
-                                                className={`max-w-full max-h-full object-contain transition-all duration-500 ${img.status === 'processing' ? 'opacity-40 scale-95 blur-md' : 'opacity-100'}`} 
+                                                className={`max-w-full max-h-full object-contain transition-all duration-500 ${img.status === 'processing' ? 'opacity-40 scale-95 blur-md' : 'opacity-100 group-hover:scale-110'}`} 
                                                 alt="Preview"
                                             />
                                             
@@ -315,7 +315,7 @@ export default function ImageBgRemovalPage() {
                                                     e.stopPropagation();
                                                     removeImage(img.id);
                                                 }}
-                                                className="absolute top-4 right-4 p-2 rounded-full bg-black/40 border border-white/10 text-white/40 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all z-30 opacity-0 group-hover/card:opacity-100"
+                                                className="absolute top-4 right-4 p-2 rounded-full bg-black/40 border border-white/10 text-white/40 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all z-30 opacity-100 md:opacity-0 group-hover/card:opacity-100"
                                             >
                                                 <X size={14} />
                                             </button>
@@ -333,18 +333,18 @@ export default function ImageBgRemovalPage() {
                                                 </div>
                                             )}
 
-                                            {/* Hover Actions */}
-                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                            {/* Hover/Mobile Actions */}
+                                            <div className="absolute inset-0 bg-black/60 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                                 <button 
                                                     onClick={() => removeImage(img.id)}
-                                                    className="p-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                                                    className="p-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all scale-90 md:scale-100"
                                                 >
                                                     <Trash2 size={20} />
                                                 </button>
                                                 {img.status === 'idle' && (
                                                     <button 
                                                         onClick={() => processSingleImage(img.id)}
-                                                        className="p-3 rounded-2xl bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
+                                                        className="p-3 rounded-2xl bg-cyan-500 text-black hover:bg-cyan-400 transition-all scale-90 md:scale-100"
                                                     >
                                                         <Zap size={20} />
                                                     </button>
@@ -357,7 +357,7 @@ export default function ImageBgRemovalPage() {
                                                             a.download = `removed-bg-${img.file.name.split('.')[0]}.png`;
                                                             a.click();
                                                         }}
-                                                        className="p-3 rounded-2xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all"
+                                                        className="p-3 rounded-2xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all scale-90 md:scale-100"
                                                     >
                                                         <Download size={20} />
                                                     </button>
@@ -395,12 +395,12 @@ export default function ImageBgRemovalPage() {
               { icon: ShieldCheck, title: "Total Privacy", desc: "Your images never leave your computer. Processing is 100% client-side." },
               { icon: Check, title: "Pro Quality", desc: "Handle complex silhouettes like hair and semi-transparent objects with ease." }
             ].map((feature, i) => (
-              <div key={i} className="p-10 rounded-[40px] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 group">
-                <div className="w-16 h-16 rounded-[24px] bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-                  <feature.icon size={32} />
+              <div key={i} className="p-6 md:p-10 rounded-[40px] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 group">
+                <div className="w-12 h-12 md:w-16 md:h-16 rounded-[24px] bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6 md:mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
+                  <feature.icon size={24} className="md:size-32" />
                 </div>
-                <h4 className="text-2xl font-black text-white mb-3">{feature.title}</h4>
-                <p className="text-base text-white/40 leading-relaxed font-medium">{feature.desc}</p>
+                <h4 className="text-xl md:text-2xl font-black text-white mb-3">{feature.title}</h4>
+                <p className="text-sm md:text-base text-white/40 leading-relaxed font-medium">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -408,6 +408,14 @@ export default function ImageBgRemovalPage() {
       </main>
 
       <Footer />
+      <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          accept="image/*" 
+          multiple
+          className="hidden" 
+      />
     </div>
   );
 }

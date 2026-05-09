@@ -15,8 +15,8 @@ function ProImageEditor() {
   const editor = useImageEditor();
   
   return (
-    <div id='imageEdittingContainer' className='min-h-screen bg-[#07111f] text-white'>
-      <main className='relative min-h-screen overflow-hidden'>
+    <div id='imageEdittingContainer' className='h-screen overflow-hidden bg-[#07111f] text-white'>
+      <main className='relative h-full overflow-hidden'>
         <EditorToolsPanel editor={editor} />
         <EditorCanvasWorkspace editor={editor} />
         <EditorLayerPanel editor={editor} />

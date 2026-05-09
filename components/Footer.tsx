@@ -21,7 +21,7 @@ function Footer() {
       <div className='mx-auto flex w-full max-w-7xl flex-col gap-10 sm:flex-row sm:items-start sm:justify-between'>
 
         <div className='flex items-center justify-center sm:justify-start'>
-          <Image src={'/favicorn/android-chrome-192x192.png'} alt='AI App logo' width={1000} height={1000} className='my-auto w-[96px] rounded-full sm:w-[120px]' />
+          <Image src={'/favicorn/android-chrome-192x192.png'} alt='AI App logo' width={1000} height={1000} className='my-auto w-[96px] rounded-xl sm:w-[120px]' />
         </div>
 
         <div className='flex flex-col gap-10 sm:flex-row sm:gap-20 text-center sm:text-left'>
