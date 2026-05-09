@@ -66,12 +66,12 @@ export async function getAllLocalFonts(): Promise<StoredFont[]> {
   const allKeys = await keys();
   const fontKeys = allKeys.filter((k) => typeof k === 'string' && k.startsWith(FONT_PREFIX));
   const fonts: StoredFont[] = [];
-  
+
   for (const key of fontKeys) {
     const font = await get<StoredFont>(key);
     if (font) fonts.push(font);
   }
-  
+
   return fonts;
 }
 
@@ -82,12 +82,12 @@ export async function getAllLocalAssets(): Promise<StoredAsset[]> {
   const allKeys = await keys();
   const assetKeys = allKeys.filter((k) => typeof k === 'string' && k.startsWith(ASSET_PREFIX));
   const assets: StoredAsset[] = [];
-  
+
   for (const key of assetKeys) {
     const asset = await get<StoredAsset>(key);
     if (asset) assets.push(asset);
   }
-  
+
   return assets;
 }
 
