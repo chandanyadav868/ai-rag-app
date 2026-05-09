@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Plus, LayoutGrid, Clock, ChevronRight, Settings2, Image as ImageIcon, Smartphone, Monitor, Square, Home, X, Trash2, Film } from 'lucide-react';
+import { Plus, LayoutGrid, Clock, ChevronRight, Settings2, Image as ImageIcon, Smartphone, Monitor, Square, Home, X, Trash2, Film, MoreVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Header from '@/components/Header';
@@ -15,6 +15,7 @@ export default function GifHomeScreen() {
   const [customPresets, setCustomPresets] = useState<any[]>([]);
   const [isPresetDialogOpen, setIsPresetDialogOpen] = useState(false);
   const [newPreset, setNewPreset] = useState({ name: '', width: 600, height: 400 });
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedMetadata = localStorage.getItem('gif_projects_metadata');
@@ -26,6 +27,16 @@ export default function GifHomeScreen() {
       setCustomPresets(JSON.parse(savedPresets));
     }
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuOpenId && !(e.target as HTMLElement).closest('.project-menu-container')) {
+        setMenuOpenId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpenId]);
 
   const handleCreate = (w: number, h: number) => {
     router.push(`/gif-maker?width=${w}&height=${h}`);
@@ -218,14 +229,28 @@ export default function GifHomeScreen() {
                   className="group cursor-pointer"
                 >
                   <div className="relative aspect-[4/3] rounded-[32px] overflow-hidden bg-white/5 border border-white/10 transition-all group-hover:-translate-y-3 group-hover:shadow-[0_40px_100px_rgba(6,182,212,0.15)] group-hover:border-cyan-500/30">
-                    <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="absolute top-4 right-4 z-30 project-menu-container">
                       <button 
-                        onClick={(e) => handleDeleteProject(project.id, e)}
-                        className="p-2.5 rounded-xl bg-black/60 text-white/40 hover:text-rose-400 hover:bg-rose-500/20 backdrop-blur-md border border-white/10 transition-all"
-                        title="Delete Project"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(menuOpenId === project.id ? null : project.id);
+                        }}
+                        className={`p-2.5 rounded-xl backdrop-blur-md border border-white/10 transition-all ${menuOpenId === project.id ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-black/60 text-white/40 hover:text-white'}`}
                       >
-                        <Trash2 size={16} />
+                        <MoreVertical size={18} />
                       </button>
+
+                      {menuOpenId === project.id && (
+                        <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#09182b] border border-white/10 shadow-2xl overflow-hidden py-1 z-40 animate-in fade-in zoom-in duration-200">
+                          <button 
+                            onClick={(e) => handleDeleteProject(project.id, e)}
+                            className="w-full px-4 py-3 flex items-center gap-3 text-sm font-bold text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                            Delete Project
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {project.thumbnail ? (
                       <img src={project.thumbnail} alt={project.name} className="w-full h-full object-cover" />

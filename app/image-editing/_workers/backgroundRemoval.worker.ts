@@ -1,35 +1,74 @@
-import { env, AutoModel, AutoProcessor, RawImage } from '@huggingface/transformers';
+import { env, pipeline, RawImage, AutoModel, AutoProcessor } from '@huggingface/transformers';
 
-// Configuration
+// Configuration for maximum performance
 env.allowLocalModels = false;
 env.useBrowserCache = true;
-if (env.backends?.onnx?.wasm) {
-    env.backends.onnx.wasm.proxy = false;
-}
 
-let model: any = null;
-let processor: any = null;
+let currentModel: any = null;
+let currentProcessor: any = null;
+let currentPipe: any = null;
+let activeModelId: string | null = null;
 
-async function loadModel(modelId: string) {
-    if (model && processor) return;
+async function loadModel(modelId: string = "Xenova/modnet") {
+    if (activeModelId === modelId && (currentPipe || (currentModel && currentProcessor))) return;
     
     try {
-        console.log('Worker: Loading model...', modelId);
-        self.postMessage({ status: 'loading', message: 'Loading AI model...' });
-        
         const device = self.navigator && (self.navigator as any).gpu ? 'webgpu' : 'wasm';
-        console.log('Worker: Using device:', device);
+        console.log(`[Worker] Initializing ${modelId} on device:`, device);
+        self.postMessage({ status: 'loading', message: `Initializing AI (${device})...` });
 
-        model ??= await AutoModel.from_pretrained(modelId, {
-            device: device,
-        });
-        processor ??= await AutoProcessor.from_pretrained(modelId);
+        if (modelId === "briaai/RMBG-1.4") {
+            // Fallback model logic with custom config as provided by user
+            currentModel = await AutoModel.from_pretrained("briaai/RMBG-1.4", {
+                config: { model_type: "custom" } as any,
+                device: device,
+            });
+            currentProcessor = await AutoProcessor.from_pretrained("briaai/RMBG-1.4", {
+                config: {
+                    do_normalize: true,
+                    do_pad: false,
+                    do_rescale: true,
+                    do_resize: true,
+                    image_mean: [0.5, 0.5, 0.5],
+                    feature_extractor_type: "ImageFeatureExtractor",
+                    image_std: [1, 1, 1],
+                    resample: 2,
+                    rescale_factor: 0.00392156862745098,
+                    size: { width: 1024, height: 1024 },
+                } as any,
+            });
+            currentPipe = null;
+        } else {
+            // Standard pipeline models
+            currentPipe = await pipeline("background-removal", modelId, {
+                device: device,
+                progress_callback: (p: any) => {
+                    if (p.status === 'progress') {
+                        self.postMessage({ 
+                            status: 'loading', 
+                            message: `Downloading weights: ${Math.round(p.progress)}%` 
+                        });
+                    }
+                }
+            });
+            currentModel = null;
+            currentProcessor = null;
+        }
         
-        console.log('Worker: Model loaded successfully');
-        self.postMessage({ status: 'ready', message: 'Model ready' });
+        activeModelId = modelId;
+        console.log(`[Worker] Model ready: ${modelId}`);
+        self.postMessage({ status: 'ready', message: 'Neural Engine Active' });
     } catch (error) {
-        console.error('Worker: Load failed', error);
-        self.postMessage({ status: 'error', message: 'Failed to load model: ' + String(error) });
+        console.error(`[Worker] ${modelId} failed:`, error);
+        
+        // Automatic fallback to RMBG-1.4 if not already trying it
+        if (modelId !== "briaai/RMBG-1.4") {
+            console.log("[Worker] Attempting fallback to RMBG-1.4...");
+            await loadModel("briaai/RMBG-1.4");
+        } else {
+            self.postMessage({ status: 'error', message: 'AI Initialization Failed' });
+            throw error;
+        }
     }
 }
 
@@ -37,45 +76,54 @@ self.onmessage = async (event) => {
     const { action, payload } = event.data;
 
     if (action === 'load') {
-        await loadModel(payload.modelId || 'Xenova/modnet');
-    } else if (action === 'removeBackground') {
-        if (!model || !processor) {
-            self.postMessage({ status: 'error', message: 'Model not loaded' });
-            return;
-        }
-
+        await loadModel(payload.modelId);
+    } else if (action === 'removeBackground' || action === 'processFrame') {
         try {
-            self.postMessage({ status: 'processing', message: 'Removing background...' });
+            await loadModel(payload.modelId || activeModelId || "Xenova/modnet");
+            
+            const isFrame = action === 'processFrame';
+            const { image, frame, width, height } = payload;
             
             // 1. Load image
-            const img = await RawImage.fromURL(payload.image);
-            
-            // 2. Pre-process image
-            const { pixel_values } = await processor(img);
+            const img = isFrame ? new RawImage(frame, width, height, 4) : await RawImage.fromURL(image);
+            let maskData: any;
+            let outWidth: number;
+            let outHeight: number;
+            let channels: number;
 
-            // 3. Predict alpha matte
-            const { output } = await model({ input: pixel_values });
-
-            // 4. Post-process to get mask data
-            // We use the exact logic from the provided code
-            const maskImage = await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
-                img.width,
-                img.height,
-            );
+            if (currentPipe) {
+                const output = await currentPipe(img);
+                maskData = output.data;
+                outWidth = output.width;
+                outHeight = output.height;
+                channels = output.channels;
+            } else {
+                // RMBG-1.4 manual inference path
+                const { pixel_values } = await currentProcessor(img);
+                const { output } = await currentModel({ input: pixel_values });
+                const mask = await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
+                    img.width,
+                    img.height,
+                );
+                maskData = mask.data;
+                outWidth = img.width;
+                outHeight = img.height;
+                channels = 1;
+            }
             
-            const maskData = maskImage.data;
-            
+            const responseAction = isFrame ? 'processFrame' : 'removeBackground';
             self.postMessage({ 
                 status: 'complete', 
+                action: responseAction,
                 payload: {
-                    mask: { data: maskData }, 
-                    width: img.width,
-                    height: img.height
+                    mask: { data: maskData, channels: channels }, 
+                    width: outWidth,
+                    height: outHeight
                 } 
-            });
+            }, isFrame ? [maskData.buffer] as any : undefined);
         } catch (error) {
-            console.error('Worker: Inference error', error);
-            self.postMessage({ status: 'error', message: 'Background removal failed: ' + String(error) });
+            console.error('[Worker] Inference failed:', error);
+            self.postMessage({ status: 'error', message: 'Background removal failed' });
         }
     }
 };

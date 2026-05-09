@@ -24,8 +24,18 @@ export const metadata: Metadata = {
     default: 'Polish AI - Pro Image & GIF Studio',
     template: '%s | Polish AI'
   },
-  description: 'The ultimate AI-powered creative studio. Edit images, remove objects, and create professional GIFs with our advanced online tools.',
-  keywords: ['AI Image Editor', 'GIF Maker', 'Object Removal', 'AI Background Remover', 'Online Image Studio', 'Polish AI'],
+  description: 'The ultimate AI-powered creative studio. Edit images, remove backgrounds, and create professional GIFs with our advanced online tools. Fast, private, and 100% in-browser.',
+  keywords: [
+    'AI Image Editor', 
+    'GIF Maker', 
+    'Object Removal', 
+    'AI Background Remover', 
+    'Online Image Studio', 
+    'Polish AI', 
+    'Remove background from image',
+    'Free GIF creator',
+    'AI photo editing'
+  ],
   authors: [{ name: 'Polish AI Team' }],
   creator: 'Polish AI',
   publisher: 'Polish AI',
@@ -35,9 +45,17 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Polish AI - Pro Image & GIF Studio',
-    description: 'Transform your photos with AI and create professional GIFs in seconds.',
+    description: 'Transform your photos with AI and create professional GIFs in seconds. 100% Private and Fast.',
     url: 'https://polish-ai.com',
     siteName: 'Polish AI',
+    images: [
+      {
+        url: '/og-image.png', // Placeholder for OG image
+        width: 1200,
+        height: 630,
+        alt: 'Polish AI - Pro Image & GIF Studio',
+      },
+    ],
     locale: 'en_US',
     type: 'website',
   },
@@ -45,6 +63,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Polish AI - Pro Image & GIF Studio',
     description: 'The ultimate AI-powered creative studio for images and GIFs.',
+    images: ['/og-image.png'],
   },
   manifest: '/site.webmanifest',
   icons: {

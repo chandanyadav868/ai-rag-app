@@ -17,10 +17,13 @@ import {
   Type,
   Ungroup as UngroupIcon,
   Plus,
+  Minus,
   Loader2,
   Maximize2,
   Sparkles,
   X,
+  Check,
+  PenTool,
 } from 'lucide-react';
 import {
   Canvas,
@@ -58,7 +61,7 @@ interface ToolBoxProp {
   shapeDesignDiv?: (selectedId: string, { }: Record<string, string | number>) => void;
   shapePosition?: (selectedId: string, type: PositionProps) => void;
   customFonts?: { name: string, data: string }[];
-  addCustomFont?: (file: File) => void;
+  addCustomFont?: (file: File, isPublic?: boolean) => void;
   fontLoading?: boolean;
   attachTransformListeners?: (obj: FabricObject) => void;
   activeCategory?: string | null;
@@ -113,8 +116,9 @@ interface InspectorState {
   gradientEnabled: boolean;
   gradientType: "linear" | "radial";
   gradientAngle: number;
-  gradientColor1: string;
-  gradientColor2: string;
+  gradientOffsetX: number;
+  gradientOffsetY: number;
+  gradientColorStops: { color: string; offset: number }[];
   paintFirst: "fill" | "stroke";
   strokeDashArray: number;
   brushColor: string;
@@ -173,8 +177,12 @@ const EMPTY_INSPECTOR: InspectorState = {
   gradientEnabled: false,
   gradientType: "linear",
   gradientAngle: 0,
-  gradientColor1: "#ffffff",
-  gradientColor2: "#000000",
+  gradientOffsetX: 0,
+  gradientOffsetY: 0,
+  gradientColorStops: [
+    { color: "#ffffff", offset: 0 },
+    { color: "#000000", offset: 1 }
+  ],
   paintFirst: "fill",
   strokeDashArray: 0,
   brushColor: "#22c55e",
@@ -233,6 +241,14 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
   const setActiveCategory = setExternalCategory !== undefined ? setExternalCategory : setInternalCategory;
 
   const [activeItem, setActiveItem] = useState<InspectorState>(EMPTY_INSPECTOR);
+  const [fontUploadOpen, setFontUploadOpen] = useState(false);
+  const [uploadToPublic, setUploadToPublic] = useState(false);
+  const [selectedFontFile, setSelectedFontFile] = useState<File | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
 
   const getSelectedObject = () => {
@@ -323,9 +339,13 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       shadowColor: (selectedObject.shadow as any)?.color ?? "#000000",
       gradientEnabled: selectedObject.fill instanceof Gradient,
       gradientType: (selectedObject.fill as any)?.type ?? "linear",
-      gradientAngle: 0, // Simplified for now
-      gradientColor1: (selectedObject.fill as any)?.colorStops?.[0]?.color ?? "#ffffff",
-      gradientColor2: (selectedObject.fill as any)?.colorStops?.[1]?.color ?? "#000000",
+      gradientAngle: (selectedObject.fill as any)?.angle ?? 0,
+      gradientOffsetX: (selectedObject.fill as any)?.offsetX ?? 0,
+      gradientOffsetY: (selectedObject.fill as any)?.offsetY ?? 0,
+      gradientColorStops: (selectedObject.fill as any)?.colorStops ?? [
+        { color: "#ffffff", offset: 0 },
+        { color: "#000000", offset: 1 }
+      ],
       paintFirst: (selectedObject as any).paintFirst ?? "fill",
       strokeDashArray: (selectedObject as any).strokeDashArray?.[0] ?? 0,
       brushColor: (fabricJs.current?.freeDrawingBrush?.color) ?? "#22c55e",
@@ -440,29 +460,45 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     }
 
     // Gradient handling
-    if (delta.gradientEnabled !== undefined || delta.gradientColor1 !== undefined || delta.gradientColor2 !== undefined || delta.gradientType !== undefined) {
-      const enabled = delta.gradientEnabled ?? activeItem.gradientEnabled;
+    if (delta.gradientEnabled !== undefined || delta.gradientColorStops !== undefined || delta.gradientType !== undefined || delta.gradientAngle !== undefined || delta.gradientOffsetX !== undefined || delta.gradientOffsetY !== undefined) {
+      const enabled = delta.gradientEnabled !== undefined ? delta.gradientEnabled : activeItem.gradientEnabled;
       if (enabled) {
         const type = delta.gradientType ?? activeItem.gradientType;
-        const c1 = delta.gradientColor1 ?? activeItem.gradientColor1;
-        const c2 = delta.gradientColor2 ?? activeItem.gradientColor2;
+        const stops = delta.gradientColorStops ?? activeItem.gradientColorStops;
+        const angle = delta.gradientAngle ?? activeItem.gradientAngle;
+        const offsetX = delta.gradientOffsetX ?? activeItem.gradientOffsetX;
+        const offsetY = delta.gradientOffsetY ?? activeItem.gradientOffsetY;
 
         const w = object.width ?? 100;
         const h = object.height ?? 100;
 
+        const angleInRad = (angle * Math.PI) / 180;
+        const x1 = (w / 2) * (1 - Math.cos(angleInRad)) + offsetX;
+        const y1 = (h / 2) * (1 - Math.sin(angleInRad)) + offsetY;
+        const x2 = (w / 2) * (1 + Math.cos(angleInRad)) + offsetX;
+        const y2 = (h / 2) * (1 + Math.sin(angleInRad)) + offsetY;
+
         const grad = new Gradient({
           type,
-          coords: type === "linear" ? { x1: 0, y1: 0, x2: w, y2: 0 } : { r1: 0, r2: w / 2, x1: w / 2, y1: h / 2, x2: w / 2, y2: h / 2 },
-          colorStops: [
-            { offset: 0, color: c1 },
-            { offset: 1, color: c2 },
-          ],
+          coords: type === "linear" 
+            ? { x1, y1, x2, y2 } 
+            : { r1: 0, r2: Math.max(w, h) / 2, x1: w / 2 + offsetX, y1: h / 2 + offsetY, x2: w / 2 + offsetX, y2: h / 2 + offsetY },
+          colorStops: stops.map(s => ({ offset: s.offset, color: s.color })),
         });
+        
+        // Store properties on the gradient object for syncInspector
+        (grad as any).angle = angle;
+        (grad as any).offsetX = offsetX;
+        (grad as any).offsetY = offsetY;
+        
         object.set("fill", grad);
       } else {
-        object.set("fill", activeItem.fill);
+        if (delta.gradientEnabled === false) {
+           object.set("fill", activeItem.fill);
+        }
       }
     }
+
 
     if (delta.paintFirst !== undefined) {
       object.set("paintFirst", delta.paintFirst);
@@ -759,21 +795,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       ...prev,
       brushColor: delta.color ?? prev.brushColor,
       brushWidth: delta.width ?? prev.brushWidth,
-      sprayDensity: delta.density ?? prev.sprayDensity,
+    sprayDensity: delta.density ?? prev.sprayDensity,
       sprayDotWidth: delta.dotWidth ?? prev.sprayDotWidth,
     }));
   };
-
-  if (!selectedId && activeTool !== "freeDrawing") {
-    return (
-      <div className='rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center'>
-        <div className='text-sm font-semibold text-white'>No active selection</div>
-        <div className='mt-2 text-sm leading-6 text-white/60'>
-          Select a layer to edit its properties.
-        </div>
-      </div>
-    );
-  }
 
   // --- RENDERING HELPERS ---
 
@@ -845,289 +870,465 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     </button>
   );
 
-  // --- CATEGORY CONTENT ---
-
-  if (activeCategory === "transform") {
-    return renderCategoryBox("Transform", (
-      <>
-        <RangeField label="Position X" value={activeItem.left} min={-1000} max={2000} step={1} onChange={(value) => applyChanges({ left: value })} />
-        <RangeField label="Position Y" value={activeItem.top} min={-1000} max={2000} step={1} onChange={(value) => applyChanges({ top: value })} />
-        <RangeField label="Width" value={activeItem.width} min={1} max={2000} step={1} onChange={(value) => applyChanges({}, { width: value })} />
-        <RangeField label="Height" value={activeItem.height} min={1} max={2000} step={1} onChange={(value) => applyChanges({}, { height: value })} />
-        <RangeField label="Angle" value={activeItem.angle} min={0} max={360} step={1} onChange={(value) => applyChanges({ angle: value })} />
-        
-        <div className='mt-2 space-y-2'>
-          <label className='text-[9px] font-black uppercase tracking-[0.2em] text-white/40 ml-1'>Pivot Point</label>
-          <div className='grid grid-cols-3 gap-2'>
-            {[
-              { x: "left", y: "top", label: "TL" }, { x: "center", y: "top", label: "TC" }, { x: "right", y: "top", label: "TR" },
-              { x: "left", y: "center", label: "ML" }, { x: "center", y: "center", label: "MC" }, { x: "right", y: "center", label: "MR" },
-              { x: "left", y: "bottom", label: "BL" }, { x: "center", y: "bottom", label: "BC" }, { x: "right", y: "bottom", label: "BR" },
-            ].map((origin) => (
-              <button
-                key={`${origin.x}-${origin.y}`}
-                onClick={() => changeOrigin(origin.x, origin.y)}
-                className={`rounded-lg py-1.5 text-[9px] font-bold uppercase transition ${activeItem.originX === origin.x && activeItem.originY === origin.y ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-              >
-                {origin.label}
-              </button>
-            ))}
+  const renderContent = () => {
+    if (!selectedId && activeTool !== "freeDrawing") {
+      return (
+        <div className='rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center'>
+          <div className='text-sm font-semibold text-white'>No active selection</div>
+          <div className='mt-2 text-sm leading-6 text-white/60'>
+            Select a layer to edit its properties.
           </div>
         </div>
+      );
+    }
 
-        <div className='grid grid-cols-2 gap-3'>
-          <ActionButton icon={<FlipHorizontal2 size={16} />} label="Flip H" onClick={() => applyChanges({ flipX: !activeItem.flipX })} active={activeItem.flipX} />
-          <ActionButton icon={<FlipVertical2 size={16} />} label="Flip V" onClick={() => applyChanges({ flipY: !activeItem.flipY })} active={activeItem.flipY} />
-        </div>
-
-        {(isShape || isImage) && (
-          <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-            <div className='flex items-center justify-between'>
-              <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Corner Radius</h4>
-              <div className='flex gap-1'>
-                {["TL", "TR", "BL", "BR", "ALL"].map(c => (
-                  <button 
-                    key={c}
-                    onClick={() => (window as any)._activeCorner = c}
-                    className='px-2 py-1 rounded bg-white/5 text-[8px] font-bold text-white/40 hover:text-cyan-400'
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <RangeField label="All Corners" value={activeItem.rx} min={0} max={200} step={1} onChange={(value) => applyChanges({ rx: value })} />
-            
-            <div className='grid grid-cols-2 gap-4 pt-2 border-t border-white/5'>
-              <RangeField label="Top Left" value={activeItem.rxTL} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxTL: v })} />
-              <RangeField label="Top Right" value={activeItem.rxTR} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxTR: v })} />
-              <RangeField label="Bottom Left" value={activeItem.rxBL} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBL: v })} />
-              <RangeField label="Bottom Right" value={activeItem.rxBR} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBR: v })} />
-            </div>
-          </div>
-        )}
-      </>
-    ));
-  }
-
-  if (activeCategory === "styling") {
-    return renderCategoryBox("Styling", (
-      <>
-        <RangeField label="Opacity" value={activeItem.opacity} min={0} max={1} step={0.01} onChange={(value) => applyChanges({ opacity: value })} />
-        {!isImage && (
-          <ColorField label="Fill Color" value={activeItem.fill} onChange={(value) => applyChanges({ fill: value })} />
-        )}
-        <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-          <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Stroke Settings</h4>
-          <ColorField label="Stroke Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
-          <RangeField label="Stroke Width" value={activeItem.strokeWidth} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeWidth: value })} />
-          <RangeField label="Dash Array" value={activeItem.strokeDashArray} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeDashArray: value })} />
-        </div>
-        <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-          <div className='flex items-center justify-between mb-2'>
-            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Gradient</h4>
-            <input 
-              type="checkbox" 
-              checked={activeItem.gradientEnabled} 
-              onChange={(e) => applyChanges({ gradientEnabled: e.target.checked })}
-              className="accent-cyan-500"
-            />
-          </div>
-          {activeItem.gradientEnabled && (
-            <div className='space-y-3 animate-in fade-in slide-in-from-top-2 duration-300'>
-              <SelectField 
-                label="Type" 
-                value={activeItem.gradientType} 
-                options={[{label: "Linear", value: "linear"}, {label: "Radial", value: "radial"}]} 
-                onChange={(v) => applyChanges({ gradientType: v as any })} 
-              />
-              <ColorField label="Color 1" value={activeItem.gradientColor1} onChange={(v) => applyChanges({ gradientColor1: v })} />
-              <ColorField label="Color 2" value={activeItem.gradientColor2} onChange={(v) => applyChanges({ gradientColor2: v })} />
-            </div>
-          )}
-        </div>
-
-        <SelectField
-          label="Blend Mode"
-          value={activeItem.globalCompositeOperation}
-          options={BLEND_MODES.map(m => ({ label: m, value: m }))}
-          onChange={(value) => applyChanges({ globalCompositeOperation: value as BlendMode })}
-        />
-      </>
-    ));
-  }
-
-  if (activeCategory === "text" && isText) {
-    return renderCategoryBox("Typography", (
-      <>
-        <SelectField label="Font Family" value={activeItem.fontFamily} options={FontFamily.map(f => ({ label: f, value: f }))} onChange={(value) => applyChanges({ fontFamily: value })} />
-        <div className='grid grid-cols-2 gap-3'>
-          <SelectField label="Weight" value={activeItem.fontWeight} options={FontWeight.map(w => ({ label: w, value: w }))} onChange={(value) => applyChanges({ fontWeight: value })} />
-          <SelectField label="Style" value={activeItem.fontStyle} options={FontStyle.map(s => ({ label: s, value: s }))} onChange={(value) => applyChanges({ fontStyle: value })} />
-        </div>
-        <RangeField label="Font Size" value={activeItem.fontSize} min={1} max={200} step={1} onChange={(value) => applyChanges({ fontSize: value })} />
-        <RangeField label="Letter Spacing" value={activeItem.charSpacing} min={-100} max={500} step={1} onChange={(value) => applyChanges({ charSpacing: value })} />
-        <RangeField label="Line Height" value={activeItem.lineHeight} min={0.1} max={3} step={0.05} onChange={(value) => applyChanges({ lineHeight: value })} />
-        <SelectField label="Alignment" value={activeItem.textAlign} options={TextAlign.map(a => ({ label: a, value: a.toLowerCase() }))} onChange={(value) => applyChanges({ textAlign: value as TextAlignProps })} />
-        <ColorField label="Background" value={activeItem.backgroundColor} onChange={(value) => applyChanges({ backgroundColor: value })} />
-        
-        <div className='pt-2'>
-          <button
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.ttf,.otf,.woff,.woff2';
-              input.onchange = (e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file && addCustomFont) addCustomFont(file);
-              };
-              input.click();
-            }}
-            disabled={fontLoading}
-            className='flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/5 py-3 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:bg-white/10 hover:border-cyan-400/30'
-          >
-            {fontLoading ? <Loader2 size={14} className="animate-spin text-cyan-400" /> : <Plus size={14} />}
-            {fontLoading ? 'Loading Font...' : 'Load Local Font'}
-          </button>
+    if (activeCategory === "transform") {
+      return renderCategoryBox("Transform", (
+        <>
+          <RangeField label="Position X" value={activeItem.left} min={-1000} max={2000} step={1} onChange={(value) => applyChanges({ left: value })} />
+          <RangeField label="Position Y" value={activeItem.top} min={-1000} max={2000} step={1} onChange={(value) => applyChanges({ top: value })} />
+          <RangeField label="Width" value={activeItem.width} min={1} max={2000} step={1} onChange={(value) => applyChanges({}, { width: value })} />
+          <RangeField label="Height" value={activeItem.height} min={1} max={2000} step={1} onChange={(value) => applyChanges({}, { height: value })} />
+          <RangeField label="Angle" value={activeItem.angle} min={0} max={360} step={1} onChange={(value) => applyChanges({ angle: value })} />
           
-          {customFonts && customFonts.length > 0 && (
-            <div className='mt-3 space-y-2'>
-              <label className='text-[9px] font-black uppercase tracking-widest text-white/30 ml-1'>Custom Fonts</label>
-              <div className='grid grid-cols-2 gap-2'>
-                {customFonts.map((font) => (
-                  <button
-                    key={font.name}
-                    onClick={() => applyChanges({ fontFamily: font.name })}
-                    className={`rounded-lg border px-2 py-1.5 text-[10px] truncate transition-all ${activeItem.fontFamily === font.name ? 'border-cyan-500 bg-cyan-500/10 text-white' : 'border-white/5 bg-white/5 text-white/40 hover:bg-white/10'}`}
-                    style={{ fontFamily: font.name }}
-                  >
-                    {font.name}
-                  </button>
-                ))}
+          <div className='mt-2 space-y-2'>
+            <label className='text-[9px] font-black uppercase tracking-[0.2em] text-white/40 ml-1'>Pivot Point</label>
+            <div className='grid grid-cols-3 gap-2'>
+              {[
+                { x: "left", y: "top", label: "TL" }, { x: "center", y: "top", label: "TC" }, { x: "right", y: "top", label: "TR" },
+                { x: "left", y: "center", label: "ML" }, { x: "center", y: "center", label: "MC" }, { x: "right", y: "center", label: "MR" },
+                { x: "left", y: "bottom", label: "BL" }, { x: "center", y: "bottom", label: "BC" }, { x: "right", y: "bottom", label: "BR" },
+              ].map((origin) => (
+                <button
+                  key={`${origin.x}-${origin.y}`}
+                  onClick={() => changeOrigin(origin.x, origin.y)}
+                  className={`rounded-lg py-1.5 text-[9px] font-bold uppercase transition ${activeItem.originX === origin.x && activeItem.originY === origin.y ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                >
+                  {origin.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className='grid grid-cols-2 gap-3'>
+            <ActionButton icon={<FlipHorizontal2 size={16} />} label="Flip H" onClick={() => applyChanges({ flipX: !activeItem.flipX })} active={activeItem.flipX} />
+            <ActionButton icon={<FlipVertical2 size={16} />} label="Flip V" onClick={() => applyChanges({ flipY: !activeItem.flipY })} active={activeItem.flipY} />
+          </div>
+
+          {(isShape || isImage) && (
+            <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+              <div className='flex items-center justify-between'>
+                <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Corner Radius</h4>
+                <div className='flex gap-1'>
+                  {["TL", "TR", "BL", "BR", "ALL"].map(c => (
+                    <button 
+                      key={c}
+                      onClick={() => (window as any)._activeCorner = c}
+                      className='px-2 py-1 rounded bg-white/5 text-[8px] font-bold text-white/40 hover:text-cyan-400'
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <RangeField label="All Corners" value={activeItem.rx} min={0} max={200} step={1} onChange={(value) => applyChanges({ rx: value })} />
+              
+              <div className='grid grid-cols-2 gap-4 pt-2 border-t border-white/5'>
+                <RangeField label="Top Left" value={activeItem.rxTL} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxTL: v })} />
+                <RangeField label="Top Right" value={activeItem.rxTR} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxTR: v })} />
+                <RangeField label="Bottom Left" value={activeItem.rxBL} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBL: v })} />
+                <RangeField label="Bottom Right" value={activeItem.rxBR} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBR: v })} />
               </div>
             </div>
           )}
-        </div>
-      </>
-    ));
-  }
+        </>
+      ));
+    }
 
-  if (activeCategory === "effects") {
-    return renderCategoryBox("Effects", (
-      <div className='space-y-6'>
-        <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-          <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Shadow</h4>
-          <ColorField label="Color" value={activeItem.shadowColor} onChange={(v) => applyChanges({ shadowColor: v })} />
-          <RangeField label="Blur" value={activeItem.shadowBlur} min={0} max={50} step={1} onChange={(v) => applyChanges({ shadowBlur: v })} />
-          <RangeField label="Offset X" value={activeItem.shadowOffsetX} min={-50} max={50} step={1} onChange={(v) => applyChanges({ shadowOffsetX: v })} />
-          <RangeField label="Offset Y" value={activeItem.shadowOffsetY} min={-50} max={50} step={1} onChange={(v) => applyChanges({ shadowOffsetY: v })} />
-        </div>
-        {isImage && (
+    if (activeCategory === "styling") {
+      return renderCategoryBox("Styling", (
+        <>
+          <RangeField label="Opacity" value={activeItem.opacity} min={0} max={1} step={0.01} onChange={(value) => applyChanges({ opacity: value })} />
+          {!isImage && (
+            <ColorField label="Fill Color" value={activeItem.fill} onChange={(value) => applyChanges({ fill: value })} />
+          )}
           <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Image Filters</h4>
-            <RangeField label="Brightness" value={activeItem.Brightness} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Brightness: v }, { imageFilter: "Brightness" })} />
-            <RangeField label="Contrast" value={activeItem.Contrast} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Contrast: v }, { imageFilter: "Contrast" })} />
-            <RangeField label="Saturation" value={activeItem.Saturation} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Saturation: v }, { imageFilter: "Saturation" })} />
-            <RangeField label="Blur" value={activeItem.Blur} min={0} max={1} step={0.05} onChange={(v) => applyChanges({ Blur: v }, { imageFilter: "Blur" })} />
-            <RangeField label="Pixelate" value={activeItem.Blocksize} min={0} max={20} step={1} onChange={(v) => applyChanges({ Blocksize: v }, { imageFilter: "Blocksize" })} />
+            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Stroke Settings</h4>
+            <ColorField label="Stroke Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
+            <RangeField label="Stroke Width" value={activeItem.strokeWidth} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeWidth: value })} />
+            <RangeField label="Dash Array" value={activeItem.strokeDashArray} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeDashArray: value })} />
           </div>
-        )}
-      </div>
-    ));
-  }
-
-  if (activeCategory === "brush" && activeTool === "freeDrawing") {
-    return renderCategoryBox("Brush Studio", (
-      <div className='space-y-4'>
-        <SelectField
-          label="Brush Type"
-          value={brushType ?? "pencil"}
-          options={[{ label: "Pencil", value: "pencil" }, { label: "Spray", value: "spray" }, { label: "Pattern", value: "pattern" }, { label: "Eraser", value: "eraser" }]}
-          onChange={(val) => setBrushType?.(val)}
-        />
-        {brushType !== "eraser" && (
-          <>
-            <ColorField label="Color" value={activeItem.brushColor} onChange={(val) => applyBrushChanges({ color: val })} />
-            <RangeField label="Width" value={activeItem.brushWidth} min={1} max={100} step={1} onChange={(val) => applyBrushChanges({ width: val })} />
-          </>
-        )}
-        {brushType === "spray" && (
-          <div className='space-y-4 rounded-2xl border border-white/10 bg-white/5 p-3'>
-            <RangeField label="Density" value={activeItem.sprayDensity} min={1} max={100} step={1} onChange={(val) => applyBrushChanges({ density: val })} />
-            <RangeField label="Dot Width" value={activeItem.sprayDotWidth} min={1} max={20} step={1} onChange={(val) => applyBrushChanges({ dotWidth: val })} />
-          </div>
-        )}
-        {brushType === "eraser" && (
-          <RangeField label="Eraser Size" value={eraserSize || 20} min={1} max={200} step={1} onChange={(val) => setEraserSize?.(val)} />
-        )}
-      </div>
-    ));
-  }
-
-  // --- MAIN GRID VIEW ---
-
-  return (
-    <div className='space-y-6'>
-      {/* Header Info */}
-      <div className='rounded-3xl border border-white/10 bg-[#081221] p-4'>
-        <div className='flex items-center justify-between gap-3'>
-          <div>
-            <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>{selectedId ? "Selected" : "Active Tool"}</div>
-            <div className='mt-1 text-base font-bold text-white'>{selectedId ? (activeItem.id.slice(0, 12) + "...") : activeTool?.toUpperCase()}</div>
-            <div className='text-[10px] uppercase tracking-wider text-white/30'>{selectedId ? activeItem.kind : (activeTool === "freeDrawing" ? brushType : "none")}</div>
-          </div>
-          <div className='rounded-2xl bg-cyan-400/15 p-2.5 text-cyan-100'>
-            {isText ? <Type size={16} /> : isImage ? <ImageIcon size={16} /> : <SlidersHorizontal size={16} />}
-          </div>
-        </div>
-      </div>
-
-      {/* Grid of Categories */}
-      <div className='flex md:grid md:grid-cols-2 gap-3 overflow-x-auto md:overflow-visible pb-2 md:pb-0 scrollbar-none snap-x'>
-        {activeTool === "freeDrawing" && (
-          <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
-            <CategoryButton id="brush" icon={<PenLine size={20} />} label="Brush" description="Color, size & type" />
-          </div>
-        )}
-        
-        {selectedId && (
-          <>
-            <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
-                <CategoryButton id="transform" icon={<Maximize2 size={20} />} label="Transform" description="Move, scale, rotate" />
+          <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+            <div className='flex items-center justify-between mb-2'>
+              <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Gradient</h4>
+              <input 
+                type="checkbox" 
+                checked={activeItem.gradientEnabled} 
+                onChange={(e) => applyChanges({ gradientEnabled: e.target.checked })}
+                className="accent-cyan-500"
+              />
             </div>
-            <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
-                <CategoryButton id="styling" icon={<SlidersHorizontal size={20} />} label="Style" description="Color, opacity, blend" />
-            </div>
-            {isText && (
-              <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
-                <CategoryButton id="text" icon={<Type size={20} />} label="Typography" description="Font, size, align" />
+            {activeItem.gradientEnabled && (
+              <div className='space-y-3 animate-in fade-in slide-in-from-top-2 duration-300'>
+                <SelectField 
+                  label="Type" 
+                  value={activeItem.gradientType} 
+                  options={[{label: "Linear", value: "linear"}, {label: "Radial", value: "radial"}]} 
+                  onChange={(v) => applyChanges({ gradientType: v as any })} 
+                />
+                {activeItem.gradientType === "linear" && (
+                  <RangeField 
+                    label="Gradient Angle" 
+                    value={activeItem.gradientAngle} 
+                    min={0} 
+                    max={360} 
+                    step={1} 
+                    onChange={(v) => applyChanges({ gradientAngle: v })} 
+                  />
+                )}
+                
+                <div className='grid grid-cols-2 gap-3'>
+                  <RangeField 
+                    label="X-Shift" 
+                    value={activeItem.gradientOffsetX} 
+                    min={-500} 
+                    max={500} 
+                    step={1} 
+                    onChange={(v) => applyChanges({ gradientOffsetX: v })} 
+                  />
+                  <RangeField 
+                    label="Y-Shift" 
+                    value={activeItem.gradientOffsetY} 
+                    min={-500} 
+                    max={500} 
+                    step={1} 
+                    onChange={(v) => applyChanges({ gradientOffsetY: v })} 
+                  />
+                </div>
+
+                <div className='space-y-3 pt-2 border-t border-white/5'>
+                  <div className='flex items-center justify-between'>
+                    <h5 className='text-[9px] font-black uppercase tracking-widest text-white/30'>Color Stops</h5>
+                    <button 
+                      onClick={() => {
+                        const lastStop = activeItem.gradientColorStops[activeItem.gradientColorStops.length - 1];
+                        const newStops = [...activeItem.gradientColorStops, { color: "#ffffff", offset: Math.min(1, lastStop.offset + 0.1) }];
+                        applyChanges({ gradientColorStops: newStops });
+                      }}
+                      className='flex items-center gap-1 rounded-md bg-cyan-500/10 px-2 py-1 text-[8px] font-bold text-cyan-400 hover:bg-cyan-500/20'
+                    >
+                      <Plus size={10} /> Add Color
+                    </button>
+                  </div>
+                  
+                  <div className='space-y-2 max-h-[200px] overflow-y-auto pr-1 historyScrollbar'>
+                    {activeItem.gradientColorStops.map((stop, index) => (
+                      <div key={index} className='group relative flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 p-2'>
+                        <div className='relative h-6 w-10 shrink-0 overflow-hidden rounded-md border border-white/10'>
+                          <input
+                            type="color"
+                            value={stop.color}
+                            onChange={(e) => {
+                              const newStops = [...activeItem.gradientColorStops];
+                              newStops[index] = { ...stop, color: e.target.value };
+                              applyChanges({ gradientColorStops: newStops });
+                            }}
+                            className='absolute -inset-2 h-10 w-14 cursor-pointer bg-transparent'
+                          />
+                        </div>
+                        <div className='flex-1'>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={stop.offset}
+                            onChange={(e) => {
+                              const newStops = [...activeItem.gradientColorStops];
+                              newStops[index] = { ...stop, offset: Number(e.target.value) };
+                              applyChanges({ gradientColorStops: newStops });
+                            }}
+                            className='editorRange h-1.5'
+                            style={{ "--range-percent": `${stop.offset * 100}%` } as React.CSSProperties}
+                          />
+                        </div>
+                        <span className='w-8 text-[8px] font-mono text-white/40'>{Math.round(stop.offset * 100)}%</span>
+                        {activeItem.gradientColorStops.length > 2 && (
+                          <button 
+                            onClick={() => {
+                              const newStops = activeItem.gradientColorStops.filter((_, i) => i !== index);
+                              applyChanges({ gradientColorStops: newStops });
+                            }}
+                            className='opacity-0 group-hover:opacity-100 p-1 rounded-md bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-opacity'
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
-            <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
-                <CategoryButton id="effects" icon={<Sparkles size={20} />} label="Effects" description="Shadows & filters" />
-            </div>
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Quick Actions (Always available if something selected) */}
-      {selectedId && (
-        <div className='pt-2'>
-          <h4 className='mb-3 text-[10px] font-black uppercase tracking-widest text-white/30 ml-1'>Arrangement</h4>
-          <div className='grid grid-cols-2 gap-2'>
-            <ActionButton icon={<BringToFront size={14} />} label="To Front" onClick={() => moveLayer("bringFront")} />
-            <ActionButton icon={<StepForward size={14} />} label="Forward" onClick={() => moveLayer("bringForward")} />
-            <ActionButton icon={<StepBack size={14} />} label="Backward" onClick={() => moveLayer("sendBackward")} />
-            <ActionButton icon={<SendToBack size={14} />} label="To Back" onClick={() => moveLayer("sendBack")} />
-            <ActionButton icon={<GroupIcon size={14} />} label="Group" onClick={groupObjects} />
-            <ActionButton icon={<UngroupIcon size={14} />} label="Ungroup" onClick={ungroupObjects} />
+          <SelectField
+            label="Blend Mode"
+            value={activeItem.globalCompositeOperation}
+            options={BLEND_MODES.map(m => ({ label: m, value: m }))}
+            onChange={(value) => applyChanges({ globalCompositeOperation: value as BlendMode })}
+          />
+        </>
+      ));
+    }
+
+    if (activeCategory === "text" && isText) {
+      return renderCategoryBox("Typography", (
+        <>
+          <SelectField label="Font Family" value={activeItem.fontFamily} options={FontFamily.map(f => ({ label: f, value: f }))} onChange={(value) => applyChanges({ fontFamily: value })} />
+          <div className='grid grid-cols-2 gap-3'>
+            <SelectField label="Weight" value={activeItem.fontWeight} options={FontWeight.map(w => ({ label: w, value: w }))} onChange={(value) => applyChanges({ fontWeight: value })} />
+            <SelectField label="Style" value={activeItem.fontStyle} options={FontStyle.map(s => ({ label: s, value: s }))} onChange={(value) => applyChanges({ fontStyle: value })} />
+          </div>
+          <RangeField label="Font Size" value={activeItem.fontSize} min={1} max={200} step={1} onChange={(value) => applyChanges({ fontSize: value })} />
+          <RangeField label="Letter Spacing" value={activeItem.charSpacing} min={-100} max={500} step={1} onChange={(value) => applyChanges({ charSpacing: value })} />
+          <RangeField label="Line Height" value={activeItem.lineHeight} min={0.1} max={3} step={0.05} onChange={(value) => applyChanges({ lineHeight: value })} />
+          <SelectField label="Alignment" value={activeItem.textAlign} options={TextAlign.map(a => ({ label: a, value: a.toLowerCase() }))} onChange={(value) => applyChanges({ textAlign: value as TextAlignProps })} />
+          <ColorField label="Background" value={activeItem.backgroundColor} onChange={(value) => applyChanges({ backgroundColor: value })} />
+          
+          <div className='pt-2'>
+            <button
+              onClick={() => setFontUploadOpen(true)}
+              className='flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/5 py-3 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:bg-white/10 hover:border-cyan-400/30'
+            >
+              {fontLoading ? <Loader2 size={14} className="animate-spin text-cyan-400" /> : <Plus size={14} />}
+              {fontLoading ? 'Loading Font...' : 'Load Local Font'}
+            </button>
+            
+            {customFonts && customFonts.length > 0 && (
+              <div className='mt-3 space-y-2'>
+                <label className='text-[9px] font-black uppercase tracking-widest text-white/30 ml-1'>Custom Fonts</label>
+                <div className='grid grid-cols-2 gap-2'>
+                  {customFonts.map((font) => (
+                    <button
+                      key={font.name}
+                      onClick={() => applyChanges({ fontFamily: font.name })}
+                      className={`rounded-lg border px-2 py-1.5 text-[10px] truncate transition-all ${activeItem.fontFamily === font.name ? 'border-cyan-500 bg-cyan-500/10 text-white' : 'border-white/5 bg-white/5 text-white/40 hover:bg-white/10'}`}
+                      style={{ fontFamily: font.name }}
+                    >
+                      {font.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ));
+    }
+
+    if (activeCategory === "effects") {
+      return renderCategoryBox("Effects", (
+        <div className='space-y-6'>
+          <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Shadow</h4>
+            <ColorField label="Color" value={activeItem.shadowColor} onChange={(v) => applyChanges({ shadowColor: v })} />
+            <RangeField label="Blur" value={activeItem.shadowBlur} min={0} max={100} step={1} onChange={(v) => applyChanges({ shadowBlur: v })} />
+            <RangeField label="Offset X" value={activeItem.shadowOffsetX} min={-100} max={100} step={1} onChange={(v) => applyChanges({ shadowOffsetX: v })} />
+            <RangeField label="Offset Y" value={activeItem.shadowOffsetY} min={-100} max={100} step={1} onChange={(v) => applyChanges({ shadowOffsetY: v })} />
+          </div>
+          {isImage && (
+            <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+              <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Image Filters</h4>
+              <RangeField label="Brightness" value={activeItem.Brightness} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Brightness: v }, { imageFilter: "Brightness" })} />
+              <RangeField label="Contrast" value={activeItem.Contrast} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Contrast: v }, { imageFilter: "Contrast" })} />
+              <RangeField label="Saturation" value={activeItem.Saturation} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Saturation: v }, { imageFilter: "Saturation" })} />
+              <RangeField label="Blur" value={activeItem.Blur} min={0} max={1} step={0.01} onChange={(v) => applyChanges({ Blur: v }, { imageFilter: "Blur" })} />
+              <RangeField label="Pixelate" value={activeItem.Blocksize} min={0} max={20} step={1} onChange={(v) => applyChanges({ Blocksize: v }, { imageFilter: "Blocksize" })} />
+            </div>
+          )}
+        </div>
+      ));
+    }
+
+    if (activeCategory === "brush" && activeTool === "freeDrawing") {
+      return renderCategoryBox("Brush Studio", (
+        <div className='space-y-4'>
+          <SelectField
+            label="Brush Type"
+            value={brushType ?? "pencil"}
+            options={[{ label: "Pencil", value: "pencil" }, { label: "Spray", value: "spray" }, { label: "Pattern", value: "pattern" }, { label: "Eraser", value: "eraser" }]}
+            onChange={(val) => setBrushType?.(val)}
+          />
+          {brushType !== "eraser" && (
+            <>
+              <ColorField label="Color" value={activeItem.brushColor} onChange={(val) => applyBrushChanges({ color: val })} />
+              <RangeField label="Width" value={activeItem.brushWidth} min={1} max={100} step={1} onChange={(val) => applyBrushChanges({ width: val })} />
+            </>
+          )}
+          {brushType === "spray" && (
+            <div className='space-y-4 rounded-2xl border border-white/10 bg-white/5 p-3'>
+              <RangeField label="Density" value={activeItem.sprayDensity} min={1} max={100} step={1} onChange={(val) => applyBrushChanges({ density: val })} />
+              <RangeField label="Dot Width" value={activeItem.sprayDotWidth} min={1} max={20} step={1} onChange={(val) => applyBrushChanges({ dotWidth: val })} />
+            </div>
+          )}
+          {brushType === "eraser" && (
+            <RangeField label="Eraser Size" value={eraserSize || 20} min={1} max={200} step={1} onChange={(val) => setEraserSize?.(val)} />
+          )}
+        </div>
+      ));
+    }
+
+    return (
+      <div className='space-y-6'>
+        {/* Header Info */}
+        <div className='rounded-3xl border border-white/10 bg-[#081221] p-4'>
+          <div className='flex items-center justify-between gap-3'>
+            <div>
+              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>{selectedId ? "Selected" : "Active Tool"}</div>
+              <div className='mt-1 text-base font-bold text-white'>{selectedId ? (activeItem.id.slice(0, 12) + "...") : activeTool?.toUpperCase()}</div>
+              <div className='text-[10px] uppercase tracking-wider text-white/30'>{selectedId ? activeItem.kind : (activeTool === "freeDrawing" ? brushType : "none")}</div>
+            </div>
+            <div className='rounded-2xl bg-cyan-400/15 p-2.5 text-cyan-100'>
+              {isText ? <Type size={16} /> : isImage ? <ImageIcon size={16} /> : <SlidersHorizontal size={16} />}
+            </div>
           </div>
         </div>
+
+        {/* Grid of Categories */}
+        <div className='flex md:grid md:grid-cols-2 gap-3 overflow-x-auto md:overflow-visible pb-2 md:pb-0 scrollbar-none snap-x'>
+          {activeTool === "freeDrawing" && (
+            <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
+              <CategoryButton id="brush" icon={<PenLine size={20} />} label="Brush" description="Color, size & type" />
+            </div>
+          )}
+          
+          {selectedId && (
+            <>
+              <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
+                  <CategoryButton id="transform" icon={<Maximize2 size={20} />} label="Transform" description="Move, scale, rotate" />
+              </div>
+              <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
+                  <CategoryButton id="styling" icon={<SlidersHorizontal size={20} />} label="Style" description="Color, opacity, blend" />
+              </div>
+              {isText && (
+                <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
+                  <CategoryButton id="text" icon={<Type size={20} />} label="Typography" description="Font, size, align" />
+                </div>
+              )}
+              <div className="snap-start min-w-[100px] md:min-w-0 flex-1">
+                  <CategoryButton id="effects" icon={<Sparkles size={20} />} label="Effects" description="Shadows & filters" />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Quick Actions (Always available if something selected) */}
+        {selectedId && (
+          <div className='pt-2'>
+            <h4 className='mb-3 text-[10px] font-black uppercase tracking-widest text-white/30 ml-1'>Arrangement</h4>
+            <div className='grid grid-cols-2 gap-2'>
+              <ActionButton icon={<BringToFront size={14} />} label="To Front" onClick={() => moveLayer("bringFront")} />
+              <ActionButton icon={<StepForward size={14} />} label="Forward" onClick={() => moveLayer("bringForward")} />
+              <ActionButton icon={<StepBack size={14} />} label="Backward" onClick={() => moveLayer("sendBackward")} />
+              <ActionButton icon={<SendToBack size={14} />} label="To Back" onClick={() => moveLayer("sendBack")} />
+              <ActionButton icon={<GroupIcon size={14} />} label="Group" onClick={groupObjects} />
+              <ActionButton icon={<UngroupIcon size={14} />} label="Ungroup" onClick={ungroupObjects} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {renderContent()}
+
+      {/* Font Upload Dialog */}
+      {mounted && fontUploadOpen && createPortal(
+        <div className='fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md'>
+          <div className='w-full max-w-md overflow-hidden rounded-[40px] border border-white/10 bg-[#09182b]/95 p-8 shadow-[0_40px_100px_rgba(0,0,0,0.6)] animate-in zoom-in duration-300'>
+            <div className='flex items-center justify-between mb-8'>
+              <div>
+                <h2 className='text-2xl font-black text-white'>Custom Fonts</h2>
+                <p className='text-xs text-white/40 mt-1 font-medium'>Add professional typography to your workspace.</p>
+              </div>
+              <button onClick={() => setFontUploadOpen(false)} className='p-3 rounded-2xl bg-white/5 text-white/50 hover:text-white transition-all'>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className='space-y-8'>
+              <div 
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = '.ttf,.otf,.woff,.woff2';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) setSelectedFontFile(file);
+                  };
+                  input.click();
+                }}
+                className={`group relative aspect-video rounded-[32px] border-2 border-dashed transition-all duration-500 cursor-pointer flex flex-col items-center justify-center gap-4 ${selectedFontFile ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/10 bg-white/5 hover:border-cyan-400/40 hover:bg-white/10'}`}
+              >
+                <div className={`p-6 rounded-3xl transition-all duration-500 ${selectedFontFile ? 'bg-cyan-500 text-black' : 'bg-white/5 text-white/20 group-hover:bg-cyan-500/20 group-hover:text-cyan-400'}`}>
+                  {selectedFontFile ? <Check size={32} /> : <PenTool size={32} />}
+                </div>
+                <div className='text-center'>
+                  <div className='text-sm font-black text-white'>{selectedFontFile ? selectedFontFile.name : 'Choose Font File'}</div>
+                  <p className='text-[10px] text-white/40 mt-1 uppercase tracking-widest'>TTF, OTF, WOFF or WOFF2</p>
+                </div>
+              </div>
+
+              <label className='flex items-center justify-between gap-4 p-5 rounded-[24px] bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all'>
+                <div className='flex items-center gap-4'>
+                  <div className='p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400'>
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <div className='text-sm font-bold text-white'>Upload to Public</div>
+                    <div className='text-[10px] text-white/40 uppercase tracking-widest font-black mt-0.5'>Store on Appwrite Cloud</div>
+                  </div>
+                </div>
+                <input
+                  type='checkbox'
+                  checked={uploadToPublic}
+                  onChange={(e) => setUploadToPublic(e.target.checked)}
+                  className='h-6 w-6 accent-cyan-500 cursor-pointer'
+                />
+              </label>
+
+              <div className='flex gap-4'>
+                <button
+                  onClick={() => setFontUploadOpen(false)}
+                  className='flex-1 px-6 py-5 rounded-[24px] bg-white/5 border border-white/10 text-white/50 text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all'
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (selectedFontFile && addCustomFont) {
+                      await addCustomFont(selectedFontFile, uploadToPublic);
+                      setFontUploadOpen(false);
+                      setSelectedFontFile(null);
+                    }
+                  }}
+                  disabled={!selectedFontFile}
+                  className='flex-1 px-6 py-5 rounded-[24px] bg-cyan-500 text-black text-xs font-black uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:grayscale'
+                >
+                  Confirm Load
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
-;
 }
 
 function PanelSection({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
@@ -1164,7 +1365,14 @@ function RangeField({ label, value, min, max, step, onChange }: { label: string;
         <label className='text-[9px] font-black uppercase tracking-widest text-white/40'>{label}</label>
         <span className='text-[10px] font-bold text-cyan-400'>{value % 1 === 0 ? value : value.toFixed(2)}</span>
       </div>
-      <div className='flex items-center gap-3'>
+      <div className='flex items-center gap-2'>
+        <button 
+          type="button"
+          onClick={() => onChange(Number((value - step).toFixed(2)))}
+          className='p-1 rounded-md bg-white/5 text-white/30 hover:text-white transition-all shrink-0'
+        >
+          <Minus size={10} />
+        </button>
         <input
           type="range"
           min={min}
@@ -1175,6 +1383,13 @@ function RangeField({ label, value, min, max, step, onChange }: { label: string;
           className='editorRange flex-1'
           style={{ "--range-percent": `${percent}%` } as React.CSSProperties}
         />
+        <button 
+          type="button"
+          onClick={() => onChange(Number((value + step).toFixed(2)))}
+          className='p-1 rounded-md bg-white/5 text-white/30 hover:text-white transition-all shrink-0'
+        >
+          <Plus size={10} />
+        </button>
       </div>
     </div>
   );

@@ -37,7 +37,7 @@
     "app/(main)/feedback",
     "mongodb",
     ".next/dev/types/**/*.ts"
-  ],
+, "app/ai-translator/_workers/translation.worker.js"  ],
   "exclude": [
     "node_modules"
   ]

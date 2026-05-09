@@ -10,7 +10,7 @@ const initiate = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET!
 });
 
-export async function POST(req: NextRequest, res: NextResponse) {
+export async function POST(req: NextRequest) {
     try {
         const { id, amount } = await req.json();
 

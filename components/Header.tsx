@@ -31,9 +31,7 @@ const navigationGroups: NavItem[] = [
     children: [
       { label: "Image Editing", href: "/image-home-screen" },
       { label: "GIF Maker", href: "/gif-home-screen" },
-      // { label: "Chat AI", href: "/chat-ai" },
-      // { label: "Pdf AI", href: "/pdf-ai" },
-      // { label: "Hugging Face", href: "/huggingface" },
+      { label: "Image BG Removal", href: "/image-bg-removal" }
     ],
   },
   {
@@ -133,8 +131,6 @@ function Headers() {
                 <div
                   key={item.label}
                   className='relative'
-                  onMouseEnter={() => setOpenDropdown(item.label)}
-                  onMouseLeave={() => setOpenDropdown((prev) => prev === item.label ? null : prev)}
                 >
                   <button
                     type="button"

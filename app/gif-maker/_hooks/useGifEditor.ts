@@ -77,6 +77,9 @@ export function useGifEditor() {
   const [customFonts, setCustomFonts] = useState<{ name: string, data: string }[]>([]);
   const [fontLoading, setFontLoading] = useState(false);
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
+  const [assetSaveOpen, setAssetSaveOpen] = useState(false);
+  const [assetSaveLayerId, setAssetSaveLayerId] = useState<string | null>(null);
+  const [assetSaveToPublic, setAssetSaveToPublic] = useState(false);
   const isHistoryAction = useRef(false);
 
   // GIF specific state
@@ -192,6 +195,46 @@ export function useGifEditor() {
         }).catch(err => console.error("Font loading error:", err));
       });
     }
+
+    // Load fonts from Appwrite
+    const loadPublicFonts = async () => {
+      try {
+        const { appwriteFonts } = await import('@/lib/appwrite-fonts');
+        const publicFonts = await appwriteFonts.listFonts();
+        publicFonts.forEach(font => {
+          const fontFace = new FontFace(font.name, `url(${font.url})`);
+          fontFace.load().then((loadedFace) => {
+            document.fonts.add(loadedFace);
+            setCustomFonts(prev => {
+              if (prev.find(f => f.name === font.name)) return prev;
+              return [...prev, { name: font.name, data: font.url }];
+            });
+          }).catch(err => console.error("Public Font loading error:", err));
+        });
+      } catch (e) {
+        console.error("Failed to load public fonts:", e);
+      }
+    };
+
+    // Load assets from Appwrite
+    const loadPublicAssets = async () => {
+      try {
+        const { appwriteAssets } = await import('@/lib/appwrite-assets');
+        const publicAssets = await appwriteAssets.listAssets();
+        setAssets(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newAssets = publicAssets
+            .filter(a => !existingIds.has(a.id))
+            .map(a => ({ id: a.id, src: a.url, name: a.name }));
+          return [...prev, ...newAssets];
+        });
+      } catch (e) {
+        console.error("Failed to load public assets:", e);
+      }
+    };
+
+    loadPublicFonts();
+    loadPublicAssets();
   }, []);
 
   useEffect(() => {
@@ -501,43 +544,87 @@ export function useGifEditor() {
   };
 
   const saveLayerAsAsset = (layerId: string) => {
-    if (!fabricJs.current) return;
-    const obj = fabricJs.current.getObjects().find(o => o.get("id") === layerId);
-    if (!obj) return;
-
-    const dataUrl = obj.toDataURL({ format: 'png' });
-    addAsset(dataUrl, `Layer Asset ${assets.length + 1}`);
+    setAssetSaveLayerId(layerId);
+    setAssetSaveOpen(true);
+    setAssetSaveToPublic(false); // Default to local
   };
 
-  const addCustomFont = (file: File) => {
-    setFontLoading(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = e.target?.result as string;
-      const name = file.name.split('.')[0];
-      const newFont = { name, data };
+  const confirmSaveAsset = async (isPublic: boolean) => {
+    if (!fabricJs.current || !assetSaveLayerId) return;
+    const obj = fabricJs.current.getObjects().find(o => o.get("id") === assetSaveLayerId);
+    if (!obj) return;
 
-      const fontFace = new FontFace(name, `url(${data})`);
-      fontFace.load().then((loadedFace) => {
-        document.fonts.add(loadedFace);
-        setCustomFonts(prev => {
-          const next = [...prev, newFont];
-          localStorage.setItem('polish_ai_custom_fonts', JSON.stringify(next));
-          return next;
-        });
-        toast.success(`Font "${name}" added successfully!`);
-        setFontLoading(false);
-      }).catch(err => {
-        console.error("Font loading error:", err);
-        toast.error(`Failed to load font "${name}"`);
-        setFontLoading(false);
+    const toastId = toast.loading(isPublic ? "Uploading to Cloud..." : "Saving locally...");
+
+    try {
+      const dataUrl = obj.toDataURL({ 
+        format: 'png',
+        multiplier: 2,
       });
-    };
-    reader.onerror = () => {
-      toast.error("Failed to read font file.");
+
+      if (isPublic) {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const fileName = `${obj.get("name") || assetSaveLayerId.split('_')[0]}_asset.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
+
+        const { appwriteAssets } = await import('@/lib/appwrite-assets');
+        const uploadedAsset = await appwriteAssets.uploadAsset(file);
+        
+        setAssets(prev => [{ id: uploadedAsset.id, src: uploadedAsset.url, name: uploadedAsset.name }, ...prev]);
+        toast.success("Saved to Cloud Assets!", { id: toastId });
+      } else {
+        addAsset(dataUrl, `Local Asset ${assets.length + 1}`);
+        toast.success("Saved to Local Assets!", { id: toastId });
+      }
+      setAssetSaveOpen(false);
+      setAssetSaveLayerId(null);
+    } catch (err) {
+      console.error("Asset save error:", err);
+      toast.error("Failed to save asset", { id: toastId });
+    }
+  };
+
+  const addCustomFont = async (file: File, isPublic: boolean = false) => {
+    setFontLoading(true);
+    
+    try {
+      const name = file.name.split('.')[0];
+      let fontUrl: string;
+
+      if (isPublic) {
+        const { appwriteFonts } = await import('@/lib/appwrite-fonts');
+        const uploadedFont = await appwriteFonts.uploadFont(file);
+        fontUrl = uploadedFont.url;
+      } else {
+        const reader = new FileReader();
+        fontUrl = await new Promise((resolve, reject) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = () => reject(new Error("Failed to read font file"));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const fontFace = new FontFace(name, `url(${fontUrl})`);
+      const loadedFace = await fontFace.load();
+      document.fonts.add(loadedFace);
+
+      setCustomFonts(prev => {
+        const newFont = { name, data: fontUrl };
+        const next = [...prev, newFont];
+        if (!isPublic) {
+          localStorage.setItem('polish_ai_custom_fonts', JSON.stringify(next.filter(f => !f.data.startsWith('http'))));
+        }
+        return next;
+      });
+
+      toast.success(`Font "${name}" added successfully ${isPublic ? 'to Cloud' : 'locally'}!`);
+    } catch (err) {
+      console.error("Font loading/upload error:", err);
+      toast.error(`Failed to ${isPublic ? 'upload' : 'load'} font`);
+    } finally {
       setFontLoading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const fitCanvasToViewport = (dims: { width: number, height: number }) => {
@@ -1832,5 +1919,10 @@ export function useGifEditor() {
     setIsPlaying,
     previewIdx,
     setPreviewIdx,
+    assetSaveOpen,
+    setAssetSaveOpen,
+    assetSaveLayerId,
+    setAssetSaveLayerId,
+    confirmSaveAsset,
   };
 }

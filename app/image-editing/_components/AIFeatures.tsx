@@ -11,7 +11,13 @@ interface AIFeaturesProps {
 }
 
 export function AIFeatures({ editor }: AIFeaturesProps) {
-  const { status, isModelLoaded, removeBackground } = useBackgroundRemoval();
+  const { status, isModelLoaded, removeBackground, loadModel } = useBackgroundRemoval();
+  
+  React.useEffect(() => {
+    if (!isModelLoaded && status !== 'loading') {
+      loadModel();
+    }
+  }, [isModelLoaded, status, loadModel]);
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const selectedObject = editor.fabricJs.current?.getActiveObject();

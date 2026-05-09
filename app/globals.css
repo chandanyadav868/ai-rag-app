@@ -27,7 +27,7 @@ span.copy {
 }
 
 .overflow_styling::-webkit-scrollbar-track {
-    /* background: #f20909; Color of the track */
+    background: transparent;
 }
 
 .overflow_styling::-webkit-scrollbar-thumb {
@@ -97,8 +97,7 @@ button:active {
 }
 
 .textarea_overflow_styling::-webkit-scrollbar-track {
-    /* background: #f20909;  */
-    /* Color of the track */
+    background: transparent;
 }
 
 .textarea_overflow_styling::-webkit-scrollbar-thumb {
@@ -622,4 +621,16 @@ pre code.hljs, code.hljs, .hljs {
 .custom-scrollbar {
   scrollbar-width: auto;
   scrollbar-color: rgba(34, 211, 238, 0.4) rgba(0, 0, 0, 0.3);
+}
+
+/* Video AI Scan Animation */
+@keyframes scan {
+  0% { top: 0%; opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.animate-scan {
+  animation: scan 3s linear infinite;
 }

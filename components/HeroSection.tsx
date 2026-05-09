@@ -19,10 +19,8 @@ function HeroSection() {
         </div>
 
         {/* Main Heading */}
-        <h1 className='hero-Section-Heading mb-3 tracking-tight'>
-          Create. Edit. Animate.
-        </h1>
         <h1 className='hero-Section-Heading mb-6 tracking-tight'>
+          Create. Edit. Animate. <br />
           Go Viral on{' '}
           <span className='bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent font-extrabold'>
             Social Media

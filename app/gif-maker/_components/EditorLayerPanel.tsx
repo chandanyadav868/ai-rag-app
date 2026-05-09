@@ -2,8 +2,9 @@
 
 import ToolBox from '@/components/ToolBox';
 import Image from 'next/image';
-import { CheckCircleIcon, ChevronLeft, ChevronRight, Copy, Edit2, EyeIcon, EyeOff, Layers, Library, Loader2Icon, LockKeyhole, LockKeyholeOpen, MoreVertical, PlusSquare, Scissors, Trash2Icon, UploadCloud, X } from 'lucide-react';
+import { CheckCircleIcon, ChevronLeft, ChevronRight, Copy, Crop, Edit2, EyeIcon, EyeOff, Layers, Library, Loader2Icon, LockKeyhole, LockKeyholeOpen, MoreVertical, PlusSquare, Scissors, Trash2Icon, UploadCloud, X } from 'lucide-react';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AssetLibrary } from './AssetLibrary';
 import { InfoActionButton } from './InfoActionButton';
 import { AIFeatures } from './AIFeatures';
@@ -119,7 +120,38 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                       <div className='mt-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-white/30'>{layer.type}</div>
                     </div>
 
-                    <div className='relative shrink-0'>
+                    <div className='flex items-center gap-1 shrink-0 relative'>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editor.showHideLayer(layer.id);
+                        }}
+                        className={`p-1.5 rounded-lg transition-all ${layer.hideLayer ? 'bg-rose-500/10 text-rose-400' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
+                        title={layer.hideLayer ? 'Show' : 'Hide'}
+                      >
+                        {layer.hideLayer ? <EyeOff size={14} /> : <EyeIcon size={14} />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editor.lockLayer(layer.id);
+                        }}
+                        className={`p-1.5 rounded-lg transition-all ${layer.layerlock ? 'bg-amber-500/10 text-amber-400' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
+                        title={layer.layerlock ? 'Unlock' : 'Lock'}
+                      >
+                        {layer.layerlock ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editor.saveLayerAsAsset(layer.id);
+                        }}
+                        className={`p-1.5 rounded-lg transition-all hover:bg-cyan-500/10 text-white/40 hover:text-cyan-400`}
+                        title="Save to Assets"
+                      >
+                        <PlusSquare size={14} />
+                      </button>
+                      <div className='w-px h-4 bg-white/10 mx-0.5' />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -127,8 +159,9 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                         }}
                         className={`p-1.5 rounded-lg transition-all ${openMenuId === layer.id ? 'bg-cyan-400 text-black' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
                       >
-                        <MoreVertical size={16} />
+                        <MoreVertical size={14} />
                       </button>
+                    </div>
 
                       {openMenuId === layer.id && (
                         <>
@@ -140,7 +173,7 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                             }}
                           />
                           <div className='absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0f172a] shadow-2xl animate-in fade-in zoom-in-95 duration-200'>
-                            <div className='grid grid-cols-1 p-1'>
+                            <div className='grid grid-cols-1 p-1 pb-8'>
                               <MenuAction
                                 icon={layer.hideLayer ? EyeOff : EyeIcon}
                                 label={layer.hideLayer ? 'Show' : 'Hide'}
@@ -158,8 +191,8 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                                 }}
                               />
                               <MenuAction
-                                icon={Edit2}
-                                label='AI Edit'
+                                icon={Crop}
+                                label='Crop'
                                 onClick={() => {
                                   editor.setActiveId(layer.id);
                                   editor.setAiEdit(true);
@@ -206,7 +239,6 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                         </>
                       )}
                     </div>
-                  </div>
 
                   {layer.src && layer.type === "image" && (
                     <div className='mt-3 overflow-hidden rounded-xl border border-white/5 bg-black/20 p-1'>
@@ -219,6 +251,63 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
           )}
         </div>
       </div>
+      {/* Asset Save Permission Dialog */}
+      {editor.assetSaveOpen && createPortal(
+        <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300'>
+          <div className='w-full max-w-sm rounded-[40px] border border-white/10 bg-[#0a1728] p-8 shadow-2xl scale-in-center animate-in zoom-in-95 duration-300'>
+            <div className='flex flex-col items-center text-center'>
+              <div className='mb-6 rounded-3xl bg-cyan-400/15 p-5 text-cyan-400 shadow-lg shadow-cyan-400/10'>
+                <PlusSquare size={32} />
+              </div>
+              <h2 className='text-2xl font-black text-white'>Save to Assets</h2>
+              <p className='mt-2 text-xs font-bold uppercase tracking-widest text-white/30'>Choose storage location</p>
+              
+              <div className='mt-8 w-full space-y-4'>
+                <div 
+                  onClick={() => editor.confirmSaveAsset(false)}
+                  className='group cursor-pointer rounded-3xl border border-white/5 bg-white/[0.03] p-5 transition-all hover:bg-white/[0.08] hover:border-white/10'
+                >
+                  <div className='flex items-center gap-4'>
+                    <div className='rounded-2xl bg-white/5 p-3 text-white/60 group-hover:text-white transition-colors'>
+                      <LockKeyhole size={20} />
+                    </div>
+                    <div className='text-left'>
+                      <div className='text-sm font-bold text-white'>Save Locally</div>
+                      <div className='text-[10px] text-white/40'>Private, stored in your browser</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => editor.confirmSaveAsset(true)}
+                  className='group cursor-pointer rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 transition-all hover:bg-cyan-400/10 hover:border-cyan-400/30'
+                >
+                  <div className='flex items-center gap-4'>
+                    <div className='rounded-2xl bg-cyan-400/20 p-3 text-cyan-400'>
+                      <UploadCloud size={20} />
+                    </div>
+                    <div className='text-left'>
+                      <div className='text-sm font-bold text-white'>Upload to Cloud</div>
+                      <div className='text-[10px] text-cyan-400/60'>Public, available across sessions</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  editor.setAssetSaveOpen(false);
+                  editor.setAssetSaveLayerId(null);
+                }}
+                className='mt-8 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-all'
+              >
+                Cancel Process
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </aside>
   );
 }

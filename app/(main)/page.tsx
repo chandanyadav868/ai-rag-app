@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import HeroSection from '@/components/HeroSection'
 import Testomonial from '@/components/Testomonial'
 import GifMakerSection from '@/components/GifMakerSection'
+import VideoAiSection from '@/components/VideoAiSection'
 import { useSession } from 'next-auth/react'
 import React, { useEffect } from 'react'
 
@@ -30,6 +31,9 @@ function page() {
 
       {/* Gif Maker Section */}
       <GifMakerSection />
+
+      {/* Video AI Section */}
+      <VideoAiSection />
 
       {/* Testominals */}
       <Testomonial />

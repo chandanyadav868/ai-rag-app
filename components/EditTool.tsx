@@ -64,6 +64,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
   const [viewportScale, setViewportScale] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [feather, setFeather] = useState(0);
+  const [borderRadius, setBorderRadius] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const updateZoom = (mode: "ZoomIn" | "ZoomOut" | "Initial", amount = 0.1) => {
@@ -834,6 +835,19 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
     canvas.requestRenderAll();
   }, [feather]);
 
+  // Update corner radius for rectangle masks
+  useEffect(() => {
+    const canvas = editCanvasRef.current;
+    const activeObject = canvas?.getActiveObject();
+    if (!activeObject || activeObject.type !== 'rect' || activeObject.get('editorRole') !== 'mask') return;
+
+    activeObject.set({
+      rx: borderRadius,
+      ry: borderRadius
+    });
+    canvas?.requestRenderAll();
+  }, [borderRadius]);
+
   const toolButtons = [
     {
       key: "select" as const,
@@ -876,9 +890,9 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
     <div className='fixed inset-0 z-[70] bg-[#020617]/80 p-4 backdrop-blur-xl md:p-6'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#081221] text-white shadow-[0_30px_120px_rgba(0,0,0,0.45)]'>
         <div className='flex items-center justify-between flex-wrap gap-4 border-b border-white/10 px-5 py-4 md:px-8'>
-          <div>
-            <div className='text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/70'>Crop Studio</div>
-            <h2 className='mt-2 text-2xl font-black text-white'>Refine Your Selection</h2>
+          <div className="flex-1 min-w-0">
+            <div className='text-[10px] md:text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/70'>Crop Studio</div>
+            <h2 className='mt-1 text-lg md:text-2xl font-black text-white truncate'>Refine Your Selection</h2>
           </div>
 
           <button
@@ -899,21 +913,21 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
               className='absolute left-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#09182b]/90 text-white shadow-2xl backdrop-blur-xl transition-all hover:bg-cyan-500 hover:text-black animate-in fade-in zoom-in duration-300'
               title="Open Crop Tools"
             >
-              <Crop size={20} />
+              <Crop size={18} />
             </button>
           )}
 
-          {/* Floating Sidebar */}
-          <aside className={`absolute left-6 top-6 z-40 w-24 rounded-[32px] border border-white/10 bg-[#09182b]/95 p-4 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
-            <div className='flex flex-col items-center gap-4'>
+          {/* Floating Sidebar - Optimized for mobile */}
+          <aside className={`absolute left-4 top-4 md:left-6 md:top-6 z-40 w-16 md:w-20 rounded-[24px] md:rounded-[32px] border border-white/10 bg-[#09182b]/95 p-2 md:p-4 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
+            <div className='flex flex-col items-center gap-2 md:gap-4'>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className='p-2 rounded-xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all'
+                className='p-1.5 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all'
               >
-                <X size={18} />
+                <X size={16} />
               </button>
 
-              <div className='w-full h-px bg-white/10 my-1' />
+              <div className='w-full h-px bg-white/10 my-0.5' />
 
               {toolButtons.map((tool) => {
                 const Icon = tool.icon;
@@ -925,14 +939,14 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                       tool.onClick();
                     }}
                     title={tool.label}
-                    className={`group relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300 ${activeTool === tool.key
+                    className={`group relative flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-xl md:rounded-2xl border transition-all duration-300 ${activeTool === tool.key
                       ? 'border-cyan-300/60 bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
                       : 'border-white/5 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
                       }`}
                   >
-                    <Icon size={20} />
+                    <Icon size={18} />
                     {activeTool === tool.key && (
-                      <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-cyan-400 rounded-full" />
+                      <div className="absolute -right-1.5 md:-right-2 top-1/2 -translate-y-1/2 w-1 h-5 md:h-6 bg-cyan-400 rounded-full" />
                     )}
                   </button>
                 );
@@ -951,25 +965,44 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                   <button onClick={() => updateZoom("ZoomIn")} className='p-1.5 text-white/40 hover:text-white transition'><Plus size={14} /></button>
                 </div>
 
-                <div className='flex items-center gap-4 bg-black/20 rounded-xl py-1 px-4 border border-white/5'>
-                  <span className='text-[10px] font-black uppercase tracking-widest text-white/40 whitespace-nowrap'>Feather</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={feather}
-                    onChange={(e) => setFeather(parseInt(e.target.value))}
-                    className="w-24 h-1 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
-                  />
-                  <span className='min-w-[1.5rem] text-[11px] font-black text-cyan-400 tabular-nums'>{feather}px</span>
-                </div>
+                {selectedMaskId && (
+                  <>
+                    <div className='flex items-center gap-3 md:gap-4 bg-black/20 rounded-xl py-1 px-3 md:px-4 border border-white/5'>
+                      <span className='text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/40 whitespace-nowrap'>Feather</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={feather}
+                        onChange={(e) => setFeather(parseInt(e.target.value))}
+                        className="w-16 md:w-24 h-1 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
+                      />
+                      <span className='min-w-[1.2rem] md:min-w-[1.5rem] text-[10px] md:text-[11px] font-black text-cyan-400 tabular-nums'>{feather}</span>
+                    </div>
+
+                    {/* Corner Radius Control */}
+                    <div className='flex items-center gap-3 md:gap-4 bg-black/20 rounded-xl py-1 px-3 md:px-4 border border-white/5'>
+                      <span className='text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/40 whitespace-nowrap'>Radius</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={borderRadius}
+                        onChange={(e) => setBorderRadius(parseInt(e.target.value))}
+                        className="w-16 md:w-24 h-1 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
+                      />
+                      <span className='min-w-[1.2rem] md:min-w-[1.5rem] text-[10px] md:text-[11px] font-black text-cyan-400 tabular-nums'>{borderRadius}</span>
+                    </div>
+                  </>
+                )}
 
                 <div className='flex items-center gap-2 flex-wrap'>
                   <button
                     onClick={removeSelectedMask}
                     disabled={!selectedMaskId}
-                    className={`h-10 px-4 rounded-xl border transition-all uppercase tracking-widest text-[10px] font-black border-red-500 ${selectedMaskId
+                    className={`h-8 md:h-10 px-3 md:px-4 rounded-lg md:rounded-xl border transition-all uppercase tracking-widest text-[9px] md:text-[10px] font-black border-red-500 ${selectedMaskId
                       ? 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 shadow-lg shadow-red-500/10'
                       : 'border-white/5 bg-white/5 text-white/40 opacity-20 cursor-not-allowed'
                       }`}
@@ -979,7 +1012,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                   <button
                     onClick={clearAllMasks}
                     disabled={!maskCount}
-                    className={`h-10 px-4 rounded-xl border transition-all uppercase tracking-widest text-[10px] font-black ${maskCount > 0
+                    className={`h-8 md:h-10 px-3 md:px-4 rounded-lg md:rounded-xl border transition-all uppercase tracking-widest text-[9px] md:text-[10px] font-black ${maskCount > 0
                       ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 shadow-lg shadow-amber-500/10'
                       : 'border-white/5 bg-white/5 text-white/40 opacity-20 cursor-not-allowed'
                       }`}
@@ -989,7 +1022,7 @@ function EditTool({ aiEditShowFn, fabricjs, selectedId, aiImageFn }: EditToolPro
                   <button
                     onClick={exportCroppedAsset}
                     disabled={!canvasReady}
-                    className='h-10 px-6 rounded-xl bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition-all active:scale-95'
+                    className='h-8 md:h-10 px-4 md:px-6 rounded-lg md:rounded-xl bg-cyan-500 text-black text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 hover:bg-cyan-400 transition-all active:scale-95'
                   >
                     Export
                   </button>

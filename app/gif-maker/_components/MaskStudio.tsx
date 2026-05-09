@@ -471,6 +471,15 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-4">
+            {/* Zoom Controls moved to header */}
+            <div className="flex items-center gap-2 px-2 md:px-4 py-1.5 md:py-2 bg-white/5 rounded-xl md:rounded-2xl border border-white/10 mr-1 md:mr-2">
+              <button onClick={() => setViewportScale(prev => Math.max(0.1, prev - 0.1))} className="text-white/40 hover:text-white transition"><Minus size={14} /></button>
+              <div className="text-[10px] font-black text-white/60 tabular-nums w-8 md:w-10 text-center">{Math.round(viewportScale * 100)}%</div>
+              <button onClick={() => setViewportScale(prev => prev + 0.1)} className="text-white/40 hover:text-white transition"><Plus size={14} /></button>
+              <div className="hidden xs:block w-px h-3 bg-white/10 mx-1" />
+              <button onClick={() => setViewportScale(1)} className="hidden xs:block text-white/40 hover:text-white transition"><RefreshCw size={12} /></button>
+              <button onClick={resetView} className="text-cyan-400 hover:text-cyan-300 transition ml-1"><Maximize2 size={14} /></button>
+            </div>
             <button
               onClick={handleApply}
               className="flex items-center gap-2 rounded-xl md:rounded-2xl bg-cyan-500 px-4 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-black text-white shadow-lg transition hover:bg-cyan-400 active:scale-95 whitespace-nowrap"
@@ -738,22 +747,7 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
               <canvas ref={canvasElementRef} />
             </div>
 
-            {/* Bottom Controls */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 rounded-full border border-white/10 bg-black/60 px-6 py-3 backdrop-blur-xl z-50">
-              <button onClick={() => setViewportScale(prev => Math.max(0.1, prev - 0.1))} className="text-white/40 hover:text-white transition"><Minus size={18} /></button>
-              <div className="text-[10px] font-black text-white/60 tabular-nums w-12 text-center">{Math.round(viewportScale * 100)}%</div>
-              <button onClick={() => setViewportScale(prev => prev + 0.1)} className="text-white/40 hover:text-white transition"><Plus size={18} /></button>
-              <div className="w-px h-4 bg-white/10 mx-2" />
-              <button onClick={() => setViewportScale(1)} className="text-white/40 hover:text-white transition"><RefreshCw size={16} /></button>
-              <div className="w-px h-4 bg-white/10 mx-2" />
-              <button
-                onClick={resetView}
-                title="Reset View"
-                className="text-cyan-400 hover:text-cyan-300 transition"
-              >
-                <Maximize2 size={18} />
-              </button>
-            </div>
+            {/* Zoom controls moved to header */}
 
             {loading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 backdrop-blur-sm">

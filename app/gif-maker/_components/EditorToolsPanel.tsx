@@ -4,6 +4,7 @@ import { PromptComponencts } from '@/components/PromptComponencts';
 import { aspectRatioImage } from '@/constant';
 import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { InfoActionButton } from './InfoActionButton';
 import { InsertImageModal } from './InsertImageModal';
@@ -65,9 +66,14 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                 </button>
                 <button
                   onClick={() => {
-                    const current = editor.recentProjects.find(p => p.id === editor.currentProjectId);
-                    setProjectName(current?.name || "");
-                    setSaveDialogOpen(true);
+                    if (editor.currentProjectId) {
+                      editor.saveProject();
+                      toast.success("Project updated!");
+                    } else {
+                      const current = editor.recentProjects.find(p => p.id === editor.currentProjectId);
+                      setProjectName(current?.name || "");
+                      setSaveDialogOpen(true);
+                    }
                   }}
                   className='p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all'
                   title="Save Project"
