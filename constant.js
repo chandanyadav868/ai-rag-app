@@ -477,27 +477,35 @@ export const TextFeatures = [
 ]
 
 export const FontFamily = [
+    // YouTube Viral Display Fonts
+    "Impact",
+    "Anton",
+    "Bebas Neue",
+    "Oswald",
+    // Hindi (Devanagari) Headline & Body Fonts
+    "Poppins",
+    "Mukta",
+    "Hind",
+    "Rajdhani",
+    "Rozha One",
+    "Gotu",
+    "Yatra One",
+    "Tiro Devanagari Hindi",
+    // Standard Modern Fonts
+    "Inter",
+    "Roboto",
+    "Montserrat",
+    "Open Sans",
+    "Lato",
     "Arial",
     "Helvetica",
+    "Georgia",
     "Times New Roman",
     "Courier New",
     "Verdana",
-    "Georgia",
     "Trebuchet MS",
-    "Impact",
-    "Comic Sans MS",
-    // Common Google Fonts (loaded on demand)
-    "Roboto",
-    "Inter",
-    "Poppins",
-    "Open Sans",
-    "Montserrat",
-    "Lato",
-    "Merriweather",
-    "Source Sans Pro",
-    "Playfair Display",
-    "Noto Sans"
 ]
+
 
 
 export const BLEND_MODES = [

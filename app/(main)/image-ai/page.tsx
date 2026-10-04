@@ -54,7 +54,7 @@ function Page() {
     const [uploadedImageData, setUploadedImageData] = useState<FileUploadResponseProps[]>([]);
 
     // ai generate buffer
-    const [aiGeneratedImageBuffer, setAiGeneratedImageBuffer] = useState<Buffer<ArrayBuffer>[]>([])
+    const [aiGeneratedImageBuffer, setAiGeneratedImageBuffer] = useState<Buffer[]>([])
 
     const convertingImages = async (data: FileList) => {
         // console.log(await data[0].arrayBuffer())
@@ -158,7 +158,7 @@ function Page() {
             const reponse = await Promise.all([geminaAiImage({ text: textareaStringModified })])
                 .then((res) => {
                     console.log("Response:- ", res);
-                    return res as Buffer<ArrayBuffer>[]
+                    return res as Buffer[]
                 }).catch((err) => {
                     console.log("Error in Promise All", err);
                     return []
@@ -182,7 +182,7 @@ function Page() {
                     if (!v) {
                         return
                     }
-                    const imageBLob = new Blob([v], { type: "image/png" });
+                    const imageBLob = new Blob([new Uint8Array(v)], { type: "image/png" });
                     const imageUrl = URL.createObjectURL(imageBLob)
                     console.log("imageBLob:- ", imageBLob);
                     return imageUrl
@@ -280,7 +280,7 @@ function Page() {
                 return
             }
 
-            const fileData = new File([selectedImage], "ai_image_generated", { type: "image/png" });
+            const fileData = new File([new Uint8Array(selectedImage)], "ai_image_generated", { type: "image/png" });
 
             // this is converting your data into the File Object
             const dataTranfer = new DataTransfer();

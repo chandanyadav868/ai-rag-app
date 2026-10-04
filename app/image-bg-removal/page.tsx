@@ -1,50 +1,187 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Image as ImageIcon, Sparkles, Zap, Download, Trash2, Loader2, BrainCircuit, Check, ShieldCheck, Settings2, RefreshCw, X, ArrowRight, Layers, Wand2, Plus, Play } from 'lucide-react';
+import {
+  UploadCloud,
+  Sparkles,
+  Zap,
+  Download,
+  Trash2,
+  Loader2,
+  Check,
+  ShieldCheck,
+  RefreshCw,
+  X,
+  Layers,
+  Wand2,
+  Copy,
+  SplitSquareVertical,
+  Columns,
+  Eye,
+  Sliders,
+  Palette,
+  Crosshair,
+  ExternalLink,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Archive,
+  Image as ImageIcon
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useBackgroundRemoval } from '../image-editing/_hooks/useBackgroundRemoval';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useRouter } from 'next/navigation';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface ProcessedImage {
   id: string;
-  file: File;
+  file?: File;
+  name: string;
   originalUrl: string;
   processedUrl: string | null;
+  mode: 'auto' | 'prompt';
+  prompt?: string;
   status: 'idle' | 'processing' | 'completed' | 'error';
+  durationMs?: number;
 }
 
-export default function ImageBgRemovalPage() {
-  const { status, progress, isModelLoaded, loadModel, removeBackground } = useBackgroundRemoval();
-  const [images, setImages] = useState<ProcessedImage[]>([]);
-  const [isProcessingAll, setIsProcessingAll] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragCounter = useRef(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const SAMPLE_IMAGES = [
+  {
+    name: 'Pet (Golden Retriever)',
+    tag: 'Pet',
+    url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=1000&q=80',
+    prompt: 'dog'
+  },
+  {
+    name: 'Portrait (Curly Hair)',
+    tag: 'Person',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80',
+    prompt: 'person'
+  },
+  {
+    name: 'Product (Sneakers)',
+    tag: 'Product',
+    url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=80',
+    prompt: 'shoe'
+  },
+  {
+    name: 'Vehicle (Sports Car)',
+    tag: 'Vehicle',
+    url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1000&q=80',
+    prompt: 'car'
+  }
+];
 
+const PRESET_BACKDROPS = [
+  { id: 'transparent', label: 'Transparent', type: 'transparent', value: 'transparent' },
+  { id: 'white', label: 'Studio White', type: 'color', value: '#FFFFFF' },
+  { id: 'dark', label: 'Obsidian Dark', type: 'color', value: '#0B0F19' },
+  { id: 'slate', label: 'Soft Slate', type: 'color', value: '#E2E8F0' },
+  { id: 'blue', label: 'Electric Blue', type: 'color', value: '#2563EB' },
+  { id: 'emerald', label: 'Emerald Mint', type: 'color', value: '#059669' },
+  { id: 'coral', label: 'Sunset Coral', type: 'color', value: '#F43F5E' },
+  { id: 'neon', label: 'Cyber Violet', type: 'gradient', value: 'linear-gradient(135deg, #6366F1 0%, #A855F7 100%)' },
+  { id: 'sunset', label: 'Sunset Warmth', type: 'gradient', value: 'linear-gradient(135deg, #F97316 0%, #EC4899 100%)' },
+  { id: 'ocean', label: 'Deep Ocean', type: 'gradient', value: 'linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)' },
+  { id: 'blur', label: 'Blurred Scene', type: 'blur', value: 'blur' }
+];
+
+const QUICK_PROMPT_CHIPS = ['Dog', 'Cat', 'Person', 'Shoe', 'Watch', 'Car', 'Bottle', 'Chair'];
+
+export default function ImageBgRemovalPage() {
+  const router = useRouter();
+  const {
+    status: workerStatus,
+    progress,
+    progressPercent,
+    isModelLoaded,
+    deviceType,
+    lastDurationMs,
+    removeBackground,
+    loadModel
+  } = useBackgroundRemoval();
+
+  const [images, setImages] = useState<ProcessedImage[]>([]);
+  const [activeImageId, setActiveImageId] = useState<string | null>(null);
+  const [removalMode, setRemovalMode] = useState<'auto' | 'prompt'>('auto');
+  const [objectPrompt, setObjectPrompt] = useState<string>('');
+  const [promptThreshold, setPromptThreshold] = useState<number>(0.35);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isProcessingAll, setIsProcessingAll] = useState<boolean>(false);
+
+  // Studio Viewport State
+  const [viewMode, setViewMode] = useState<'split' | 'cutout' | 'original' | 'side-by-side'>('split');
+  const [sliderPosition, setSliderPosition] = useState<number>(50);
+  const [activeBackdrop, setActiveBackdrop] = useState<string>('transparent');
+  const [blurRadius, setBlurRadius] = useState<number>(18);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
+  const sliderContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingSlider = useRef<boolean>(false);
+  const rafId = useRef<number | null>(null);
+
+  const activeImage = images.find(img => img.id === activeImageId) || images[0] || null;
+
+  // Preload RMBG model on mount for fast responsiveness
+  useEffect(() => {
+    loadModel('briaai/RMBG-1.4');
+  }, [loadModel]);
+
+  // Handle incoming files
   const addImages = useCallback((files: File[]) => {
-    const newImages: ProcessedImage[] = files
+    const newItems: ProcessedImage[] = files
       .filter(file => file.type.startsWith('image/'))
       .map(file => ({
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 11),
         file,
+        name: file.name,
         originalUrl: URL.createObjectURL(file),
         processedUrl: null,
+        mode: removalMode,
         status: 'idle'
       }));
-    
-    if (newImages.length > 0) {
-      setImages(prev => [...prev, ...newImages]);
-      toast.success(`Added ${newImages.length} images to queue`);
+
+    if (newItems.length > 0) {
+      setImages(prev => [...prev, ...newItems]);
+      setActiveImageId(newItems[0].id);
+      setSliderPosition(50);
+      setViewMode('original');
+      toast.success(`Loaded ${newItems.length} image${newItems.length > 1 ? 's' : ''}`);
     }
-  }, []);
+  }, [removalMode]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    addImages(files);
-  };
+  // Load sample image
+  const loadSample = useCallback(async (sample: typeof SAMPLE_IMAGES[0]) => {
+    const newId = Math.random().toString(36).substring(2, 11);
+    const sampleItem: ProcessedImage = {
+      id: newId,
+      name: sample.name,
+      originalUrl: sample.url,
+      processedUrl: null,
+      mode: removalMode,
+      prompt: sample.prompt,
+      status: 'idle'
+    };
 
+    setImages(prev => [sampleItem, ...prev]);
+    setActiveImageId(newId);
+    setSliderPosition(50);
+    setViewMode('original');
+    if (removalMode === 'prompt') {
+      setObjectPrompt(sample.prompt);
+    }
+    toast.success(`Loaded ${sample.name}`);
+  }, [removalMode]);
+
+  // Drag and drop handlers
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -72,350 +209,968 @@ export default function ImageBgRemovalPage() {
     }
   };
 
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    
-    const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
-      }
-    }
-    
-    if (files.length > 0) {
-      addImages(files);
-    }
-  }, [addImages]);
-
+  // Clipboard paste listener
   useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        addImages(files);
+      }
+    };
+
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [handlePaste]);
+  }, [addImages]);
 
-  const processSingleImage = async (id: string) => {
-    const img = images.find(i => i.id === id);
-    if (!img || !isModelLoaded) return;
+  // Process a single image
+  const processImage = async (targetId: string, customMode?: 'auto' | 'prompt', customPrompt?: string) => {
+    const item = images.find(img => img.id === targetId);
+    if (!item) return;
 
-    setImages(prev => prev.map(i => i.id === id ? { ...i, status: 'processing' } : i));
-    
+    const modeToUse = customMode || removalMode;
+    const promptToUse = customPrompt !== undefined ? customPrompt : objectPrompt;
+
+    if (modeToUse === 'prompt' && !promptToUse.trim()) {
+      toast.error('Please enter the object you want to isolate (e.g. "dog", "person")');
+      return;
+    }
+
+    setIsProcessing(true);
+    setImages(prev => prev.map(img => img.id === targetId ? { ...img, status: 'processing' } : img));
+
     try {
-        const result = await removeBackground(img.originalUrl);
-        if (result) {
-            setImages(prev => prev.map(i => i.id === id ? { ...i, processedUrl: result, status: 'completed' } : i));
-        } else {
-            setImages(prev => prev.map(i => i.id === id ? { ...i, status: 'error' } : i));
-        }
-    } catch (err) {
-        setImages(prev => prev.map(i => i.id === id ? { ...i, status: 'error' } : i));
+      const resultUrl = await removeBackground(item.originalUrl, {
+        mode: modeToUse,
+        prompt: modeToUse === 'prompt' ? promptToUse.trim() : undefined,
+        threshold: promptThreshold
+      });
+
+      if (resultUrl) {
+        setImages(prev => prev.map(img => img.id === targetId ? {
+          ...img,
+          processedUrl: resultUrl,
+          mode: modeToUse,
+          prompt: promptToUse,
+          status: 'completed',
+          durationMs: lastDurationMs || undefined
+        } : img));
+        setSliderPosition(50);
+        setViewMode('split');
+        toast.success(
+          modeToUse === 'prompt'
+            ? `Isolated "${promptToUse}" successfully!`
+            : 'Background removed with crystal-clear edges!'
+        );
+      } else {
+        setImages(prev => prev.map(img => img.id === targetId ? { ...img, status: 'error' } : img));
+      }
+    } catch (err: any) {
+      console.error(err);
+      setImages(prev => prev.map(img => img.id === targetId ? { ...img, status: 'error' } : img));
+      toast.error(err?.message || 'Processing failed');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  // Batch process all idle images
   const processAll = async () => {
-    if (!isModelLoaded || isProcessingAll) return;
+    const queue = images.filter(img => img.status === 'idle' || img.status === 'error');
+    if (queue.length === 0) {
+      toast.info('No pending images to process');
+      return;
+    }
+
     setIsProcessingAll(true);
-    
-    for (const img of images) {
-      if (img.status !== 'completed') {
-        await processSingleImage(img.id);
+    for (const item of queue) {
+      setActiveImageId(item.id);
+      await processImage(item.id);
+    }
+    setIsProcessingAll(false);
+    toast.success('Batch processing completed!');
+  };
+
+  // Download single image (either transparent PNG or with current backdrop)
+  const downloadImage = async (item: ProcessedImage, withBackdrop = false) => {
+    if (!item.processedUrl) return;
+
+    if (!withBackdrop || activeBackdrop === 'transparent') {
+      const a = document.createElement('a');
+      a.href = item.processedUrl;
+      a.download = `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout.png`;
+      a.click();
+      toast.success('Downloaded transparent cutout!');
+      return;
+    }
+
+    // Composite with background
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = item.processedUrl;
+    await new Promise(r => img.onload = r);
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    const backdropConfig = PRESET_BACKDROPS.find(b => b.id === activeBackdrop);
+    if (backdropConfig) {
+      if (backdropConfig.type === 'color') {
+        ctx.fillStyle = backdropConfig.value;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (backdropConfig.type === 'gradient') {
+        const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        if (backdropConfig.id === 'neon') {
+          grad.addColorStop(0, '#6366F1');
+          grad.addColorStop(1, '#A855F7');
+        } else if (backdropConfig.id === 'sunset') {
+          grad.addColorStop(0, '#F97316');
+          grad.addColorStop(1, '#EC4899');
+        } else {
+          grad.addColorStop(0, '#0EA5E9');
+          grad.addColorStop(1, '#3B82F6');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (backdropConfig.type === 'blur') {
+        const origImg = new Image();
+        origImg.crossOrigin = 'anonymous';
+        origImg.src = item.originalUrl;
+        await new Promise(r => origImg.onload = r);
+        ctx.filter = `blur(${blurRadius}px)`;
+        ctx.drawImage(origImg, -20, -20, canvas.width + 40, canvas.height + 40);
+        ctx.filter = 'none';
       }
     }
-    
-    setIsProcessingAll(false);
-    toast.success("Batch processing complete!");
+
+    ctx.drawImage(img, 0, 0);
+    const compositeUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = compositeUrl;
+    a.download = `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-backdrop.png`;
+    a.click();
+    toast.success('Downloaded with studio backdrop!');
   };
 
-  const removeImage = (id: string) => {
-    setImages(prev => {
-        const img = prev.find(i => i.id === id);
-        if (img) URL.revokeObjectURL(img.originalUrl);
-        return prev.filter(i => i.id !== id);
-    });
-  };
+  // Download all completed as ZIP
+  const downloadAllZip = async () => {
+    const completed = images.filter(img => img.processedUrl);
+    if (completed.length === 0) {
+      toast.error('No completed images to download');
+      return;
+    }
 
-  const downloadAll = () => {
-    images.forEach(img => {
-      if (img.processedUrl) {
-        const a = document.createElement('a');
-        a.href = img.processedUrl;
-        a.download = `removed-bg-${img.file.name.split('.')[0]}.png`;
-        a.click();
+    const zip = new JSZip();
+    for (let i = 0; i < completed.length; i++) {
+      const item = completed[i];
+      if (item.processedUrl) {
+        const base64Data = item.processedUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
+        zip.file(`${i + 1}-${item.name.replace(/\.[^/.]+$/, '')}-cutout.png`, base64Data, { base64: true });
       }
-    });
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, 'polish-ai-cutouts.zip');
+    toast.success(`Exported ${completed.length} cutouts into ZIP!`);
   };
+
+  // Copy cutout to clipboard
+  const copyToClipboard = async () => {
+    if (!activeImage?.processedUrl) return;
+    try {
+      const res = await fetch(activeImage.processedUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Cutout copied to clipboard!');
+    } catch (err) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  // Open in Canvas Studio (/image-editing)
+  const openInEditor = () => {
+    if (!activeImage?.processedUrl) return;
+    try {
+      sessionStorage.setItem('polish_ai_imported_cutout', activeImage.processedUrl);
+      router.push('/image-editing');
+    } catch (e) {
+      router.push('/image-editing');
+    }
+  };
+
+  // Interactive Split Slider Drag with RAF throttling (smooth 60-120fps)
+  const handleSliderMove = useCallback((clientX: number) => {
+    if (!sliderContainerRef.current) return;
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current);
+    }
+    rafId.current = requestAnimationFrame(() => {
+      if (!sliderContainerRef.current) return;
+      const rect = sliderContainerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      const percent = Math.round((x / rect.width) * 100);
+      setSliderPosition(percent);
+    });
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSlider.current = true;
+    handleSliderMove(e.clientX);
+  };
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      isDraggingSlider.current = false;
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+    };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingSlider.current) {
+        handleSliderMove(e.clientX);
+      }
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingSlider.current && e.touches[0]) {
+        handleSliderMove(e.touches[0].clientX);
+      }
+    };
+
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchend', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove);
+
+    return () => {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+      }
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [handleSliderMove]);
 
   return (
-    <div 
-      className="min-h-screen bg-[#050c17] text-white selection:bg-cyan-500/30 transition-all duration-300"
-      onDragOver={(e) => e.preventDefault()}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Global Drag Overlay */}
-      {isDragging && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-cyan-500/10 backdrop-blur-md pointer-events-none border-4 border-dashed border-cyan-500 m-6 rounded-[64px] animate-in fade-in duration-300">
-          <div className="flex flex-col items-center gap-6 text-cyan-400">
-            <div className="p-8 rounded-[40px] bg-cyan-500 text-black shadow-[0_0_50px_rgba(6,182,212,0.5)]">
-              <Upload size={64} className="animate-bounce" />
-            </div>
-            <h2 className="text-4xl font-black uppercase tracking-tighter">Drop to Remove Background</h2>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-[#060D1A] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <Header />
-      
-      <main className="container mx-auto px-4 py-24">
-        <div className="max-w-6xl mx-auto space-y-16">
-          {/* Hero Section */}
-          <div className="text-center space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Wand2 size={16} />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Next-Gen Neural Magic</span>
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 flex flex-col gap-8">
+        
+        {/* Top Header & Engine Status Bar */}
+        <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Sparkles size={13} className="text-cyan-400 animate-pulse" />
+                State of the Art AI Matting
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <ShieldCheck size={13} />
+                100% In-Browser & Private
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                <Zap size={13} />
+                {deviceType === 'webgpu' ? '⚡ WebGPU Active' : '⚙️ WASM Engine'}
+              </span>
             </div>
-            <h1 className="text-4xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-6 duration-1000">
-              Remove Background <br /> <span className="text-cyan-400">Instantly.</span>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+              AI Background & Object Isolation Studio
             </h1>
-            <p className="text-base md:text-xl text-white/40 font-medium max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 px-4">
-              Professional-grade background removal powered by the same MODNet engine used in our Pro Editor. 
-              Everything happens in your browser. 100% Private. 100% Fast.
+            <p className="mt-1 text-sm sm:text-base text-slate-400 max-w-2xl">
+              Extract clean transparent cutouts instantly with <strong className="text-cyan-300 font-semibold">RMBG-1.4</strong> or isolate any specific object with text prompts using <strong className="text-violet-300 font-semibold">CLIPSeg Zero-Shot AI</strong>.
             </p>
           </div>
 
-          {/* Model Load Section */}
-          {!isModelLoaded && (
-            <div className="max-w-xl mx-auto p-8 md:p-12 rounded-[48px] border border-white/10 bg-[#09182b]/80 backdrop-blur-3xl text-center space-y-8 shadow-2xl animate-in zoom-in duration-700 relative overflow-hidden group mx-4">
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <div className="w-24 h-24 rounded-[32px] bg-cyan-500/10 flex items-center justify-center text-cyan-400 mx-auto relative z-10">
-                    <BrainCircuit size={48} className={status === 'loading' ? 'animate-pulse' : ''} />
-                </div>
-                <div className="space-y-3 relative z-10">
-                    <h3 className="text-3xl font-black text-white">Neural Engine Offline</h3>
-                    <p className="text-sm text-white/40 leading-relaxed">
-                        To maintain 100% privacy, we process images on your device. 
-                        Load the neural weights to begin.
-                    </p>
-                </div>
-                <button
-                    onClick={() => loadModel()}
-                    disabled={status === 'loading'}
-                    className="group relative inline-flex items-center gap-4 rounded-3xl bg-white px-12 py-6 text-sm font-black uppercase tracking-widest text-black transition-all hover:bg-cyan-400 shadow-2xl shadow-cyan-500/20 active:scale-95 disabled:opacity-50 relative z-10"
-                >
-                    {status === 'loading' ? <Loader2 size={24} className="animate-spin" /> : <Zap size={24} />}
-                    {status === 'loading' ? 'Waking Up AI...' : 'Initialize AI Magic'}
-                </button>
-                {status === 'loading' && (
-                    <div className="space-y-2 relative z-10">
-                        <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest animate-pulse">
-                            Synchronizing Neural Synapses: {progress}
-                        </div>
-                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: '40%' }} />
-                        </div>
-                    </div>
-                )}
-            </div>
-          )}
-
-          {/* Editor Container */}
-          {isModelLoaded && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                {/* Batch Action Bar */}
-                {images.length > 0 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 rounded-[40px] bg-white/[0.03] border border-white/10 shadow-2xl backdrop-blur-xl sticky top-24 z-40">
-                        <div className="flex items-center gap-6">
-                            <div className="p-4 rounded-2xl bg-cyan-500/10 text-cyan-400">
-                                <Layers size={24} />
-                            </div>
-                            <div>
-                                <div className="text-sm font-black uppercase tracking-wider text-white">{images.length} Images in Queue</div>
-                                <div className="text-[10px] text-white/40 font-black uppercase tracking-widest">
-                                    {images.filter(i => i.status === 'completed').length} Completed • {images.filter(i => i.status === 'processing').length} Processing
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 text-white/80 px-4 py-3 md:px-6 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-white/10 active:scale-95"
-                                >
-                                    <Plus size={14} />
-                                    Add More
-                                </button>
-                                <button
-                                    onClick={processAll}
-                                    disabled={isProcessingAll || images.every(i => i.status === 'completed')}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-white text-black px-4 py-3 md:px-8 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 disabled:opacity-30 shadow-xl shadow-cyan-500/10"
-                                >
-                                    {isProcessingAll ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                                    Process All
-                                </button>
-                            {images.some(i => i.status === 'completed') && (
-                                <button
-                                    onClick={downloadAll}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 text-black px-4 py-3 md:px-8 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 active:scale-95 shadow-xl shadow-cyan-500/20"
-                                >
-                                    <Download size={14} />
-                                    Export All
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Main Viewport */}
-                <div className="grid lg:grid-cols-12 gap-10 items-start">
-                    <div className="lg:col-span-12 space-y-8">
-                        {images.length === 0 ? (
-                            <div 
-                                onClick={() => fileInputRef.current?.click()}
-                                className={`group relative aspect-[4/3] md:aspect-video rounded-[64px] border-2 border-dashed transition-all duration-700 cursor-pointer flex flex-col items-center justify-center gap-8 overflow-hidden ${
-                                    isDragging 
-                                    ? 'border-cyan-500 bg-cyan-500/10 scale-[0.98] shadow-[0_0_80px_rgba(6,182,212,0.2)]' 
-                                    : 'border-white/10 bg-white/[0.02] hover:border-cyan-500/40 hover:bg-cyan-500/[0.02]'
-                                }`}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                                <div className="p-8 rounded-[40px] bg-white/5 text-white/20 group-hover:bg-cyan-500 group-hover:text-black transition-all duration-700 group-hover:rotate-12">
-                                    <Upload size={56} />
-                                </div>
-                                <div className="text-center space-y-3 relative z-10 px-6">
-                                    <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">Choose or Drop Images Here</h3>
-                                    <p className="text-sm md:text-base text-white/30 font-medium">PNG, JPG or WEBP. Max resolution: 4096px.</p>
-                                </div>
-                                <div className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40 group-hover:text-white/80 transition-all">
-                                    Select Multiple Files
-                                </div>
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileChange} 
-                                    accept="image/*" 
-                                    multiple
-                                    className="hidden" 
-                                />
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-2">
-                                {images.map((img) => (
-                                    <div key={img.id} className="group relative flex flex-col rounded-[48px] overflow-hidden bg-white/[0.02] border border-white/10 shadow-xl transition-all hover:border-cyan-500/20">
-                                        {/* Image Preview Container */}
-                                        <div className="relative aspect-square overflow-hidden bg-[#050c17] flex items-center justify-center group/card" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '16px 16px' }}>
-                                            <img 
-                                                src={img.processedUrl || img.originalUrl} 
-                                                className={`max-w-full max-h-full object-contain transition-all duration-500 ${img.status === 'processing' ? 'opacity-40 scale-95 blur-md' : 'opacity-100 group-hover:scale-110'}`} 
-                                                alt="Preview"
-                                            />
-                                            
-                                            {/* Top-Right Remove Button */}
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    removeImage(img.id);
-                                                }}
-                                                className="absolute top-4 right-4 p-2 rounded-full bg-black/40 border border-white/10 text-white/40 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all z-30 opacity-100 md:opacity-0 group-hover/card:opacity-100"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                            
-                                            {/* Status Overlay */}
-                                            {img.status === 'processing' && (
-                                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                                                    <Loader2 size={32} className="text-cyan-500 animate-spin" />
-                                                </div>
-                                            )}
-
-                                            {img.status === 'completed' && (
-                                                <div className="absolute top-4 right-4 p-2 rounded-full bg-emerald-500 text-black shadow-lg">
-                                                    <Check size={14} />
-                                                </div>
-                                            )}
-
-                                            {/* Hover/Mobile Actions */}
-                                            <div className="absolute inset-0 bg-black/60 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                                <button 
-                                                    onClick={() => removeImage(img.id)}
-                                                    className="p-3 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all scale-90 md:scale-100"
-                                                >
-                                                    <Trash2 size={20} />
-                                                </button>
-                                                {img.status === 'idle' && (
-                                                    <button 
-                                                        onClick={() => processSingleImage(img.id)}
-                                                        className="p-3 rounded-2xl bg-cyan-500 text-black hover:bg-cyan-400 transition-all scale-90 md:scale-100"
-                                                    >
-                                                        <Zap size={20} />
-                                                    </button>
-                                                )}
-                                                {img.status === 'completed' && (
-                                                    <button 
-                                                        onClick={() => {
-                                                            const a = document.createElement('a');
-                                                            a.href = img.processedUrl!;
-                                                            a.download = `removed-bg-${img.file.name.split('.')[0]}.png`;
-                                                            a.click();
-                                                        }}
-                                                        className="p-3 rounded-2xl bg-emerald-500 text-black hover:bg-emerald-400 transition-all scale-90 md:scale-100"
-                                                    >
-                                                        <Download size={20} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Meta Footer */}
-                                        <div className="p-6 flex items-center justify-between">
-                                            <div className="truncate pr-4">
-                                                <div className="text-xs font-black text-white truncate">{img.file.name}</div>
-                                                <div className="text-[10px] text-white/40 uppercase tracking-widest font-black">{(img.file.size / 1024 / 1024).toFixed(2)} MB</div>
-                                            </div>
-                                            <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-lg ${
-                                                img.status === 'completed' ? 'text-emerald-400 bg-emerald-400/10' :
-                                                img.status === 'processing' ? 'text-cyan-400 bg-cyan-400/10' :
-                                                'text-white/20 bg-white/5'
-                                            }`}>
-                                                {img.status}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-          )}
-
-          {/* Features Grid */}
-          <div className="grid md:grid-cols-3 gap-8 pt-16">
-            {[
-              { icon: Zap, title: "Pure Speed", desc: "Process high-resolution images in seconds with local WebGPU acceleration." },
-              { icon: ShieldCheck, title: "Total Privacy", desc: "Your images never leave your computer. Processing is 100% client-side." },
-              { icon: Check, title: "Pro Quality", desc: "Handle complex silhouettes like hair and semi-transparent objects with ease." }
-            ].map((feature, i) => (
-              <div key={i} className="p-6 md:p-10 rounded-[40px] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-500 group">
-                <div className="w-12 h-12 md:w-16 md:h-16 rounded-[24px] bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6 md:mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-                  <feature.icon size={24} className="md:size-32" />
-                </div>
-                <h4 className="text-xl md:text-2xl font-black text-white mb-3">{feature.title}</h4>
-                <p className="text-sm md:text-base text-white/40 leading-relaxed font-medium">{feature.desc}</p>
-              </div>
-            ))}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 active:scale-95"
+            >
+              <UploadCloud size={16} />
+              Upload Image
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => e.target.files && addImages(Array.from(e.target.files))}
+              multiple
+              accept="image/*"
+              className="hidden"
+            />
           </div>
-        </div>
+        </section>
+
+        {/* Empty State / Dropzone with Demo Showcase */}
+        {images.length === 0 && (
+          <section className="flex flex-col gap-8">
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative group cursor-pointer border-2 border-dashed rounded-3xl p-10 sm:p-16 text-center transition-all duration-300 backdrop-blur-xl ${
+                isDragging
+                  ? 'border-cyan-400 bg-cyan-950/20 shadow-2xl shadow-cyan-500/10 scale-[1.01]'
+                  : 'border-white/10 bg-[#091528]/60 hover:border-cyan-500/50 hover:bg-[#0c1c36]/70 shadow-xl'
+              }`}
+            >
+              <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all duration-300">
+                <UploadCloud size={32} />
+              </div>
+              <h3 className="mt-5 text-xl font-bold text-white group-hover:text-cyan-300 transition-colors">
+                Drop your photos here or click to browse
+              </h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Supports JPG, PNG, WEBP. You can also paste directly with <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono text-cyan-300">Ctrl + V</kbd>
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                  <ShieldCheck size={14} className="text-emerald-400" /> Never leaves your browser
+                </span>
+                <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                  <Zap size={14} className="text-yellow-400" /> RAM-protected under 250MB
+                </span>
+                <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                  <Sparkles size={14} className="text-cyan-400" /> Crisp fur, hair & product edges
+                </span>
+              </div>
+            </div>
+
+            {/* Inspiration Demos */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Try with Instant Sample Photos
+                </span>
+                <span className="text-xs text-slate-500">Click any image to test live</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {SAMPLE_IMAGES.map((sample, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => loadSample(sample)}
+                    className="group relative rounded-2xl overflow-hidden border border-white/10 hover:border-cyan-400/50 bg-[#091528] transition-all hover:scale-[1.02] text-left active:scale-95 shadow-md"
+                  >
+                    <div className="aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                      <img
+                        src={sample.url}
+                        alt={sample.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-cyan-300 mb-1">
+                        {sample.tag}
+                      </span>
+                      <p className="text-xs font-semibold text-white truncate">{sample.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Active Studio Workspace */}
+        {images.length > 0 && activeImage && (
+          <section className="flex flex-col lg:flex-row gap-6 items-start">
+            
+            {/* Left Control Column: AI Mode & Settings */}
+            <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-4">
+              
+              {/* Mode Selection Card */}
+              <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-cyan-400/80">AI Extraction Mode</span>
+                  {activeImage.status === 'completed' && (
+                    <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <Check size={12} /> Ready
+                    </span>
+                  )}
+                </div>
+
+                {/* Mode Selector Tabs */}
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-black/40 border border-white/5">
+                  <button
+                    onClick={() => {
+                      setRemovalMode('auto');
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                      removalMode === 'auto'
+                        ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Wand2 size={14} />
+                    Full Auto Cutout
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRemovalMode('prompt');
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                      removalMode === 'prompt'
+                        ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Crosshair size={14} />
+                    Selective Object
+                  </button>
+                </div>
+
+                {/* Mode 1: Auto Mode description */}
+                {removalMode === 'auto' && (
+                  <div className="text-xs text-slate-300 bg-white/5 p-3.5 rounded-xl border border-white/5 space-y-1">
+                    <p className="font-semibold text-white flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-cyan-400" />
+                      RMBG-1.4 Neural Matting
+                    </p>
+                    <p className="text-slate-400 leading-relaxed">
+                      Removes background automatically while preserving intricate hair, fur, transparent surfaces, and sharp product silhouettes.
+                    </p>
+                  </div>
+                )}
+
+                {/* Mode 2: Prompt-Guided Selective Isolation */}
+                {removalMode === 'prompt' && (
+                  <div className="flex flex-col gap-3 bg-violet-950/20 border border-violet-500/20 p-3.5 rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
+                        <Crosshair size={13} />
+                        Keep Only This Object
+                      </label>
+                      <span className="text-[10px] text-slate-400">e.g. &quot;dog&quot;, &quot;person&quot;</span>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={objectPrompt}
+                        onChange={(e) => setObjectPrompt(e.target.value)}
+                        placeholder="Type object to keep (e.g. dog, cat, car)..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-violet-400 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            processImage(activeImage.id, 'prompt', objectPrompt);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Quick suggestion chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_PROMPT_CHIPS.map((chip) => (
+                        <button
+                          key={chip}
+                          onClick={() => {
+                            setObjectPrompt(chip.toLowerCase());
+                            processImage(activeImage.id, 'prompt', chip.toLowerCase());
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                            objectPrompt.toLowerCase() === chip.toLowerCase()
+                              ? 'bg-violet-500 text-white'
+                              : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                          }`}
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sensitivity / Threshold Slider */}
+                    <div className="mt-1 pt-2 border-t border-white/10 flex flex-col gap-1.5">
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Detection Sensitivity</span>
+                        <span className="text-violet-300 font-mono">{Math.round((1 - promptThreshold) * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.15"
+                        max="0.65"
+                        step="0.05"
+                        value={promptThreshold}
+                        onChange={(e) => setPromptThreshold(parseFloat(e.target.value))}
+                        className="accent-violet-500 h-1 bg-white/10 rounded-lg cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Action Button */}
+                <button
+                  onClick={() => processImage(activeImage.id)}
+                  disabled={isProcessing}
+                  className={`w-full py-3 rounded-xl font-semibold text-sm transition-all shadow-lg flex items-center justify-center gap-2 active:scale-98 ${
+                    removalMode === 'prompt'
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/25'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-cyan-500/25'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {progress || 'Processing Image...'}
+                    </>
+                  ) : activeImage.processedUrl ? (
+                    <>
+                      <RefreshCw size={15} />
+                      Re-run AI Extraction
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      {removalMode === 'prompt' ? 'Isolate Selected Object' : 'Remove Background Now'}
+                    </>
+                  )}
+                </button>
+
+                {/* Progress bar during model load/processing */}
+                {isProcessing && progressPercent > 0 && (
+                  <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-cyan-400 h-full transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Backdrop Testing Studio */}
+              <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Palette size={13} className="text-cyan-400" />
+                    Backdrop Studio
+                  </span>
+                  <span className="text-[11px] text-slate-400">Live Preview</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {PRESET_BACKDROPS.map((backdrop) => (
+                    <button
+                      key={backdrop.id}
+                      onClick={() => setActiveBackdrop(backdrop.id)}
+                      className={`h-11 rounded-xl relative border transition-all flex items-center justify-center overflow-hidden ${
+                        activeBackdrop === backdrop.id
+                          ? 'border-cyan-400 shadow-md shadow-cyan-500/30 scale-105'
+                          : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{
+                        background:
+                          backdrop.type === 'transparent'
+                            ? 'repeating-conic-gradient(#1f2937 0% 25%, #111827 0% 50%) 50% / 10px 10px'
+                            : backdrop.value
+                      }}
+                      title={backdrop.label}
+                    >
+                      {backdrop.type === 'blur' && (
+                        <span className="text-[10px] font-bold text-white backdrop-blur-md px-1 py-0.5 rounded bg-black/40">
+                          Blur
+                        </span>
+                      )}
+                      {activeBackdrop === backdrop.id && (
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                          <Check size={14} className="text-white drop-shadow" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Blur Strength Slider if Blur mode is active */}
+                {activeBackdrop === 'blur' && (
+                  <div className="pt-2 flex flex-col gap-1.5">
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Blur Radius</span>
+                      <span className="font-mono text-cyan-400">{blurRadius}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="6"
+                      max="40"
+                      value={blurRadius}
+                      onChange={(e) => setBlurRadius(parseInt(e.target.value))}
+                      className="accent-cyan-400 h-1 bg-white/10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 pb-2">
+                  Export & Actions
+                </span>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => downloadImage(activeImage, false)}
+                    disabled={!activeImage.processedUrl}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    <Download size={14} className="text-cyan-400" />
+                    Cutout PNG
+                  </button>
+                  <button
+                    onClick={() => downloadImage(activeImage, true)}
+                    disabled={!activeImage.processedUrl || activeBackdrop === 'transparent'}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    <Download size={14} className="text-emerald-400" />
+                    With Backdrop
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={copyToClipboard}
+                    disabled={!activeImage.processedUrl}
+                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    {copied ? 'Copied!' : 'Copy to Clipboard'}
+                  </button>
+                  <button
+                    onClick={openInEditor}
+                    disabled={!activeImage.processedUrl}
+                    className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    <ExternalLink size={14} />
+                    Open in Canvas
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Main Stage: Visual Split-Screen Workspace */}
+            <div className="flex-1 w-full flex flex-col gap-4">
+              
+              {/* Studio Stage Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#091528]/80 border border-white/10 rounded-2xl px-4 py-3 backdrop-blur-xl">
+                {/* View Mode Switcher */}
+                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
+                  <button
+                    onClick={() => setViewMode('split')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                      viewMode === 'split' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <SplitSquareVertical size={14} />
+                    Split Slider
+                  </button>
+                  <button
+                    onClick={() => setViewMode('cutout')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                      viewMode === 'cutout' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Eye size={14} />
+                    Cutout Only
+                  </button>
+                  <button
+                    onClick={() => setViewMode('original')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                      viewMode === 'original' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <ImageIcon size={14} />
+                    Original
+                  </button>
+                </div>
+
+                {/* Zoom & Reset Controls */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-black/40 rounded-xl border border-white/5 p-0.5">
+                    <button
+                      onClick={() => setZoomLevel(prev => Math.max(0.6, prev - 0.2))}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={14} />
+                    </button>
+                    <span className="px-2 text-xs font-mono text-slate-300">
+                      {Math.round(zoomLevel * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.2))}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={14} />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setZoomLevel(1)}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title="Fit to Screen"
+                  >
+                    <Maximize2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Interactive Canvas Stage */}
+              <div
+                ref={sliderContainerRef}
+                className="relative w-full aspect-[4/3] sm:aspect-[16/10] max-h-[640px] rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex items-center justify-center select-none"
+                style={{
+                  background:
+                    activeBackdrop === 'transparent'
+                      ? 'repeating-conic-gradient(#151f30 0% 25%, #0b1220 0% 50%) 50% / 20px 20px'
+                      : activeBackdrop === 'blur'
+                      ? '#060D1A'
+                      : PRESET_BACKDROPS.find(b => b.id === activeBackdrop)?.value || 'transparent'
+                }}
+              >
+                {/* Background Blur layer if active */}
+                {activeBackdrop === 'blur' && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center transition-all duration-300 scale-105"
+                    style={{
+                      backgroundImage: `url(${activeImage.originalUrl})`,
+                      filter: `blur(${blurRadius}px) brightness(0.8)`
+                    }}
+                  />
+                )}
+
+                {/* Content Container scaled by Zoom Level */}
+                <div
+                  className="relative w-full h-full flex items-center justify-center transition-transform duration-100"
+                  style={{ transform: `scale(${zoomLevel})` }}
+                >
+                  {/* Mode: Cutout Only */}
+                  {viewMode === 'cutout' && (
+                    <img
+                      src={activeImage.processedUrl || activeImage.originalUrl}
+                      alt="Processed Cutout"
+                      className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-2xl"
+                    />
+                  )}
+
+                  {/* Mode: Original Only */}
+                  {viewMode === 'original' && (
+                    <img
+                      src={activeImage.originalUrl}
+                      alt="Original Image"
+                      className="max-w-full max-h-full object-contain pointer-events-none"
+                    />
+                  )}
+
+                  {/* Mode: Interactive Split Slider */}
+                  {viewMode === 'split' && (
+                    !activeImage.processedUrl ? (
+                      /* When not yet processed: show full clean original image without any split or grayscale */
+                      <img
+                        src={activeImage.originalUrl}
+                        alt="Original Image"
+                        className="max-w-full max-h-full object-contain pointer-events-none"
+                      />
+                    ) : (
+                      <div
+                        className="relative w-full h-full flex items-center justify-center overflow-hidden select-none cursor-ew-resize"
+                        onMouseDown={handleMouseDown}
+                      >
+                        {/* Sizing placeholder maintaining container aspect ratio */}
+                        <img
+                          src={activeImage.originalUrl}
+                          alt=""
+                          className="max-w-full max-h-full object-contain opacity-0 pointer-events-none"
+                        />
+
+                        {/* Left Side: Original Image clipped to sliderPosition */}
+                        <div
+                          className="absolute inset-0 overflow-hidden flex items-center justify-center pointer-events-none"
+                          style={{
+                            clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)`,
+                            willChange: 'clip-path',
+                            transform: 'translateZ(0)'
+                          }}
+                        >
+                          <img
+                            src={activeImage.originalUrl}
+                            alt="Original"
+                            className="max-w-full max-h-full object-contain pointer-events-none"
+                          />
+                        </div>
+
+                        {/* Right Side: Cutout Image clipped from sliderPosition to 100% */}
+                        <div
+                          className="absolute inset-0 overflow-hidden flex items-center justify-center pointer-events-none"
+                          style={{
+                            clipPath: `polygon(${sliderPosition}% 0, 100% 0, 100% 100%, ${sliderPosition}% 100%)`,
+                            willChange: 'clip-path',
+                            transform: 'translateZ(0)'
+                          }}
+                        >
+                          <img
+                            src={activeImage.processedUrl}
+                            alt="Processed Cutout"
+                            className="max-w-full max-h-full object-contain pointer-events-none"
+                          />
+                        </div>
+
+                        {/* Draggable Divider Handle */}
+                        <div
+                          className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-[0_0_15px_rgba(255,255,255,0.7)] flex items-center justify-center pointer-events-none"
+                          style={{ left: `${sliderPosition}%`, willChange: 'left', transform: 'translateZ(0)' }}
+                        >
+                          <div className="w-8 h-8 -ml-3.5 rounded-full bg-white text-slate-900 shadow-xl flex items-center justify-center border-2 border-slate-900/20 active:scale-110 transition-transform">
+                            <SplitSquareVertical size={16} />
+                          </div>
+                        </div>
+
+                        {/* Before / After Badges */}
+                        <div className="absolute top-4 left-4 z-10 px-2.5 py-1 rounded-full text-[11px] font-bold bg-black/60 backdrop-blur-md text-white border border-white/10 pointer-events-none">
+                          Before (Original)
+                        </div>
+                        <div className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-500/80 backdrop-blur-md text-white border border-cyan-400/30 pointer-events-none shadow-lg">
+                          After (AI Cutout)
+                        </div>
+                      </div>
+                    )
+                  )}
+
+
+                  {/* In-Progress Overlay */}
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-30">
+                      <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
+                        <Loader2 size={28} className="animate-spin" />
+                      </div>
+                      <p className="text-sm font-semibold text-white">
+                        {progress || 'Neural Network Processing...'}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Zero server upload • Executing locally on your device
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Thumbnail Queue Bar */}
+              <div className="bg-[#091528]/80 border border-white/10 rounded-2xl p-4 backdrop-blur-xl flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Batch Queue ({images.length})
+                    </span>
+                    {images.filter(i => i.status === 'completed').length > 0 && (
+                      <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        {images.filter(i => i.status === 'completed').length} Cutouts Ready
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {images.length > 1 && (
+                      <button
+                        onClick={processAll}
+                        disabled={isProcessingAll}
+                        className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-xs font-semibold transition-all flex items-center gap-1.5"
+                      >
+                        {isProcessingAll ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                        Process All
+                      </button>
+                    )}
+                    {images.some(i => i.processedUrl) && (
+                      <button
+                        onClick={downloadAllZip}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+                      >
+                        <Archive size={13} className="text-emerald-400" />
+                        Download ZIP
+                      </button>
+                    )}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-medium transition-all"
+                    >
+                      + Add More
+                    </button>
+                  </div>
+                </div>
+
+                {/* Queue Cards */}
+                <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                  {images.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setActiveImageId(item.id);
+                        setSliderPosition(50);
+                        if (item.processedUrl) {
+                          setViewMode('split');
+                        } else {
+                          setViewMode('original');
+                        }
+                      }}
+                      className={`group relative shrink-0 w-24 h-24 rounded-xl border overflow-hidden cursor-pointer transition-all ${
+                        activeImageId === item.id
+                          ? 'border-cyan-400 ring-2 ring-cyan-500/30 scale-105 shadow-lg'
+                          : 'border-white/10 hover:border-white/30 bg-black/40'
+                      }`}
+                    >
+                      <img
+                        src={item.processedUrl || item.originalUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {item.status === 'completed' && (
+                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
+                          <Check size={11} />
+                        </div>
+                      )}
+                      {item.status === 'processing' && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-cyan-400">
+                          <Loader2 size={16} className="animate-spin" />
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImages(prev => prev.filter(i => i.id !== item.id));
+                          if (activeImageId === item.id) {
+                            const remaining = images.filter(i => i.id !== item.id);
+                            setActiveImageId(remaining[0]?.id || null);
+                          }
+                        }}
+                        className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove image"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
-      <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileChange} 
-          accept="image/*" 
-          multiple
-          className="hidden" 
-      />
     </div>
   );
 }

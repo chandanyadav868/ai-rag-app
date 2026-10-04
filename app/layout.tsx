@@ -78,7 +78,15 @@ import { Toaster } from "sonner";
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <link rel="shortcut icon" href="favicorn/favicon.ico" type="image/x-icon" />
+      <head>
+        <link rel="shortcut icon" href="favicorn/favicon.ico" type="image/x-icon" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Gotu&family=Hind:wght@500;600;700&family=Mukta:wght@500;600;700;800&family=Oswald:wght@600;700&family=Poppins:wght@400;600;700;800;900&family=Rajdhani:wght@600;700&family=Rozha+One&family=Tiro+Devanagari+Hindi&family=Yatra+One&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
       <body>
         {/* header */}
         <SessionProvider>

@@ -2,12 +2,103 @@
 
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { aspectRatioImage } from '@/constant';
-import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, Scissors, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
 import { InfoActionButton } from './InfoActionButton';
 import { InsertImageModal } from './InsertImageModal';
+
+const HINDI_TYPOGRAPHY_PRESETS = [
+  {
+    name: "Hindi Breaking News",
+    category: "News Ribbon",
+    text: "सनसनीखेज खुलासा 🚨",
+    fontFamily: "Mukta",
+    fontWeight: "900",
+    fontSize: 34,
+    fill: "#ffffff",
+    stroke: "#000000",
+    strokeWidth: 5,
+    paintFirst: "stroke",
+    backgroundColor: "#dc2626",
+    shadowColor: "rgba(0,0,0,0.85)",
+    shadowBlur: 14,
+    shadowOffsetX: 3,
+    shadowOffsetY: 4,
+    desc: "Red Ribbon Banner + Heavy Stroke",
+  },
+  {
+    name: "Yellow Shock Hook",
+    category: "High CTR",
+    text: "सच्चाई क्या है?!",
+    fontFamily: "Anton",
+    fontWeight: "bold",
+    fontSize: 38,
+    fill: "#ffe600",
+    stroke: "#000000",
+    strokeWidth: 6,
+    paintFirst: "stroke",
+    backgroundColor: "",
+    shadowColor: "#000000",
+    shadowBlur: 16,
+    shadowOffsetX: 4,
+    shadowOffsetY: 6,
+    desc: "High-CTR Yellow Outline Slant",
+  },
+  {
+    name: "Tech Price Badge",
+    category: "Tech",
+    text: "₹99,999 📱",
+    fontFamily: "Bebas Neue",
+    fontWeight: "bold",
+    fontSize: 36,
+    fill: "#00f0ff",
+    stroke: "#000000",
+    strokeWidth: 5,
+    paintFirst: "stroke",
+    backgroundColor: "#0a0f1d",
+    shadowColor: "#00f0ff",
+    shadowBlur: 20,
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
+    desc: "Electric Cyan Glow + Tech Pill",
+  },
+  {
+    name: "Gold Luxury Title",
+    category: "Royal",
+    text: "MAHA EPISODE 👑",
+    fontFamily: "Rozha One",
+    fontWeight: "bold",
+    fontSize: 32,
+    fill: "#ffd700",
+    stroke: "#451a03",
+    strokeWidth: 4,
+    paintFirst: "stroke",
+    backgroundColor: "",
+    shadowColor: "#b45309",
+    shadowBlur: 16,
+    shadowOffsetX: 3,
+    shadowOffsetY: 5,
+    desc: "Gold Luxury Heading",
+  },
+  {
+    name: "Exposed Ribbon",
+    category: "Investigative",
+    text: "पर्दाफाश! महाघोटाला 🔥",
+    fontFamily: "Yatra One",
+    fontWeight: "bold",
+    fontSize: 32,
+    fill: "#ffffff",
+    stroke: "#000000",
+    strokeWidth: 5,
+    paintFirst: "stroke",
+    backgroundColor: "#000000",
+    shadowColor: "#dc2626",
+    shadowBlur: 16,
+    desc: "Black Ribbon + Crimson Glow",
+  },
+];
 
 import { useGifEditor } from '../_hooks/useGifEditor';
 
@@ -51,11 +142,11 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
 
   return (
     <>
-      <aside className={`fixed left-0 top-0 z-30 h-screen w-[min(90vw,340px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
+      <aside className={`fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-[min(90vw,340px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
         <div className='flex h-full flex-col'>
-          <div className='border-b border-white/10 px-4 py-4 md:px-5 md:py-5'>
+          <div className='border-b border-white/10 px-4 py-3 md:px-5 md:py-4'>
             <div className='flex items-center justify-between'>
-              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Workspace</div>
+              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Tools & Assets</div>
               <div className='flex gap-2'>
                 <button
                   onClick={() => router.push('/gif-home-screen')}
@@ -240,12 +331,49 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                 />
 
                 <InfoActionButton
+                  icon={Scissors}
+                  label='Mask Studio'
+                  description='Apply precision shape masks (Circle, Squircle, Heart, Star, Shield) to any active layer.'
+                  onClick={() => editor.setMaskStudioOpen(true)}
+                  active={editor.maskStudioOpen}
+                />
+
+                <InfoActionButton
                   icon={Download}
                   label='Export'
                   description='Open export settings and download the current canvas in a supported image format.'
                   onClick={() => setExportDialogOpen(true)}
-                  className='col-span-2'
                 />
+              </div>
+
+              {/* Hindi & Viral Typography Presets Section */}
+              <div className="mt-4 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Sparkles size={12} className="text-cyan-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300">
+                    Hindi & High-CTR Banners
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {HINDI_TYPOGRAPHY_PRESETS.map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => editor.addTextLayer(preset)}
+                      className="w-full text-left p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-cyan-400/30 transition-all group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white group-hover:text-cyan-300 truncate">
+                          {preset.text}
+                        </span>
+                        <span className="text-[9px] font-bold text-white/40 group-hover:text-white/70">
+                          {preset.fontFamily}
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-white/40 mt-0.5">{preset.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <input

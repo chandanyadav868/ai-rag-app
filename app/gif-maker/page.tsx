@@ -1,5 +1,7 @@
 "use client";
 
+import React from 'react';
+import { EditorTopBar } from './_components/EditorTopBar';
 import { EditorCanvasWorkspace } from './_components/EditorCanvasWorkspace';
 import { EditorLayerPanel } from './_components/EditorLayerPanel';
 import { EditorToolsPanel } from './_components/EditorToolsPanel';
@@ -14,13 +16,23 @@ function ProGifMaker() {
   const editor = useGifEditor();
   
   return (
-    <div id='gifMakerContainer' className='h-screen bg-[#07111f] text-white'>
-      <main className='relative h-screen overflow-hidden'>
+    <div id="gifMakerContainer" className="flex flex-col h-screen w-screen overflow-hidden bg-[#07111f] text-white select-none">
+      {/* Sleek Dedicated Studio Top Navigation Bar */}
+      <EditorTopBar editor={editor} />
+
+      {/* Main Studio Viewport Area */}
+      <main className="relative flex flex-1 h-[calc(100vh-3.5rem)] w-full overflow-hidden">
+        {/* Left Tools & Presets Dock */}
         <EditorToolsPanel editor={editor} />
+
+        {/* Central Fluid 2D Interactive Viewport with Timeline */}
         <EditorCanvasWorkspace editor={editor} />
+
+        {/* Right Inspector & Animation Deck */}
         <EditorLayerPanel editor={editor} />
       </main>
 
+      {/* AI Inpainting / Generative Edit Studio Modal */}
       {editor.aiEdit && createPortal(
         <EditTool
           aiImageFn={editor.aiImageFn}
@@ -31,6 +43,7 @@ function ProGifMaker() {
         document.getElementById("gifMakerContainer") || document.body
       )}
 
+      {/* Tight Precision Mask Studio */}
       <MaskStudio
         isOpen={editor.maskStudioOpen}
         onClose={() => editor.setMaskStudioOpen(false)}
@@ -40,6 +53,7 @@ function ProGifMaker() {
         assets={editor.assets}
       />
 
+      {/* Real-time Animated GIF Preview Modal */}
       <GifPreviewModal
         isOpen={editor.isPlaying}
         onClose={() => editor.setIsPlaying(false)}
@@ -49,7 +63,7 @@ function ProGifMaker() {
         setIsPlaying={editor.setIsPlaying}
       />
     </div>
-  )
+  );
 }
 
 export default ProGifMaker;

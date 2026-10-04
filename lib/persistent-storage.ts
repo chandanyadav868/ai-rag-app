@@ -22,6 +22,7 @@ export interface StoredFont {
 
 const ASSET_PREFIX = 'asset_';
 const FONT_PREFIX = 'font_';
+const PROJECT_PREFIX = 'project_';
 
 /**
  * Stores a file (Blob/File) in IndexedDB and returns a unique asset ID.
@@ -32,7 +33,7 @@ export async function storeLocalAsset(file: Blob, name: string): Promise<string>
     id,
     blob: file,
     name,
-    type: file.type,
+    type: file.type || 'image/png',
     timestamp: Date.now(),
   };
   await set(id, asset);
@@ -40,10 +41,69 @@ export async function storeLocalAsset(file: Blob, name: string): Promise<string>
 }
 
 /**
+ * Converts a Base64/DataURL string to a Blob and stores it in IndexedDB.
+ */
+export async function storeDataUrlAsAsset(dataUrl: string, name: string = 'image'): Promise<string> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return await storeLocalAsset(blob, name);
+}
+
+/**
+ * Extracts a Blob from an HTMLImageElement or HTMLCanvasElement and stores it in IndexedDB.
+ */
+export async function storeElementAsAsset(element: HTMLImageElement | HTMLCanvasElement, name: string = 'image'): Promise<string | null> {
+  try {
+    const canvas = document.createElement('canvas');
+    if (element instanceof HTMLImageElement) {
+      canvas.width = element.naturalWidth || element.width || 800;
+      canvas.height = element.naturalHeight || element.height || 800;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(element, 0, 0);
+    } else {
+      canvas.width = element.width;
+      canvas.height = element.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(element, 0, 0);
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return null;
+    return await storeLocalAsset(blob, name);
+  } catch (err) {
+    console.error('Failed to store element as asset:', err);
+    return null;
+  }
+}
+
+/**
  * Retrieves a stored asset by its ID.
  */
 export async function getLocalAsset(id: string): Promise<StoredAsset | undefined> {
   return await get(id);
+}
+
+/**
+ * Stores complete project canvas JSON in IndexedDB to avoid localStorage 5MB quota limits.
+ */
+export async function storeProjectData(projectId: string, data: any): Promise<void> {
+  await set(`${PROJECT_PREFIX}${projectId}`, data);
+}
+
+/**
+ * Retrieves project canvas JSON from IndexedDB.
+ */
+export async function getProjectData(projectId: string): Promise<any | undefined> {
+  return await get(`${PROJECT_PREFIX}${projectId}`);
+}
+
+/**
+ * Deletes project canvas JSON from IndexedDB.
+ */
+export async function deleteProjectData(projectId: string): Promise<void> {
+  await del(`${PROJECT_PREFIX}${projectId}`);
 }
 
 /**
@@ -104,3 +164,4 @@ export async function deleteStoredItem(id: string): Promise<void> {
 export async function clearAllPersistentStorage(): Promise<void> {
   await clear();
 }
+

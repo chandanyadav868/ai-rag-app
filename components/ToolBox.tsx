@@ -47,6 +47,54 @@ import React, { Dispatch, SetStateAction, useCallback, useEffect, useRef, useSta
 import { createPortal } from 'react-dom';
 import { loadGoogleFont } from '@/lib/googleFonts';
 import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+import { generateStickerCutout, THUMBNAIL_COLOR_PRESETS } from '@/lib/image-effects';
+
+// Enhance FabricObject._renderBackground to natively support rounded corners (rx / rxTL/TR/BL/BR)
+if (typeof window !== "undefined" && FabricObject && FabricObject.prototype) {
+  const proto = FabricObject.prototype as any;
+  if (!proto.__renderBackgroundPatched) {
+    proto.__renderBackgroundPatched = true;
+    const origRenderBackground = proto._renderBackground;
+    proto._renderBackground = function(ctx: CanvasRenderingContext2D) {
+      if (!this.backgroundColor) return;
+      const rx = this.rx || this.rxTL || 0;
+      if (!rx) {
+        origRenderBackground.call(this, ctx);
+        return;
+      }
+      const dim = this._getNonTransformedDimensions ? this._getNonTransformedDimensions() : { x: this.width, y: this.height };
+      const w = dim.x;
+      const h = dim.y;
+      const x = -w / 2;
+      const y = -h / 2;
+      const maxR = Math.min(w / 2, h / 2);
+      const tl = Math.max(0, Math.min(this.rxTL ?? rx, maxR));
+      const tr = Math.max(0, Math.min(this.rxTR ?? rx, maxR));
+      const br = Math.max(0, Math.min(this.rxBR ?? rx, maxR));
+      const bl = Math.max(0, Math.min(this.rxBL ?? rx, maxR));
+
+      ctx.fillStyle = this.backgroundColor;
+      ctx.beginPath();
+      if ((ctx as any).roundRect) {
+        (ctx as any).roundRect(x, y, w, h, [tl, tr, br, bl]);
+      } else {
+        ctx.moveTo(x + tl, y);
+        ctx.lineTo(x + w - tr, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+        ctx.lineTo(x + w, y + h - br);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+        ctx.lineTo(x + bl, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+        ctx.lineTo(x, y + tl);
+        ctx.quadraticCurveTo(x, y, x + tl, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      this._removeShadow?.(ctx);
+    };
+  }
+}
 
 interface ToolBoxProp {
   fabricJs: React.MutableRefObject<Canvas | null>;
@@ -129,6 +177,7 @@ interface InspectorState {
   rxTR: number;
   rxBL: number;
   rxBR: number;
+  padding?: number;
 }
 
 const EMPTY_INSPECTOR: InspectorState = {
@@ -152,6 +201,7 @@ const EMPTY_INSPECTOR: InspectorState = {
   textAlign: "left",
   charSpacing: 0,
   lineHeight: 1.16,
+  padding: 0,
   rx: 0,
   ry: 0,
   skewX: 0,
@@ -245,6 +295,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
   const [uploadToPublic, setUploadToPublic] = useState(false);
   const [selectedFontFile, setSelectedFontFile] = useState<File | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [stickerWidth, setStickerWidth] = useState(8);
+  const [stickerColor, setStickerColor] = useState("#ffffff");
+  const [stickerGlow, setStickerGlow] = useState(15);
+  const [stickerApplying, setStickerApplying] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -315,8 +369,9 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       textAlign: (selectedObject.get("textAlign") ?? selectedState.textAlign ?? "left") as TextAlignProps,
       charSpacing: Number(selectedObject.get("charSpacing") ?? selectedState.charSpacing ?? 0),
       lineHeight: Number(selectedObject.get("lineHeight") ?? selectedState.lineHeight ?? 1.16),
-      rx: Number(selectedObject.get("rx") ?? selectedState.rx ?? 0),
-      ry: Number(selectedObject.get("ry") ?? selectedState.ry ?? 0),
+      rx: Number((selectedObject as any).rx ?? selectedState.rx ?? 0),
+      ry: Number((selectedObject as any).ry ?? selectedState.ry ?? 0),
+      padding: Number((selectedObject as any).padding ?? (selectedState as any).padding ?? 0),
       skewX: Number(selectedObject.get("skewX") ?? selectedState.skewX ?? 0),
       skewY: Number(selectedObject.get("skewY") ?? selectedState.skewY ?? 0),
       flipX: Boolean(selectedObject.get("flipX") ?? selectedState.flipX),
@@ -352,10 +407,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       brushWidth: (fabricJs.current?.freeDrawingBrush?.width) ?? 10,
       sprayDensity: (fabricJs.current?.freeDrawingBrush as any)?.density ?? 20,
       sprayDotWidth: (fabricJs.current?.freeDrawingBrush as any)?.dotWidth ?? 2,
-      rxTL: (selectedObject as any).rxTL ?? 0,
-      rxTR: (selectedObject as any).rxTR ?? 0,
-      rxBL: (selectedObject as any).rxBL ?? 0,
-      rxBR: (selectedObject as any).rxBR ?? 0,
+      rxTL: (selectedObject as any).rxTL ?? (selectedState as any).rxTL ?? 0,
+      rxTR: (selectedObject as any).rxTR ?? (selectedState as any).rxTR ?? 0,
+      rxBL: (selectedObject as any).rxBL ?? (selectedState as any).rxBL ?? 0,
+      rxBR: (selectedObject as any).rxBR ?? (selectedState as any).rxBR ?? 0,
     });
   }, [selectedId, state, fabricJs, activeTool]);
 
@@ -538,6 +593,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       object.set("lineHeight", delta.lineHeight);
       nextStatePatch.lineHeight = delta.lineHeight;
     }
+    if (delta.padding !== undefined) {
+      object.set("padding", delta.padding);
+      nextStatePatch.padding = delta.padding;
+    }
     if (delta.rx !== undefined || delta.rxTL !== undefined || delta.rxTR !== undefined || delta.rxBL !== undefined || delta.rxBR !== undefined) {
       const rtl = delta.rxTL ?? activeItem.rxTL;
       const rtr = delta.rxTR ?? activeItem.rxTR;
@@ -551,32 +610,11 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       const bl = delta.rx !== undefined ? rAll : rbl;
       const br = delta.rx !== undefined ? rAll : rbr;
 
-      const w = object.width;
-      const h = object.height;
+      const dim = (object as any)._getNonTransformedDimensions ? (object as any)._getNonTransformedDimensions() : { x: object.width, y: object.height };
+      const w = dim.x || object.width || 100;
+      const h = dim.y || object.height || 100;
 
-      // Use a custom Path as clipPath to support individual corner radii
-      // M x+r,y L x+w-r,y Q x+w,y x+w,y+r L x+w,y+h-r Q x+w,y+h x+w-r,y+h L x+r,y+h Q x,y+h x,y+h-r L x,y+r Q x,y x+r,y Z
-      const x = -w/2;
-      const y = -h/2;
-      
-      const pathData = `
-        M ${x + tl} ${y}
-        L ${x + w - tr} ${y}
-        Q ${x + w} ${y} ${x + w} ${y + tr}
-        L ${x + w} ${y + h - br}
-        Q ${x + w} ${y + h} ${x + w - br} ${y + h}
-        L ${x + rbl} ${y + h}
-        Q ${x} ${y + h} ${x} ${y + h - rbl}
-        L ${x} ${y + tl}
-        Q ${x} ${y} ${x + tl} ${y}
-        Z
-      `;
-
-      object.set('clipPath', new Path(pathData, {
-        originX: 'center',
-        originY: 'center',
-      }));
-
+      (object as any).rx = delta.rx !== undefined ? delta.rx : rAll;
       (object as any).rxTL = tl;
       (object as any).rxTR = tr;
       (object as any).rxBL = bl;
@@ -590,10 +628,36 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       // Only update the master 'rx' state if the 'All Corners' slider was moved
       if (delta.rx !== undefined) {
         nextStatePatch.rx = delta.rx;
-        // For Rects, we can still set native rx if it's uniform
-        if (object.isType('rect')) {
-          object.set({ rx: delta.rx, ry: delta.rx });
-        }
+      }
+
+      // For non-textbox shapes/images, use clipPath for individual corner radius
+      if (tl === 0 && tr === 0 && bl === 0 && br === 0) {
+        object.set('clipPath', undefined as any);
+      } else if (!object.isType('textbox')) {
+        const x = -w/2;
+        const y = -h/2;
+        
+        const pathData = `
+          M ${x + tl} ${y}
+          L ${x + w - tr} ${y}
+          Q ${x + w} ${y} ${x + w} ${y + tr}
+          L ${x + w} ${y + h - br}
+          Q ${x + w} ${y + h} ${x + w - br} ${y + h}
+          L ${x + bl} ${y + h}
+          Q ${x} ${y + h} ${x} ${y + h - bl}
+          L ${x} ${y + tl}
+          Q ${x} ${y} ${x + tl} ${y}
+          Z
+        `;
+
+        object.set('clipPath', new Path(pathData, {
+          originX: 'center',
+          originY: 'center',
+        }));
+      }
+
+      if (object.isType('rect')) {
+        object.set({ rx: delta.rx ?? tl, ry: delta.rx ?? tl });
       }
     }
     if (delta.ry !== undefined && object instanceof Rect) {
@@ -630,18 +694,21 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     }
 
     if (options?.width !== undefined) {
+      const targetWidth = Math.max(options.width, 1);
       if (object instanceof Textbox) {
-        object.set("width", options.width);
+        const currentScaleX = object.scaleX || 1;
+        object.set("width", Math.max(targetWidth / currentScaleX, 10));
       } else if (object.width) {
-        object.set("scaleX", Math.max(options.width / object.width, 0.01));
+        object.set("scaleX", Math.max(targetWidth / object.width, 0.01));
       }
-      nextStatePatch.width = options.width;
+      nextStatePatch.width = targetWidth;
     }
 
     if (options?.height !== undefined) {
-      if (!(object instanceof Textbox) && object.height) {
-        object.set("scaleY", Math.max(options.height / object.height, 0.01));
-        nextStatePatch.height = options.height;
+      const targetHeight = Math.max(options.height, 1);
+      if (object.height) {
+        object.set("scaleY", Math.max(targetHeight / object.height, 0.01));
+        nextStatePatch.height = targetHeight;
       }
     }
 
@@ -807,8 +874,9 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       <div 
         className='z-[60] border border-white/10 bg-[#09182b]/95 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl animate-in fade-in duration-300
           md:relative md:w-full md:rounded-[32px] md:border-none md:bg-transparent md:p-0 md:shadow-none
-          fixed bottom-0 left-0 right-0 w-full rounded-t-[40px] slide-in-from-bottom-4 h-[40vh] md:h-auto'
+          fixed bottom-0 left-0 right-0 w-full rounded-t-[40px] slide-in-from-bottom-4 h-[40vh] md:h-auto overscroll-contain'
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
       >
         <div className="md:hidden flex justify-center pt-1 pb-4">
           <div className="w-12 h-1.5 rounded-full bg-white/20" />
@@ -831,7 +899,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
             <X size={16} />
           </button>
         </div>
-        <div className='space-y-4 overflow-y-auto pr-2 historyScrollbar h-[calc(40vh-120px)] md:h-auto md:max-h-none'>
+        <div 
+          onWheel={(e) => e.stopPropagation()}
+          className='space-y-4 overflow-y-auto pr-2 historyScrollbar h-[calc(40vh-120px)] md:h-auto md:max-h-none overscroll-contain'
+        >
           {children}
         </div>
       </div>
@@ -869,6 +940,70 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
       </div>
     </button>
   );
+
+  const handleApplySticker = async () => {
+    const object = getSelectedObject();
+    if (!object || !(object instanceof FabricImage)) {
+      toast.error("Please select an image cutout first");
+      return;
+    }
+
+    setStickerApplying(true);
+    try {
+      const el = (object as any).getElement?.() || (object as any)._element;
+      if (!el) {
+        toast.error("Image element not ready");
+        setStickerApplying(false);
+        return;
+      }
+
+      const newUrl = await generateStickerCutout(el, {
+        strokeWidth: stickerWidth,
+        strokeColor: stickerColor,
+        glowBlur: stickerGlow,
+        glowColor: stickerColor,
+      });
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        object.setElement(img);
+        object.setCoords();
+        fabricJs.current?.requestRenderAll();
+        toast.success("Sticker outline applied!");
+        setStickerApplying(false);
+      };
+      img.src = newUrl;
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate sticker outline");
+      setStickerApplying(false);
+    }
+  };
+
+  const handleBlurBackground = () => {
+    if (!fabricJs.current || !selectedId) return;
+    const canvas = fabricJs.current;
+    const objects = canvas.getObjects();
+    const activeObj = getSelectedObject();
+    if (!activeObj) return;
+
+    let count = 0;
+    const activeIndex = objects.indexOf(activeObj);
+    for (let i = 0; i < activeIndex; i++) {
+      const obj = objects[i];
+      if (obj instanceof FabricImage) {
+        updateImageFilter(obj, "Blur", 0.2);
+        count++;
+      }
+    }
+    canvas.requestRenderAll();
+    if (count > 0) {
+      toast.success(`Blurred ${count} background layer(s) for depth-of-field!`);
+    } else {
+      toast.info("No background image layers found behind the selected element.");
+    }
+  };
 
   const renderContent = () => {
     if (!selectedId && activeTool !== "freeDrawing") {
@@ -921,10 +1056,12 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
             <RangeField label="Skew Y" value={activeItem.skewY} min={-80} max={80} step={1} onChange={(v) => applyChanges({ skewY: v })} />
           </div>
 
-          {(isShape || isImage) && (
+          {(isShape || isImage || isText) && (
             <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
               <div className='flex items-center justify-between'>
-                <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Corner Radius</h4>
+                <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>
+                  {isText ? "Background Corner Roundness" : "Corner Radius"}
+                </h4>
                 <div className='flex gap-1'>
                   {["TL", "TR", "BL", "BR", "ALL"].map(c => (
                     <button 
@@ -946,6 +1083,12 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                 <RangeField label="Bottom Left" value={activeItem.rxBL} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBL: v })} />
                 <RangeField label="Bottom Right" value={activeItem.rxBR} min={0} max={200} step={1} onChange={(v) => applyChanges({ rxBR: v })} />
               </div>
+
+              {isText && (
+                <div className='pt-2 border-t border-white/5'>
+                  <RangeField label="Background Ribbon Padding" value={activeItem.padding || 0} min={0} max={60} step={1} onChange={(v) => applyChanges({ padding: v })} />
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1092,16 +1235,164 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     if (activeCategory === "text" && isText) {
       return renderCategoryBox("Typography", (
         <>
+          {/* Quick YouTube Headline Presets */}
+          <div className="space-y-2 rounded-2xl border border-violet-500/20 bg-violet-600/5 p-3">
+            <div className="text-[10px] font-black uppercase tracking-wider text-violet-400">
+              ⚡ YouTube Viral Headline Presets
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  applyChanges({
+                    fill: "#ffffff",
+                    backgroundColor: "#e50914",
+                    stroke: "#000000",
+                    strokeWidth: 3,
+                    paintFirst: "stroke",
+                    fontWeight: "800",
+                    fontFamily: "Mukta",
+                    shadowBlur: 10,
+                    shadowColor: "rgba(0,0,0,0.8)",
+                    shadowOffsetY: 4,
+                    shadowOffsetX: 2,
+                  });
+                  toast.success("Applied Breaking News Ribbon!");
+                }}
+                className="flex flex-col items-start rounded-xl border border-red-500/30 bg-red-600/20 p-2 text-left hover:bg-red-600/30 transition"
+              >
+                <span className="text-[11px] font-black text-white bg-red-600 px-1.5 py-0.5 rounded">Breaking News</span>
+                <span className="text-[9px] text-white/50 mt-1">Red ribbon, white bold</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyChanges({
+                    fill: "#ffd700",
+                    backgroundColor: "transparent",
+                    stroke: "#000000",
+                    strokeWidth: 6,
+                    paintFirst: "stroke",
+                    fontWeight: "900",
+                    fontFamily: "Poppins",
+                    shadowBlur: 14,
+                    shadowColor: "rgba(0,0,0,0.9)",
+                    shadowOffsetY: 5,
+                    shadowOffsetX: 3,
+                  });
+                  toast.success("Applied Warning Yellow Headline!");
+                }}
+                className="flex flex-col items-start rounded-xl border border-amber-500/30 bg-amber-500/15 p-2 text-left hover:bg-amber-500/25 transition"
+              >
+                <span className="text-[11px] font-black text-amber-300">Warning Yellow</span>
+                <span className="text-[9px] text-white/50 mt-1">Heavy black border</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyChanges({
+                    fill: "#00f0ff",
+                    backgroundColor: "transparent",
+                    stroke: "#0f172a",
+                    strokeWidth: 3,
+                    paintFirst: "stroke",
+                    fontWeight: "800",
+                    fontFamily: "Rajdhani",
+                    shadowBlur: 16,
+                    shadowColor: "rgba(0,240,255,0.4)",
+                    shadowOffsetY: 2,
+                    shadowOffsetX: 0,
+                  });
+                  toast.success("Applied Tech Review Cyan!");
+                }}
+                className="flex flex-col items-start rounded-xl border border-cyan-500/30 bg-cyan-500/15 p-2 text-left hover:bg-cyan-500/25 transition"
+              >
+                <span className="text-[11px] font-black text-cyan-300">Tech Cyan Price</span>
+                <span className="text-[9px] text-white/50 mt-1">Electric cyan, soft glow</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  applyChanges({
+                    fill: "#fbbf24",
+                    backgroundColor: "#451a03",
+                    stroke: "#000000",
+                    strokeWidth: 4,
+                    paintFirst: "stroke",
+                    fontWeight: "700",
+                    fontFamily: "Rozha One",
+                    shadowBlur: 10,
+                    shadowColor: "rgba(0,0,0,0.8)",
+                    shadowOffsetY: 4,
+                    shadowOffsetX: 2,
+                  });
+                  toast.success("Applied Gold Luxury Show!");
+                }}
+                className="flex flex-col items-start rounded-xl border border-yellow-600/30 bg-yellow-600/15 p-2 text-left hover:bg-yellow-600/25 transition"
+              >
+                <span className="text-[11px] font-black text-yellow-400">Gold Luxury</span>
+                <span className="text-[9px] text-white/50 mt-1">Showbiz / Drama</span>
+              </button>
+            </div>
+          </div>
+
           <SelectField label="Font Family" value={activeItem.fontFamily} options={FontFamily.map(f => ({ label: f, value: f }))} onChange={(value) => applyChanges({ fontFamily: value })} />
           <div className='grid grid-cols-2 gap-3'>
             <SelectField label="Weight" value={activeItem.fontWeight} options={FontWeight.map(w => ({ label: w, value: w }))} onChange={(value) => applyChanges({ fontWeight: value })} />
             <SelectField label="Style" value={activeItem.fontStyle} options={FontStyle.map(s => ({ label: s, value: s }))} onChange={(value) => applyChanges({ fontStyle: value })} />
           </div>
-          <RangeField label="Font Size" value={activeItem.fontSize} min={1} max={200} step={1} onChange={(value) => applyChanges({ fontSize: value })} />
-          <RangeField label="Letter Spacing" value={activeItem.charSpacing} min={-100} max={500} step={1} onChange={(value) => applyChanges({ charSpacing: value })} />
-          <RangeField label="Line Height" value={activeItem.lineHeight} min={0.1} max={3} step={0.05} onChange={(value) => applyChanges({ lineHeight: value })} />
-          <SelectField label="Alignment" value={activeItem.textAlign} options={TextAlign.map(a => ({ label: a, value: a.toLowerCase() }))} onChange={(value) => applyChanges({ textAlign: value as TextAlignProps })} />
-          <ColorField label="Background" value={activeItem.backgroundColor} onChange={(value) => applyChanges({ backgroundColor: value })} />
+          <RangeField label="Font Size" value={activeItem.fontSize} min={1} max={250} step={1} onChange={(value) => applyChanges({ fontSize: value })} />
+
+          {/* Colors & Ribbon */}
+          <div className="grid grid-cols-2 gap-3">
+            <ColorField label="Text Color" value={activeItem.fill} onChange={(value) => applyChanges({ fill: value })} />
+            <ColorField label="Ribbon Banner" value={activeItem.backgroundColor} onChange={(value) => applyChanges({ backgroundColor: value })} />
+          </div>
+
+          {/* Ribbon Corners & Padding */}
+          <div className="space-y-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Ribbon Banner Corners & Padding</div>
+            <RangeField label="Corner Roundness" value={activeItem.rx || 0} min={0} max={100} step={1} onChange={(v) => applyChanges({ rx: v })} />
+            <RangeField label="Ribbon Padding" value={activeItem.padding || 0} min={0} max={60} step={1} onChange={(v) => applyChanges({ padding: v })} />
+          </div>
+
+          {/* Outline / Stroke */}
+          <div className="space-y-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="text-[10px] font-black uppercase tracking-wider text-white/40">Outer Stroke / Contour</div>
+            <RangeField 
+              label="Stroke Width" 
+              value={activeItem.strokeWidth} 
+              min={0} 
+              max={25} 
+              step={1} 
+              onChange={(value) => applyChanges({ strokeWidth: value, paintFirst: "stroke" })} 
+            />
+            <ColorField 
+              label="Stroke Color" 
+              value={activeItem.stroke} 
+              onChange={(value) => applyChanges({ stroke: value, paintFirst: "stroke" })} 
+            />
+          </div>
+
+          {/* Dynamic Slant & Spacing */}
+          <div className="space-y-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="text-[10px] font-black uppercase tracking-wider text-white/40">Action Angle & Spacing</div>
+            <RangeField label="Dynamic Slant (Skew)" value={activeItem.skewX} min={-30} max={30} step={1} onChange={(value) => applyChanges({ skewX: value })} />
+            <RangeField label="Letter Spacing" value={activeItem.charSpacing} min={-100} max={500} step={1} onChange={(value) => applyChanges({ charSpacing: value })} />
+            <RangeField label="Line Height" value={activeItem.lineHeight} min={0.1} max={3} step={0.05} onChange={(value) => applyChanges({ lineHeight: value })} />
+            <SelectField label="Alignment" value={activeItem.textAlign} options={TextAlign.map(a => ({ label: a, value: a.toLowerCase() }))} onChange={(value) => applyChanges({ textAlign: value as TextAlignProps })} />
+          </div>
+
+          {/* Drop Shadow for text */}
+          <div className="space-y-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="text-[10px] font-black uppercase tracking-wider text-white/40">Text Drop Shadow</div>
+            <ColorField label="Shadow Color" value={activeItem.shadowColor} onChange={(v) => applyChanges({ shadowColor: v })} />
+            <RangeField label="Shadow Blur" value={activeItem.shadowBlur} min={0} max={50} step={1} onChange={(v) => applyChanges({ shadowBlur: v })} />
+            <RangeField label="Shadow Distance" value={activeItem.shadowOffsetY} min={0} max={40} step={1} onChange={(v) => applyChanges({ shadowOffsetY: v, shadowOffsetX: v / 2 })} />
+          </div>
           
           <div className='pt-2'>
             <button
@@ -1135,25 +1426,127 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     }
 
     if (activeCategory === "effects") {
-      return renderCategoryBox("Effects", (
+      return renderCategoryBox("Effects & Enhancements", (
         <div className='space-y-6'>
+          {isImage && (
+            <>
+              {/* Subject Sticker Outline & Glow */}
+              <div className="space-y-3 rounded-2xl border border-violet-500/30 bg-violet-600/10 p-3.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-violet-300">
+                    ✨ Subject Sticker Outline & Glow
+                  </h4>
+                  <span className="text-[9px] text-white/40">YouTube Cutout Look</span>
+                </div>
+                <RangeField 
+                  label="Outline Width" 
+                  value={stickerWidth} 
+                  min={0} 
+                  max={30} 
+                  step={1} 
+                  onChange={(v) => setStickerWidth(v)} 
+                />
+                <div className="space-y-1">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/40">Outline Color</div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="color" 
+                      value={stickerColor} 
+                      onChange={(e) => setStickerColor(e.target.value)}
+                      className="h-8 w-12 rounded-lg bg-transparent cursor-pointer border border-white/10"
+                    />
+                    <div className="flex gap-1">
+                      {["#ffffff", "#ffd700", "#00f0ff", "#ef4444", "#22c55e"].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setStickerColor(c)}
+                          className="h-7 w-7 rounded-lg border border-white/20 transition hover:scale-110"
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <RangeField 
+                  label="Neon Rim Glow Blur" 
+                  value={stickerGlow} 
+                  min={0} 
+                  max={50} 
+                  step={1} 
+                  onChange={(v) => setStickerGlow(v)} 
+                />
+                <button
+                  type="button"
+                  disabled={stickerApplying}
+                  onClick={handleApplySticker}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50"
+                >
+                  {stickerApplying ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  <span>{stickerApplying ? "Generating Outline..." : "Apply Sticker Outline"}</span>
+                </button>
+              </div>
+
+              {/* Creator 1-Click Color Grading Presets */}
+              <div className="space-y-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                  Creator Color Grading
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {THUMBNAIL_COLOR_PRESETS.map((p) => (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => {
+                        applyChanges({
+                          Contrast: p.contrast,
+                          Saturation: p.saturation,
+                          Brightness: p.brightness,
+                        });
+                        toast.success(`Applied ${p.name} Color Grade!`);
+                      }}
+                      className="flex flex-col items-start rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:border-violet-500/40 hover:bg-white/[0.08] transition"
+                    >
+                      <span className="text-[11px] font-bold text-white" style={{ color: p.color }}>{p.name}</span>
+                      <span className="text-[8px] text-white/40 leading-tight mt-0.5">{p.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Depth of Field / Background Blur */}
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3 space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                  Depth of Field (DSLR Bokeh)
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBlurBackground}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition"
+                >
+                  <Maximize2 size={13} />
+                  <span>Blur Background Behind Subject</span>
+                </button>
+              </div>
+
+              <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+                <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Manual Filter Sliders</h4>
+                <RangeField label="Contrast (Punch)" value={activeItem.Contrast} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Contrast: v }, { imageFilter: "Contrast" })} />
+                <RangeField label="Saturation (Vibrance)" value={activeItem.Saturation} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Saturation: v }, { imageFilter: "Saturation" })} />
+                <RangeField label="Brightness" value={activeItem.Brightness} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Brightness: v }, { imageFilter: "Brightness" })} />
+                <RangeField label="Blur" value={activeItem.Blur} min={0} max={1} step={0.01} onChange={(v) => applyChanges({ Blur: v }, { imageFilter: "Blur" })} />
+                <RangeField label="Pixelate" value={activeItem.Blocksize} min={0} max={20} step={1} onChange={(v) => applyChanges({ Blocksize: v }, { imageFilter: "Blocksize" })} />
+              </div>
+            </>
+          )}
+
           <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Shadow</h4>
+            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Drop Shadow</h4>
             <ColorField label="Color" value={activeItem.shadowColor} onChange={(v) => applyChanges({ shadowColor: v })} />
             <RangeField label="Blur" value={activeItem.shadowBlur} min={0} max={100} step={1} onChange={(v) => applyChanges({ shadowBlur: v })} />
             <RangeField label="Offset X" value={activeItem.shadowOffsetX} min={-100} max={100} step={1} onChange={(v) => applyChanges({ shadowOffsetX: v })} />
             <RangeField label="Offset Y" value={activeItem.shadowOffsetY} min={-100} max={100} step={1} onChange={(v) => applyChanges({ shadowOffsetY: v })} />
           </div>
-          {isImage && (
-            <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-              <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Image Filters</h4>
-              <RangeField label="Brightness" value={activeItem.Brightness} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Brightness: v }, { imageFilter: "Brightness" })} />
-              <RangeField label="Contrast" value={activeItem.Contrast} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Contrast: v }, { imageFilter: "Contrast" })} />
-              <RangeField label="Saturation" value={activeItem.Saturation} min={-1} max={1} step={0.05} onChange={(v) => applyChanges({ Saturation: v }, { imageFilter: "Saturation" })} />
-              <RangeField label="Blur" value={activeItem.Blur} min={0} max={1} step={0.01} onChange={(v) => applyChanges({ Blur: v }, { imageFilter: "Blur" })} />
-              <RangeField label="Pixelate" value={activeItem.Blocksize} min={0} max={20} step={1} onChange={(v) => applyChanges({ Blocksize: v }, { imageFilter: "Blocksize" })} />
-            </div>
-          )}
         </div>
       ));
     }
@@ -1364,17 +1757,19 @@ function ActionButton({ icon, label, onClick, active, className = "" }: { icon: 
 }
 
 function RangeField({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (val: number) => void }) {
-  const percent = ((value - min) / (max - min)) * 100;
+  const safeVal = Number.isFinite(value) ? value : min;
+  const clampedVal = Math.max(min, Math.min(max, safeVal));
+  const percent = max > min ? ((clampedVal - min) / (max - min)) * 100 : 0;
   return (
     <div className='space-y-2'>
       <div className='flex items-center justify-between'>
         <label className='text-[9px] font-black uppercase tracking-widest text-white/40'>{label}</label>
-        <span className='text-[10px] font-bold text-cyan-400'>{value % 1 === 0 ? value : value.toFixed(2)}</span>
+        <span className='text-[10px] font-bold text-cyan-400'>{clampedVal % 1 === 0 ? clampedVal : clampedVal.toFixed(2)}</span>
       </div>
       <div className='flex items-center gap-2'>
         <button 
           type="button"
-          onClick={() => onChange(Number((value - step).toFixed(2)))}
+          onClick={() => onChange(Math.max(min, Number((clampedVal - step).toFixed(2))))}
           className='p-1 rounded-md bg-white/5 text-white/30 hover:text-white transition-all shrink-0'
         >
           <Minus size={10} />
@@ -1384,14 +1779,14 @@ function RangeField({ label, value, min, max, step, onChange }: { label: string;
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={clampedVal}
           onChange={(e) => onChange(Number(e.target.value))}
           className='editorRange flex-1'
           style={{ "--range-percent": `${percent}%` } as React.CSSProperties}
         />
         <button 
           type="button"
-          onClick={() => onChange(Number((value + step).toFixed(2)))}
+          onClick={() => onChange(Math.min(max, Number((clampedVal + step).toFixed(2))))}
           className='p-1 rounded-md bg-white/5 text-white/30 hover:text-white transition-all shrink-0'
         >
           <Plus size={10} />

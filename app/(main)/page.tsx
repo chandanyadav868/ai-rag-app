@@ -1,47 +1,39 @@
-"use client"
+"use client";
 
-import BeforeAfterComponents from '@/components/BeforeAfterComponents'
-import { useContextStore } from '@/components/CreateContext'
-import ErrorComponents from '@/components/ErrorComponents'
-import Footer from '@/components/Footer'
-import HeroSection from '@/components/HeroSection'
-import Testomonial from '@/components/Testomonial'
-import GifMakerSection from '@/components/GifMakerSection'
-import VideoAiSection from '@/components/VideoAiSection'
-import { useSession } from 'next-auth/react'
-import React, { useEffect } from 'react'
+import React from 'react';
+import HeroSection from '@/components/HeroSection';
+import ProductPillarsSection from '@/components/ProductPillarsSection';
+import SuperpowersSection from '@/components/SuperpowersSection';
+import HowItWorksSection from '@/components/HowItWorksSection';
+import Testomonial from '@/components/Testomonial';
+import FaqSection from '@/components/FaqSection';
+import Footer from '@/components/Footer';
 
-
-function page() {
-
-
+export default function HomePage() {
   return (
-    <main className='commonSpacingLeaveForHeader'>
-      {/* HeroSection */}
-      <HeroSection />
+    <main className="min-h-screen bg-[#040812] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+      {/* 1. Hero Section with Live Interactive Product Playground */}
+      <div className="pt-24 sm:pt-28">
+        <HeroSection />
+      </div>
 
-      {/* After and Before Sliding (Image AI) */}
-      <BeforeAfterComponents
-        afterPhoto='https://ik.imagekit.io/o66qwandt/images/canvas-export%20(15).png?updatedAt=1759047926139'
-        beforePhoto='https://img.youtube.com/vi/U-2AbSYhnFA/maxresdefault.jpg'
-        copyTags='Remove the girl, which is in the white t-shirt with purple color wearing clothes girl'
-        headingTags='Advanced Image AI Features'
-        paragraphTags='Effortlessly clean up unnecessary elements from your images while keeping their original details flawlessly intact.'
-      />
+      {/* 2. Complete Creative Suite: 4 Core Product Pillars */}
+      <ProductPillarsSection />
 
-      {/* Gif Maker Section */}
-      <GifMakerSection />
+      {/* 3. Technical Architecture: Privacy, WebGPU & Memory Safety */}
+      <SuperpowersSection />
 
-      {/* Video AI Section */}
-      {/* <VideoAiSection /> */}
+      {/* 4. 3-Step Creation Workflow */}
+      <HowItWorksSection />
 
-      {/* Testominals */}
+      {/* 5. Creator Reviews & Social Proof */}
       <Testomonial />
-      {/* footer */}
+
+      {/* 6. Frequently Asked Questions */}
+      <FaqSection />
+
+      {/* 7. Comprehensive Footer */}
       <Footer />
-
     </main>
-  )
+  );
 }
-
-export default page

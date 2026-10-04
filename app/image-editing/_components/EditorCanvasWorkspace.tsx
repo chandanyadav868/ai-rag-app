@@ -1,185 +1,235 @@
 "use client";
 
-import { Grid3X3, Layers3, Maximize2, MenuSquare, Minus, Move, Plus, Redo2, Undo2 } from 'lucide-react';
-import React, { useEffect } from 'react';
-import { InfoActionButton } from './InfoActionButton';
+import { Hand, Maximize2, Minus, Move, Plus } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface EditorCanvasWorkspaceProps {
   editor: ReturnType<typeof import('../_hooks/useImageEditor').useImageEditor>;
 }
 
 export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
-  useEffect(() => {
-    const container = document.getElementById('workspace-scroll-container');
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  // Center canvas in viewport on mount and when dimensions change
+  const centerCanvas = useCallback(() => {
+    const container = scrollContainerRef.current;
     if (container) {
-      container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
-      container.scrollTop = (container.scrollHeight - container.clientHeight) / 2;
+      container.scrollLeft = Math.max(0, (container.scrollWidth - container.clientWidth) / 2);
+      container.scrollTop = Math.max(0, (container.scrollHeight - container.clientHeight) / 2);
     }
   }, []);
 
+  useEffect(() => {
+    // Delay slightly to ensure dimensions are measured correctly
+    const timer = setTimeout(centerCanvas, 50);
+    return () => clearTimeout(timer);
+  }, [editor.canvasDimensions.width, editor.canvasDimensions.height, centerCanvas]);
+
+  // Track Space and Alt keys for panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement;
+      if (isInput) return;
+
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+      if (e.altKey) {
+        setIsAltPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+      if (!e.altKey) {
+        setIsAltPressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Handle pointer panning events
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Pan triggered by Alt key, Space key, or Middle Mouse Button (button 1)
+    const canPan = e.altKey || isSpacePressed || e.button === 1;
+    if (canPan) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+      };
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isPanning || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const container = scrollContainerRef.current;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    container.scrollLeft = panStartRef.current.scrollLeft - dx;
+    container.scrollTop = panStartRef.current.scrollTop - dy;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPanning) {
+      setIsPanning(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  // Ctrl + Wheel / Pinch Zoom support on workspace container
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      editor.resizeCanvas(delta > 0 ? "ZoomIn" : "ZoomOut", Math.abs(delta));
+    }
+  };
+
+  // Determine active cursor style
+  const canPanMode = isSpacePressed || isAltPressed;
+  const cursorClass = isPanning
+    ? 'cursor-grabbing'
+    : canPanMode
+    ? 'cursor-grab'
+    : 'cursor-default';
+
+  const scaledWidth = Math.round(editor.canvasDimensions.width * editor.viewportScale);
+  const scaledHeight = Math.round(editor.canvasDimensions.height * editor.viewportScale);
+
   return (
-    <section className='relative h-full flex flex-col overflow-hidden w-full bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
-      <div className='flex items-center justify-between gap-2 border-b border-white/10 px-3 py-3 sm:px-6'>
-        <div className="min-w-0">
-          <div className='hidden xs:block text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Canvas</div>
-          <div className='mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-white/60'>
-            <span className='rounded-lg bg-white/5 px-2 py-1 border border-white/5'>{editor.canvasDimensions.width}×{editor.canvasDimensions.height}</span>
-            <span className='rounded-lg bg-white/5 px-2 py-1 border border-white/5'>{editor.state.length} L</span>
-            {editor.activeId && <span className='rounded-lg bg-cyan-400/10 px-2 py-1 text-cyan-400 border border-cyan-400/20 truncate max-w-[120px]'>ID: {editor.activeId.slice(0, 8)}</span>}
-          </div>
-        </div>
+    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#090d16] flex flex-col justify-between">
+      {/* Subtle Dot Grid Background */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+          backgroundSize: '24px 24px'
+        }}
+      />
 
-        <div className='flex items-center gap-2 lg:hidden'>
-          <InfoActionButton
-            icon={MenuSquare}
-            label='Toggle Tools'
-            description='Show or hide the tools and AI panel. Helpful on smaller screens.'
-            onClick={() => editor.setLeftPanelOpen((prev) => !prev)}
-            compact
-            className='xl:hidden'
-          />
-          <InfoActionButton
-            icon={Layers3}
-            label='Toggle Layers'
-            description='Show or hide the layer and properties sidebar. Helpful on smaller screens.'
-            onClick={() => editor.setRightPanelOpen((prev) => !prev)}
-            compact
-            className='xl:hidden'
-          />
-        </div>
-      </div>
-
-      <div className='flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-6'>
-        <div className='hidden sm:flex flex-wrap items-center gap-2 text-[11px] text-white/40'>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5'>
-            <Move size={12} />
-            Alt + Drag to pan
-          </span>
-          <span className='inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5'>
-            <Maximize2 size={12} />
-            Pinch to zoom
-          </span>
-        </div>
-
-        <div className='flex items-center gap-1.5 w-full sm:w-auto justify-center sm:justify-end'>
-          <button
-            onClick={editor.undo}
-            disabled={!editor.canUndo}
-            className='flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 border border-white/5'
-            title="Undo"
+      {/* Main Interactive Canvas Scrollable Viewport without flex scroll clipping */}
+      <div
+        ref={scrollContainerRef}
+        id="workspace-scroll-container"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isPanning) editor.deselectAll();
+        }}
+        className={`relative z-10 h-full w-full overflow-auto custom-scrollbar select-none ${cursorClass}`}
+      >
+        {/* Generous padding ensures full top/bottom/left/right scrolling without clipping */}
+        <div className="min-w-max min-h-max p-[40vh_40vw] flex items-center justify-center">
+          <div
+            className="relative m-auto shrink-0"
+            style={{
+              width: scaledWidth,
+              height: scaledHeight,
+            }}
           >
-            <Undo2 size={16} />
-          </button>
-          <button
-            onClick={editor.redo}
-            disabled={!editor.canRedo}
-            className='flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20 border border-white/5 mr-1'
-            title="Redo"
-          >
-            <Redo2 size={16} />
-          </button>
-
-          <InfoActionButton
-            icon={MenuSquare}
-            label='Tools'
-            description='Open the tools and AI panel.'
-            onClick={() => editor.setLeftPanelOpen(true)}
-            active={editor.leftPanelOpen}
-            compact
-          />
-          <InfoActionButton
-            icon={Layers3}
-            label='Layers'
-            description='Open the layer and properties sidebar.'
-            onClick={() => editor.setRightPanelOpen(true)}
-            active={editor.rightPanelOpen}
-            compact
-          />
-
-          <div className="w-px h-6 bg-white/10 mx-1" />
-
-          <InfoActionButton
-            icon={Plus}
-            label='Zoom In'
-            description='Increase the canvas viewport scale without changing the export size.'
-            onClick={() => editor.resizeCanvas("ZoomIn", 0.1)}
-            compact
-          />
-          <InfoActionButton
-            icon={Minus}
-            label='Zoom Out'
-            description='Decrease the canvas viewport scale to see more of the workspace.'
-            onClick={() => editor.resizeCanvas("ZoomOut", 0.1)}
-            compact
-          />
-        </div>
-      </div>
-
-      <div className="relative w-full flex-1 min-h-0">
-        {/* Floating Page Navigation - Restored to top position with lower z-index */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 py-2 px-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
-          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar max-w-[30vw] py-1">
-            {editor.pages.map((page: any, idx: number) => (
-              <button
-                key={page.id}
-                onClick={() => editor.switchPage(idx)}
-                className={`group relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 ${editor.activePageIndex === idx ? 'border-cyan-400 bg-cyan-400/20 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05] text-white/40'}`}
-              >
-                <span className="text-[11px] font-black">{idx + 1}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="w-px h-6 bg-white/10 mx-1" />
-
-          <button
-            onClick={editor.addPage}
-            className="group flex h-9 items-center gap-2.5 px-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 text-cyan-400 transition-all hover:bg-cyan-400 hover:text-black hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] active:scale-95"
-          >
-            <Plus size={16} strokeWidth={3} />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Add Page</span>
-          </button>
-        </div>
-
-        <div
-          id='workspace-scroll-container'
-          onClick={(e) => {
-            if (e.target === e.currentTarget) editor.deselectAll();
-          }}
-          className='h-full w-full overflow-auto custom-scrollbar bg-black/10'
-        >
-          <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[40vh_40vw]'>
             <div
               ref={editor.canvasDivRef}
               onClick={(e) => e.stopPropagation()}
-              className='relative flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.2)]'
+              className="relative rounded-sm bg-white shadow-[0_20px_70px_rgba(0,0,0,0.85)] ring-1 ring-white/10"
               style={{
                 transform: `scale(${editor.viewportScale})`,
-                transformOrigin: 'center center',
+                transformOrigin: 'top left',
                 width: editor.canvasDimensions.width,
                 height: editor.canvasDimensions.height,
-                transition: 'transform 0.1s ease-out',
+                transition: 'transform 0.08s ease-out',
               }}
             >
               <canvas
                 ref={editor.canvasRef}
-                id='fabricJsCanvas'
+                id="fabricJsCanvas"
                 onClick={(e) => e.stopPropagation()}
-                className='bg-transparent'
+                className="bg-transparent"
               />
             </div>
           </div>
-
-          {editor.somethingDrop && (
-            <div className='absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-300 bg-cyan-300/10 backdrop-blur-sm sm:inset-6'>
-              <div className='rounded-2xl bg-[#081221] px-5 py-4 text-center shadow-2xl'>
-                <div className='text-lg font-bold text-white'>Drop image to insert</div>
-                <div className='mt-1 text-sm text-white/70'>Supported files will be added as editable canvas layers.</div>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Drag & Drop Overlay */}
+        {editor.somethingDrop && (
+          <div className="absolute inset-6 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-violet-400 bg-violet-950/60 backdrop-blur-md">
+            <div className="rounded-2xl border border-white/10 bg-[#0d121d] px-6 py-5 text-center shadow-2xl">
+              <div className="text-base font-bold text-white">Drop image to add to canvas</div>
+              <div className="mt-1 text-xs text-white/60">Will be saved permanently as an editable layer.</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Bottom Studio HUD */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#0c1017]/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl">
+        <span className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold text-white/40 border-r border-white/[0.08] pr-2.5">
+          <Move size={11} />
+          <span>Alt / Space + Drag to Pan</span>
+        </span>
+
+        <button
+          onClick={() => editor.resizeCanvas("ZoomOut", 0.1)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 hover:bg-white/[0.08] hover:text-white transition"
+          title="Zoom Out"
+        >
+          <Minus size={13} />
+        </button>
+
+        <button
+          onClick={() => editor.fitCanvasToViewport(editor.canvasDimensions)}
+          className="px-2 py-0.5 rounded-lg text-[11px] font-bold text-white/80 hover:bg-white/[0.08] hover:text-white transition"
+          title="Reset to Fit Viewport"
+        >
+          {Math.round(editor.viewportScale * 100)}%
+        </button>
+
+        <button
+          onClick={() => editor.resizeCanvas("ZoomIn", 0.1)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 hover:bg-white/[0.08] hover:text-white transition"
+          title="Zoom In"
+        >
+          <Plus size={13} />
+        </button>
+
+        <button
+          onClick={() => {
+            editor.fitCanvasToViewport(editor.canvasDimensions);
+            setTimeout(centerCanvas, 50);
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 hover:bg-white/[0.08] hover:text-white transition border-l border-white/[0.08] pl-2"
+          title="Fit Canvas to Screen"
+        >
+          <Maximize2 size={12} />
+        </button>
       </div>
     </section>
   );
 }
+

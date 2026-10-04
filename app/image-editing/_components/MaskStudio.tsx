@@ -17,7 +17,17 @@ import {
   RefreshCw,
   Sparkles,
   BrainCircuit,
-  Zap
+  Zap,
+  Circle,
+  Square,
+  Star,
+  Heart,
+  Hexagon,
+  Shield,
+  Sliders,
+  Trash2,
+  Contrast,
+  Shapes
 } from 'lucide-react';
 import { Canvas, FabricImage, FabricObject, Point, Rect, util } from 'fabric';
 import { toast } from 'sonner';
@@ -28,7 +38,16 @@ interface MaskStudioProps {
   onClose: () => void;
   selectedId: string | null;
   mainFabricCanvas: React.MutableRefObject<Canvas | null>;
-  onApply: (maskDataUrl: string, options: { left: number, top: number, scaleX: number, scaleY: number, angle: number, feather?: number }) => void;
+  onApply: (maskDataUrl: string, options: { 
+    left: number; 
+    top: number; 
+    scaleX: number; 
+    scaleY: number; 
+    angle: number; 
+    feather?: number;
+    isRasterized?: boolean;
+    rasterizedDataUrl?: string;
+  }) => void;
   assets?: { id: string, src: string, name: string }[];
 }
 
@@ -41,11 +60,13 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
   const [maskLoaded, setMaskLoaded] = useState(false);
   const [viewportScale, setViewportScale] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'upload' | 'url' | 'paste' | 'assets'>('upload');
+  const [activeTab, setActiveTab] = useState<'shapes' | 'upload' | 'url' | 'paste' | 'assets'>('shapes');
   const [url, setUrl] = useState('');
   const [targetImageUrl, setTargetImageUrl] = useState<string | null>(null);
+  const [feather, setFeather] = useState(0);
+  const [opacity, setOpacity] = useState(0.7);
 
-  const { status, isModelLoaded, removeBackground } = useBackgroundRemoval();
+  const { status, isModelLoaded, removeBackground, progress, progressPercent, deviceType } = useBackgroundRemoval();
 
   // Initialization
   useEffect(() => {
@@ -435,6 +456,155 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
     }
   };
 
+  // Live effect for feathering and opacity preview
+  useEffect(() => {
+    const studioCanvas = studioCanvasRef.current;
+    if (!studioCanvas) return;
+    const mask = studioCanvas.getObjects().find(obj => (obj as any).isMaskSource);
+    if (mask) {
+      mask.set('opacity', opacity);
+      if (feather > 0) {
+        mask.set('shadow', {
+          color: '#22d3ee',
+          blur: feather,
+          offsetX: 0,
+          offsetY: 0,
+        });
+      } else {
+        mask.set('shadow', null);
+      }
+      studioCanvas.requestRenderAll();
+    }
+  }, [feather, opacity]);
+
+  const applyShapeMask = (shapeType: 'circle' | 'square' | 'rounded' | 'star' | 'heart' | 'hexagon' | 'shield') => {
+    const canvas = document.createElement('canvas');
+    const size = 512;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#000000';
+
+    if (shapeType === 'circle') {
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 20, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (shapeType === 'square') {
+      ctx.fillRect(24, 24, size - 48, size - 48);
+    } else if (shapeType === 'rounded') {
+      ctx.beginPath();
+      ctx.roundRect(24, 24, size - 48, size - 48, 80);
+      ctx.fill();
+    } else if (shapeType === 'star') {
+      const cx = size / 2;
+      const cy = size / 2;
+      const spikes = 5;
+      const outerRadius = size / 2 - 20;
+      const innerRadius = outerRadius / 2.2;
+      let rot = (Math.PI / 2) * 3;
+      const step = Math.PI / spikes;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - outerRadius);
+      for (let i = 0; i < spikes; i++) {
+        let x = cx + Math.cos(rot) * outerRadius;
+        let y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.fill();
+    } else if (shapeType === 'heart') {
+      const w = size - 48;
+      const h = size - 48;
+      const x = 24;
+      const y = 24;
+      ctx.beginPath();
+      ctx.moveTo(x + w / 2, y + h / 5);
+      ctx.bezierCurveTo(x + w / 2, y, x, y, x, y + h / 3);
+      ctx.bezierCurveTo(x, y + (h * 2) / 3, x + w / 2, y + (h * 5) / 6, x + w / 2, y + h);
+      ctx.bezierCurveTo(x + w / 2, y + (h * 5) / 6, x + w, y + (h * 2) / 3, x + w, y + h / 3);
+      ctx.bezierCurveTo(x + w, y, x + w / 2, y, x + w / 2, y + h / 5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (shapeType === 'hexagon') {
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = size / 2 - 20;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    } else if (shapeType === 'shield') {
+      const cx = size / 2;
+      const top = 30;
+      const w = size - 60;
+      const h = size - 50;
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.lineTo(cx + w / 2, top + 40);
+      ctx.quadraticCurveTo(cx + w / 2, top + h * 0.65, cx, top + h);
+      ctx.quadraticCurveTo(cx - w / 2, top + h * 0.65, cx - w / 2, top + 40);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    loadMaskImage(canvas.toDataURL());
+    toast.success(`Applied ${shapeType} shape mask!`);
+  };
+
+  const invertMask = () => {
+    const studioCanvas = studioCanvasRef.current;
+    if (!studioCanvas) return;
+
+    const maskObject = studioCanvas.getObjects().find(obj => (obj as any).isMaskSource) as FabricImage;
+    if (!maskObject) {
+      toast.error("No mask image to invert.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const imgElement = maskObject.getElement() as HTMLImageElement;
+
+      canvas.width = imgElement.width;
+      canvas.height = imgElement.height;
+      ctx?.drawImage(imgElement, 0, 0);
+
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+      if (imageData) {
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i + 3] = 255 - data[i + 3];
+        }
+        ctx?.putImageData(imageData, 0, 0);
+        loadMaskImage(canvas.toDataURL());
+        toast.success("Mask inverted!");
+      }
+    } catch (e) {
+      console.error("Invert error:", e);
+      toast.error("Failed to invert mask.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const extractAlphaMask = () => {
     const studioCanvas = studioCanvasRef.current;
     if (!studioCanvas) return;
@@ -459,7 +629,7 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
         const g = data[i + 1];
         const b = data[i + 2];
 
-        // Threshold: If pixel is light (avg > 100), make it transparent
+        // Threshold: If pixel is light (avg > 120), make it transparent
         const avg = (r + g + b) / 3;
         if (avg > 120) {
           data[i + 3] = 0;
@@ -489,23 +659,79 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
       return;
     }
 
-    // Calculate relative coordinates for the clipPath
-    const relativeLeft = (maskObject.left! - targetObject.left!) / (targetObject.scaleX || 1);
-    const relativeTop = (maskObject.top! - targetObject.top!) / (targetObject.scaleY || 1);
+    setLoading(true);
+    try {
+      // Calculate relative coordinates for vector clipPath fallback
+      const relativeLeft = (maskObject.left! - targetObject.left!) / (targetObject.scaleX || 1);
+      const relativeTop = (maskObject.top! - targetObject.top!) / (targetObject.scaleY || 1);
+      const maskDataUrl = (maskObject as any).originalDataUrl || maskObject.toDataURL();
 
-    const maskDataUrl = (maskObject as any).originalDataUrl || maskObject.toDataURL();
+      // 1. Clone mask to apply as clipPath on targetObject in studioCanvas
+      const maskClone = await maskObject.clone();
+      maskClone.set({
+        left: relativeLeft,
+        top: relativeTop,
+        scaleX: maskObject.scaleX! / (targetObject.scaleX || 1),
+        scaleY: maskObject.scaleY! / (targetObject.scaleY || 1),
+        angle: (maskObject.angle || 0) - (targetObject.angle || 0),
+        originX: 'center',
+        originY: 'center',
+        absolutePositioned: false,
+        opacity: 1,
+      });
 
-    const featherSlider = document.getElementById('mask-feather-slider') as HTMLInputElement;
-    const feather = featherSlider ? parseInt(featherSlider.value) : 0;
+      // 2. Hide mask overlay object so only the clipped target is visible
+      maskObject.set('visible', false);
+      targetObject.clipPath = maskClone;
+      const oldBg = studioCanvas.backgroundColor;
+      studioCanvas.backgroundColor = 'transparent';
+      studioCanvas.discardActiveObject();
+      studioCanvas.renderAll();
 
-    onApply(maskDataUrl, {
-      left: relativeLeft,
-      top: relativeTop,
-      scaleX: maskObject.scaleX!,
-      scaleY: maskObject.scaleY!,
-      angle: maskObject.angle!,
-      feather
-    });
+      // 3. Compute tightly cropped bounds around the visible mask
+      const maskBounds = maskObject.getBoundingRect();
+      const targetBounds = targetObject.getBoundingRect();
+
+      const cropLeft = Math.max(0, Math.max(maskBounds.left, targetBounds.left));
+      const cropTop = Math.max(0, Math.max(maskBounds.top, targetBounds.top));
+      const cropRight = Math.min(studioCanvas.width || 1000, Math.min(maskBounds.left + maskBounds.width, targetBounds.left + targetBounds.width));
+      const cropBottom = Math.min(studioCanvas.height || 1000, Math.min(maskBounds.top + maskBounds.height, targetBounds.top + targetBounds.height));
+      const cropWidth = Math.max(1, cropRight - cropLeft);
+      const cropHeight = Math.max(1, cropBottom - cropTop);
+
+      // 4. Export transparent PNG of the tightly clipped region
+      const rasterizedDataUrl = studioCanvas.toDataURL({
+        format: 'png',
+        multiplier: 2,
+        left: cropLeft,
+        top: cropTop,
+        width: cropWidth,
+        height: cropHeight,
+      });
+
+      // 5. Restore studioCanvas state
+      targetObject.clipPath = undefined;
+      maskObject.set('visible', true);
+      studioCanvas.backgroundColor = oldBg;
+      studioCanvas.renderAll();
+
+      // 6. Deliver to main editor with rasterized output
+      onApply(maskDataUrl, {
+        left: relativeLeft,
+        top: relativeTop,
+        scaleX: maskObject.scaleX!,
+        scaleY: maskObject.scaleY!,
+        angle: maskObject.angle!,
+        feather,
+        isRasterized: true,
+        rasterizedDataUrl,
+      });
+    } catch (err) {
+      console.error("Mask apply error:", err);
+      toast.error("Failed to generate masked image.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -591,42 +817,74 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
               </button>
             </div>
 
-            <div className="px-4 mb-4">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl ${isModelLoaded ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/40'}`}>
-                    <BrainCircuit size={18} className={status === 'loading' ? 'animate-pulse' : ''} />
+            <div className="px-4 mb-3">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-white/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`p-2 rounded-xl shrink-0 ${isModelLoaded ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/40'}`}>
+                    <BrainCircuit size={18} className={status === 'loading' || status === 'processing' ? 'animate-pulse' : ''} />
                   </div>
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-white">AI Engine</div>
-                    <div className="text-[9px] text-white/40 font-medium">{isModelLoaded ? 'Model Ready' : (status === 'loading' ? 'Loading AI...' : 'Initializing...')}</div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white truncate">RMBG-1.4 Engine</div>
+                    <div className="text-[9px] text-white/50 font-medium truncate">
+                      {isModelLoaded ? `Neural Active (${deviceType.toUpperCase()})` : (status === 'loading' ? progress || 'Loading AI...' : 'Ultra HD Ready')}
+                    </div>
                   </div>
                 </div>
-                {isModelLoaded && <Check size={14} className="text-emerald-400" />}
-                {status === 'loading' && <Loader2 size={14} className="text-cyan-400 animate-spin" />}
+                {isModelLoaded && <Check size={14} className="text-emerald-400 shrink-0" />}
+                {(status === 'loading' || status === 'processing') && <Loader2 size={14} className="text-cyan-400 animate-spin shrink-0" />}
               </div>
             </div>
 
-            <div className="space-y-6 overflow-y-auto historyScrollbar pr-2 h-[calc(40vh-120px)] md:h-auto md:max-h-[calc(100vh-300px)]">
-              <div className="grid grid-cols-4 gap-2 bg-white/5 p-1.5 rounded-2xl">
-                {(['upload', 'url', 'paste', 'assets'] as const).map(tab => (
+            <div className="space-y-5 overflow-y-auto historyScrollbar pr-2 h-[calc(40vh-120px)] md:h-auto md:max-h-[calc(100vh-320px)]">
+              {/* Tab Selector */}
+              <div className="grid grid-cols-5 gap-1.5 bg-white/5 p-1.5 rounded-2xl">
+                {(['shapes', 'upload', 'url', 'paste', 'assets'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-2.5 transition-all ${activeTab === tab ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white'}`}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-all ${activeTab === tab ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white'}`}
                   >
-                    {tab === 'upload' && <Upload size={14} />}
-                    {tab === 'url' && <LinkIcon size={14} />}
-                    {tab === 'paste' && <Clipboard size={14} />}
-                    {tab === 'assets' && <ImageIcon size={14} />}
-                    <span className="text-[8px] font-black uppercase tracking-tighter">{tab}</span>
+                    {tab === 'shapes' && <Shapes size={13} />}
+                    {tab === 'upload' && <Upload size={13} />}
+                    {tab === 'url' && <LinkIcon size={13} />}
+                    {tab === 'paste' && <Clipboard size={13} />}
+                    {tab === 'assets' && <ImageIcon size={13} />}
+                    <span className="text-[7.5px] font-black uppercase tracking-tighter">{tab}</span>
                   </button>
                 ))}
               </div>
 
-              <div className="mt-4">
+              <div className="mt-3">
+                {activeTab === 'shapes' && (
+                  <div className="space-y-2">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-white/40 mb-2">Preset Shape Masks</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Circle', icon: Circle, type: 'circle' as const },
+                        { label: 'Squircle', icon: Square, type: 'rounded' as const },
+                        { label: 'Square', icon: Square, type: 'square' as const },
+                        { label: 'Star', icon: Star, type: 'star' as const },
+                        { label: 'Heart', icon: Heart, type: 'heart' as const },
+                        { label: 'Hexagon', icon: Hexagon, type: 'hexagon' as const },
+                      ].map(shape => {
+                        const Icon = shape.icon;
+                        return (
+                          <button
+                            key={shape.type}
+                            onClick={() => applyShapeMask(shape.type)}
+                            className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border border-white/5 bg-white/[0.03] hover:border-cyan-400/40 hover:bg-cyan-500/10 transition group"
+                          >
+                            <Icon size={18} className="text-white/60 group-hover:text-cyan-400 group-hover:scale-110 transition" />
+                            <span className="text-[9px] font-bold text-white/50 group-hover:text-white transition">{shape.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {activeTab === 'assets' && (
-                  <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto historyScrollbar pr-1">
+                  <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto historyScrollbar pr-1">
                     {assets && assets.length > 0 ? (
                       assets.map((asset) => (
                         <button
@@ -644,12 +902,13 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
                     )}
                   </div>
                 )}
+
                 {activeTab === 'upload' && (
-                  <label className="flex h-32 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-white/10 bg-white/5 transition hover:border-cyan-500/40 hover:bg-cyan-500/5">
-                    <div className="rounded-full bg-cyan-500/10 p-4 mb-2 text-cyan-400 group-hover:scale-110 transition-transform">
-                      <Upload size={20} />
+                  <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-white/5 transition hover:border-cyan-500/40 hover:bg-cyan-500/5">
+                    <div className="rounded-full bg-cyan-500/10 p-3 mb-1 text-cyan-400 group-hover:scale-110 transition-transform">
+                      <Upload size={18} />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Upload Image</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/60">Upload Mask Image</span>
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -660,6 +919,7 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
                     }} />
                   </label>
                 )}
+
                 {activeTab === 'url' && (
                   <div className="flex flex-col gap-2">
                     <div className="relative">
@@ -668,13 +928,14 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="Paste image URL here..."
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-xs text-white outline-none focus:border-cyan-400/40 focus:bg-white/10 transition-all pl-11"
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white outline-none focus:border-cyan-400/40 focus:bg-white/10 transition-all pl-11"
                       />
                       <LinkIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
                     </div>
-                    <button onClick={() => loadMaskImage(url)} className="mt-2 w-full rounded-2xl bg-white text-slate-950 py-4 text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-cyan-400 transition-all active:scale-95">Fetch Image</button>
+                    <button onClick={() => loadMaskImage(url)} className="mt-1 w-full rounded-xl bg-white text-slate-950 py-3 text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-cyan-400 transition-all active:scale-95">Fetch Image</button>
                   </div>
                 )}
+
                 {activeTab === 'paste' && (
                   <div className="relative group">
                     <textarea
@@ -696,101 +957,132 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
                         }
                         toast.error("No image found in pasted content.");
                       }}
-                      className="w-full h-32 rounded-3xl border-2 border-dashed border-white/10 bg-white/5 p-4 text-[10px] font-black uppercase tracking-widest text-white focus:border-cyan-500/40 focus:bg-cyan-500/5 transition-all text-center resize-none flex items-center justify-center"
+                      className="w-full h-28 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 p-4 text-[10px] font-black uppercase tracking-widest text-white focus:border-cyan-500/40 focus:bg-cyan-500/5 transition-all text-center resize-none flex items-center justify-center"
                     />
                   </div>
                 )}
               </div>
 
+              {/* Neural AI Cutout Button */}
               <div className="px-1">
                 <button
-                  disabled={!isModelLoaded || status === 'processing' || !targetImageUrl}
+                  disabled={status === 'processing' || loading}
                   onClick={async () => {
-                    if (!targetImageUrl) return;
-                    setLoading(true);
-                    const result = await removeBackground(targetImageUrl);
-                    if (result) {
-                      loadMaskImage(result);
-                      toast.success("Background removed successfully!");
+                    let imageSrc = targetImageUrl;
+                    const studioCanvas = studioCanvasRef.current;
+                    const target = (studioCanvas as any)?.targetLayer;
+                    if (target) {
+                      try {
+                        const dataUrl = target.toDataURL({ format: 'png', multiplier: 1 });
+                        if (dataUrl && dataUrl.startsWith('data:')) {
+                          imageSrc = dataUrl;
+                        }
+                      } catch (e) {
+                        console.warn("Could not get dataUrl from target:", e);
+                      }
                     }
-                    setLoading(false);
+
+                    if (!imageSrc) {
+                      toast.error("No target layer found to remove background.");
+                      return;
+                    }
+
+                    setLoading(true);
+                    try {
+                      const result = await removeBackground(imageSrc);
+                      if (result) {
+                        await loadMaskImage(result);
+                        toast.success("Background removed with RMBG-1.4 AI!");
+                      }
+                    } catch (err: any) {
+                      console.error("BG removal failed:", err);
+                      toast.error("Background removal failed. Please try again.");
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
-                  className={`group relative w-full overflow-hidden rounded-2xl p-4 transition-all ${isModelLoaded ? 'bg-gradient-to-br from-cyan-600 to-blue-700 hover:scale-[1.02] active:scale-95 shadow-lg shadow-cyan-500/20' : 'bg-white/5 cursor-not-allowed opacity-50'}`}
+                  className={`group relative w-full overflow-hidden rounded-2xl p-4 transition-all ${status === 'processing' ? 'bg-cyan-600/30' : 'bg-gradient-to-br from-cyan-600 to-blue-700 hover:scale-[1.02] active:scale-95 shadow-lg shadow-cyan-500/20'}`}
                 >
                   <div className="relative z-10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="rounded-xl bg-white/20 p-2 text-white">
-                        {status === 'processing' ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        {status === 'processing' || loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                       </div>
                       <div className="text-left">
                         <div className="text-xs font-black uppercase tracking-wider text-white">Auto Remove Background</div>
-                        <div className="text-[9px] font-medium text-white/70">Powered by BiRefNet AI</div>
+                        <div className="text-[9px] font-medium text-white/80">Powered by RMBG-1.4 Ultra HD</div>
                       </div>
                     </div>
                     <Zap size={14} className="text-white/40 group-hover:text-white transition-colors" />
                   </div>
-                  {status === 'processing' && (
+                  {(status === 'processing' || loading) && (
                     <div className="absolute inset-0 bg-cyan-500/20 animate-pulse" />
                   )}
                 </button>
               </div>
 
-              <div className="pt-4 border-t border-white/5">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50">Mask Settings</span>
+              {/* Mask Settings */}
+              <div className="pt-3 border-t border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/60">Mask Settings</span>
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
-                    <div className="flex items-center justify-between mb-3">
+
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-3.5">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Opacity</span>
+                      <span className="text-[10px] font-mono text-cyan-400">{Math.round(opacity * 100)}%</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="1"
                       step="0.01"
-                      defaultValue="0.6"
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        const studioCanvas = studioCanvasRef.current;
-                        const mask = studioCanvas?.getObjects().find(obj => (obj as any).isMaskSource);
-                        if (mask) {
-                          mask.set('opacity', val);
-                          studioCanvas?.renderAll();
-                        }
-                      }}
+                      value={opacity}
+                      onChange={(e) => setOpacity(parseFloat(e.target.value))}
                       className="w-full h-1.5 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
                     />
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-3.5">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Feather (Smoothness)</span>
+                      <span className="text-[10px] font-mono text-cyan-400">{feather} px</span>
                     </div>
                     <input
-                      id="mask-feather-slider"
                       type="range"
                       min="0"
                       max="100"
                       step="1"
-                      defaultValue="0"
+                      value={feather}
+                      onChange={(e) => setFeather(parseInt(e.target.value))}
                       className="w-full h-1.5 bg-white/10 rounded-full appearance-none accent-cyan-500 cursor-pointer"
                     />
-                    <div className="mt-2 flex justify-between text-[8px] font-bold text-white/30 uppercase tracking-tighter">
-                      <span>Sharp</span>
-                      <span>Blurred</span>
+                    <div className="mt-1.5 flex justify-between text-[8px] font-bold text-white/30 uppercase tracking-tighter">
+                      <span>Sharp (0px)</span>
+                      <span>Blurred (100px)</span>
                     </div>
                   </div>
 
-                  <button
-                    onClick={extractAlphaMask}
-                    disabled={!maskLoaded || loading}
-                    className="w-full flex items-center justify-center gap-3 rounded-2xl bg-cyan-500 text-black py-4 text-[10px] font-black uppercase tracking-widest transition hover:bg-cyan-400 shadow-lg shadow-cyan-500/20 disabled:opacity-30 disabled:grayscale active:scale-95"
-                  >
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                    Auto-Extract Mask
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={invertMask}
+                      disabled={!maskLoaded || loading}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-[9px] font-bold uppercase tracking-wider text-white hover:bg-white/10 transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <Contrast size={13} />
+                      Invert Mask
+                    </button>
+
+                    <button
+                      onClick={extractAlphaMask}
+                      disabled={!maskLoaded || loading}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-[9px] font-bold uppercase tracking-wider text-white hover:bg-white/10 transition disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                      Alpha Extract
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -801,13 +1093,53 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
               <canvas ref={canvasElementRef} />
             </div>
 
-            {/* Zoom controls moved to header */}
-
+            {/* Rich AI Neural Progress Overlay */}
             {loading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-4">
-                  <Loader2 className="animate-spin text-cyan-400" size={48} />
-                  <span className="text-xs font-black uppercase tracking-widest text-white/60">Loading Mask...</span>
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+                <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0c1829] p-6 shadow-2xl flex flex-col items-center text-center">
+                  <div className="relative mb-4">
+                    <div className="h-16 w-16 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-400 animate-pulse">
+                      <BrainCircuit size={32} />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-cyan-500 flex items-center justify-center text-black">
+                      <Loader2 size={14} className="animate-spin" />
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-black uppercase tracking-wider text-white">
+                    RMBG-1.4 Neural Engine
+                  </h4>
+                  <p className="mt-1 text-xs text-white/60">
+                    {progress || (status === 'loading' ? 'Loading AI Model weights...' : 'Removing background with AI...')}
+                  </p>
+
+                  {progressPercent > 0 && (
+                    <div className="mt-4 w-full">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-300"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="mt-1.5 flex justify-between text-[10px] font-bold text-white/40">
+                        <span>Progress</span>
+                        <span className="text-cyan-400 font-mono">{progressPercent}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="mt-4 text-[10px] text-white/30 max-w-xs">
+                    {status === 'loading' 
+                      ? 'First-time setup may take a moment to cache model weights in your browser.' 
+                      : 'Runs client-side via hardware-accelerated WebGPU/WASM.'}
+                  </p>
+
+                  <button
+                    onClick={() => setLoading(false)}
+                    className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/60 hover:bg-white/10 hover:text-white transition"
+                  >
+                    Dismiss / Cancel
+                  </button>
                 </div>
               </div>
             )}

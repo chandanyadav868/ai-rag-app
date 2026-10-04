@@ -1,150 +1,266 @@
 "use client";
 
-import { Grid3X3, Layers3, Maximize2, MenuSquare, Minus, Move, Plus, Redo2, Undo2 } from 'lucide-react';
-import React, { useEffect } from 'react';
-import { InfoActionButton } from './InfoActionButton';
-
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GifTimeline } from './GifTimeline';
-
 import { useGifEditor } from '../_hooks/useGifEditor';
+import { Eye, Edit3, Save, Sparkles, Play, Square } from 'lucide-react';
 
 interface EditorCanvasWorkspaceProps {
   editor: ReturnType<typeof useGifEditor>;
 }
 
 export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
-  useEffect(() => {
-    const container = document.getElementById('workspace-scroll-container');
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  // Center canvas in viewport on mount and when dimensions change
+  const centerCanvas = useCallback(() => {
+    const container = scrollContainerRef.current;
     if (container) {
-      container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
-      container.scrollTop = (container.scrollHeight - container.clientHeight) / 2;
+      container.scrollLeft = Math.max(0, (container.scrollWidth - container.clientWidth) / 2);
+      container.scrollTop = Math.max(0, (container.scrollHeight - container.clientHeight) / 2);
     }
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(centerCanvas, 60);
+    return () => clearTimeout(timer);
+  }, [editor.canvasDimensions.width, editor.canvasDimensions.height, centerCanvas]);
+
+  // Track Space and Alt keys for 2D interactive canvas panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement;
+      if (isInput) return;
+
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+      if (e.altKey) {
+        setIsAltPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+      if (!e.altKey) {
+        setIsAltPressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Handle pointer panning events
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Pan triggered by Alt key, Space key, or Middle Mouse Button (button 1)
+    const canPan = e.altKey || isSpacePressed || e.button === 1;
+    if (canPan) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+      };
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isPanning || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const container = scrollContainerRef.current;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    container.scrollLeft = panStartRef.current.scrollLeft - dx;
+    container.scrollTop = panStartRef.current.scrollTop - dy;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPanning) {
+      setIsPanning(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  // Ctrl + Wheel / Pinch Zoom support on workspace container
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      editor.resizeCanvas(delta > 0 ? "ZoomIn" : "ZoomOut", Math.abs(delta));
+    }
+  };
+
+  const canPanMode = isSpacePressed || isAltPressed;
+  const cursorClass = isPanning
+    ? 'cursor-grabbing'
+    : canPanMode
+    ? 'cursor-grab'
+    : 'cursor-default';
+
+  const scaledWidth = Math.round(editor.canvasDimensions.width * editor.viewportScale);
+  const scaledHeight = Math.round(editor.canvasDimensions.height * editor.viewportScale);
+
+  // Sync canvas display with selected frame or live playback (Audio 3 Fix)
+  const isDisplayingFrame = (editor.isPlaying || editor.stageMode === 'frame') && editor.frames.length > 0;
+  const currentFrameIdx = editor.isPlaying ? editor.previewIdx : (editor.activeFrameIndex ?? 0);
+  const currentFrameSrc = editor.frames[currentFrameIdx];
+
   return (
-    <section className='relative flex h-screen w-full flex-col bg-[radial-gradient(circle_at_top,_rgba(30,41,59,0.9),_rgba(2,6,23,1))] lg:w-1/2 lg:mx-auto'>
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6 shrink-0 bg-[#0a182b]/50 backdrop-blur-md'>
-        <div className="flex flex-col gap-1">
-          <div className='text-[10px] font-black uppercase tracking-[0.25em] text-cyan-400'>GIF Canvas</div>
-          <div className='flex items-center gap-1.5 text-[9px] font-bold text-white/50'>
-            <span className='rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 whitespace-nowrap'>{editor.canvasDimensions.width}×{editor.canvasDimensions.height}</span>
-            <span className='rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 whitespace-nowrap'>{editor.state.length} Layers</span>
-            {editor.activeId && (
-              <span className='hidden xs:inline-flex rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-400 truncate max-w-[100px]'>
-                ID: {editor.activeId.slice(0, 6)}
-              </span>
+    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#07111f] flex flex-col justify-between">
+      {/* Subtle Dot Grid Background */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(0,240,255,0.2) 1px, transparent 1px)',
+          backgroundSize: '24px 24px'
+        }}
+      />
+
+      {/* Top Floating Stage Mode Pill */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-2xl bg-[#081221]/90 border border-white/10 px-3.5 py-1.5 backdrop-blur-xl shadow-2xl">
+        {editor.isPlaying ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-white">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+            <span className="text-rose-300">Playing Frame #{editor.previewIdx + 1} of {editor.frames.length}</span>
+          </div>
+        ) : isDisplayingFrame ? (
+          <div className="flex items-center gap-2.5 text-xs font-bold text-white">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span className="text-cyan-300">Frame #{currentFrameIdx + 1} Preview</span>
+            </div>
+            <div className="w-px h-3.5 bg-white/20" />
+            <button
+              onClick={() => editor.setStageMode('canvas')}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30"
+              title="Switch to interactive canvas layer editing"
+            >
+              <Edit3 size={11} />
+              <span>Live Edit</span>
+            </button>
+            <button
+              onClick={editor.updateActiveFrameFromCanvas}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider transition border border-amber-400/30"
+              title="Save current canvas state to this frame"
+            >
+              <Save size={11} />
+              <span>Update Frame</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-bold text-white/70">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span>Interactive Canvas Mode</span>
+            {editor.frames.length > 0 && (
+              <button
+                onClick={() => {
+                  editor.setActiveFrameIndex(0);
+                  editor.setStageMode('frame');
+                }}
+                className="ml-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition"
+              >
+                (View Frames)
+              </button>
             )}
           </div>
-        </div>
-
-        <div className='flex items-center gap-1.5 ml-auto sm:ml-0'>
-          {/* Main Controls Group */}
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
-            <button
-              onClick={() => editor.setLeftPanelOpen((prev) => !prev)}
-              className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${editor.leftPanelOpen ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:bg-white/10'}`}
-              title="Toggle Tools"
-            >
-              <MenuSquare size={16} />
-            </button>
-            <button
-              onClick={() => editor.setRightPanelOpen((prev) => !prev)}
-              className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${editor.rightPanelOpen ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:bg-white/10'}`}
-              title="Toggle Layers"
-            >
-              <Layers3 size={16} />
-            </button>
-          </div>
-
-          <div className='w-px h-5 bg-white/10 mx-0.5' />
-
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
-            <button
-              onClick={editor.undo}
-              disabled={!editor.canUndo}
-              className='flex h-8 w-8 items-center justify-center rounded-xl text-white/40 transition-all hover:bg-white/10 hover:text-white disabled:opacity-10 disabled:cursor-not-allowed'
-              title="Undo"
-            >
-              <Undo2 size={16} />
-            </button>
-            <button
-              onClick={editor.redo}
-              disabled={!editor.canRedo}
-              className='flex h-8 w-8 items-center justify-center rounded-xl text-white/40 transition-all hover:bg-white/10 hover:text-white disabled:opacity-10 disabled:cursor-not-allowed'
-              title="Redo"
-            >
-              <Redo2 size={16} />
-            </button>
-          </div>
-
-          <div className='w-px h-5 bg-white/10 mx-0.5' />
-
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
-            <button
-              onClick={() => editor.setViewportScale(prev => Math.min(prev + 0.1, 5))}
-              className='h-8 w-8 flex items-center justify-center rounded-xl text-white/40 hover:bg-white/10'
-              title="Zoom In"
-            >
-              <Plus size={16} />
-            </button>
-            <button
-              onClick={() => editor.setViewportScale(prev => Math.max(prev - 0.1, 0.1))}
-              className='h-8 w-8 flex items-center justify-center rounded-xl text-white/40 hover:bg-white/10'
-              title="Zoom Out"
-            >
-              <Minus size={16} />
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
+      {/* Main Interactive Canvas Scrollable Viewport */}
       <div
-        id='workspace-scroll-container'
+        ref={scrollContainerRef}
+        id="workspace-scroll-container"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
         onClick={(e) => {
-          if (e.target === e.currentTarget) editor.deselectAll();
+          if (e.target === e.currentTarget && !isPanning) editor.deselectAll();
         }}
-        className='relative flex-1 w-full overflow-auto custom-scrollbar bg-black/20'
+        className={`relative z-10 flex-1 w-full overflow-auto custom-scrollbar select-none ${cursorClass}`}
       >
-        <div className='relative z-10 flex min-h-full min-w-full items-center justify-center p-[100vh_100vw]'>
+        {/* Generous padding ensures full top/bottom/left/right scrolling without clipping */}
+        <div className="min-w-max min-h-max p-[40vh_40vw] flex items-center justify-center">
           <div
-            ref={editor.canvasDivRef}
-            onClick={(e) => e.stopPropagation()}
-            className='relative flex items-center justify-center shadow-2xl'
+            className="relative m-auto shrink-0"
             style={{
-              width: editor.canvasDimensions.width * editor.viewportScale,
-              height: editor.canvasDimensions.height * editor.viewportScale,
-              transition: 'all 0.1s ease-out',
+              width: scaledWidth,
+              height: scaledHeight,
             }}
           >
-            <canvas
-              ref={editor.canvasRef}
-              id='fabricJsCanvas'
-              onClick={(e) => e.stopPropagation()}
-              className='bg-transparent'
-            />
+            <div
+              ref={editor.canvasDivRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isDisplayingFrame && !editor.isPlaying) {
+                  editor.setStageMode('canvas');
+                }
+              }}
+              className="relative rounded-sm bg-white shadow-[0_20px_70px_rgba(0,0,0,0.85)] ring-1 ring-white/10 overflow-hidden"
+              style={{
+                width: scaledWidth,
+                height: scaledHeight,
+                transition: 'width 0.08s ease-out, height 0.08s ease-out',
+              }}
+            >
+              {/* Interactive Fabric Canvas */}
+              <canvas
+                ref={editor.canvasRef}
+                id="fabricJsCanvas"
+                onClick={(e) => e.stopPropagation()}
+                className="bg-transparent"
+                style={{
+                  display: isDisplayingFrame ? 'none' : 'block'
+                }}
+              />
+
+              {/* Real-time Rendered Frame Snapshot Overlay (Audio 3 Fix) */}
+              {isDisplayingFrame && currentFrameSrc && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-transparent pointer-events-none">
+                  <img
+                    src={currentFrameSrc}
+                    alt={`Frame ${currentFrameIdx + 1}`}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {editor.somethingDrop && (
-          <div className='absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-300 bg-cyan-300/10 backdrop-blur-sm sm:inset-6'>
-            <div className='rounded-2xl bg-[#081221] px-5 py-4 text-center shadow-2xl'>
-              <div className='text-lg font-bold text-white'>Drop image to insert</div>
-              <div className='mt-1 text-sm text-white/70'>Supported files will be added as editable canvas layers.</div>
+          <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-400 bg-cyan-500/10 backdrop-blur-sm sm:inset-6">
+            <div className="rounded-2xl bg-[#081221] px-6 py-5 text-center shadow-2xl border border-cyan-400/30">
+              <div className="text-base font-bold text-white">Drop image to insert as layer</div>
+              <div className="mt-1 text-xs text-cyan-200/70">PNG, JPG, WebP supported for GIF compositing</div>
             </div>
           </div>
         )}
       </div>
 
-      <GifTimeline
-        frames={editor.frames}
-        removeFrame={editor.removeFrame}
-        addFrame={editor.addFrame}
-        clearFrames={editor.clearFrames}
-        exportGif={editor.exportGif}
-        isPlaying={editor.isPlaying}
-        setIsPlaying={editor.setIsPlaying}
-        previewIdx={editor.previewIdx}
-      />
+      {/* Bottom Timeline Dock */}
+      <GifTimeline editor={editor} />
     </section>
   );
 }

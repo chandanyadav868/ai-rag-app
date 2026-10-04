@@ -1,19 +1,53 @@
 "use client";
 
-import { PromptComponencts } from '@/components/PromptComponencts';
-import { aspectRatioImage } from '@/constant';
-import { ChevronLeft, ChevronRight, Download, Eraser, FolderArchive, Home, ImageUpIcon, MousePointer2, PenTool, Plus, Redo2, Save, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import { 
+  Check, 
+  ChevronLeft, 
+  ChevronRight, 
+  Crop, 
+  Download, 
+  Eraser, 
+  FolderArchive, 
+  HelpCircle, 
+  Image as ImageIcon, 
+  ImageUpIcon, 
+  Layers, 
+  Maximize2, 
+  MousePointer2, 
+  PenTool, 
+  Plus, 
+  Scissors, 
+  ShapesIcon, 
+  Sliders, 
+  Sparkles, 
+  Square, 
+  SquarePen, 
+  Trash2, 
+  Triangle, 
+  Type, 
+  UploadCloud, 
+  Wand2, 
+  X,
+  Flame,
+  ArrowUpRight,
+  BadgeCheck
+} from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
-import { InfoActionButton } from './InfoActionButton';
 import { InsertImageModal } from './InsertImageModal';
 
 interface EditorToolsPanelProps {
   editor: ReturnType<typeof import('../_hooks/useImageEditor').useImageEditor>;
+  exportDialogOpen?: boolean;
+  setExportDialogOpen?: (open: boolean) => void;
+  resizeDrawerOpen?: boolean;
+  setResizeDrawerOpen?: (open: boolean) => void;
 }
 
+type DrawerType = 'text' | 'shapes' | 'draw' | 'images' | 'ai' | 'resize' | 'thumbnail' | null;
 type ExportFormatOption = "png" | "jpeg" | "webp";
+
 interface ExportFormState {
   format: ExportFormatOption;
   quality: number;
@@ -22,15 +56,163 @@ interface ExportFormState {
   enableRetinaScaling: boolean;
 }
 
-import { useRouter } from 'next/navigation';
+const THUMBNAIL_TEXT_PRESETS = [
+  {
+    name: "Hindi Breaking News",
+    category: "News / Crime",
+    text: "सनसनीखेज खुलासा 🚨",
+    fontFamily: "Mukta",
+    fontWeight: "900",
+    fontSize: 40,
+    fill: "#ffffff",
+    stroke: "#000000",
+    strokeWidth: 6,
+    paintFirst: "stroke",
+    backgroundColor: "#dc2626",
+    skewX: -4,
+    shadowColor: "rgba(0,0,0,0.85)",
+    shadowBlur: 16,
+    shadowOffsetX: 4,
+    shadowOffsetY: 6,
+    desc: "Red Ribbon Banner + Heavy Contrast",
+  },
+  {
+    name: "Yellow Shock Hook",
+    category: "Documentary",
+    text: "सच्चाई क्या है?!",
+    fontFamily: "Anton",
+    fontWeight: "bold",
+    fontSize: 44,
+    fill: "#ffe600",
+    stroke: "#000000",
+    strokeWidth: 8,
+    paintFirst: "stroke",
+    backgroundColor: "",
+    skewX: -6,
+    shadowColor: "#000000",
+    shadowBlur: 20,
+    shadowOffsetX: 6,
+    shadowOffsetY: 8,
+    desc: "High-CTR Yellow Outline Slant",
+  },
+  {
+    name: "Tech Price Badge",
+    category: "Tech Review",
+    text: "₹1,49,999 📱",
+    fontFamily: "Bebas Neue",
+    fontWeight: "bold",
+    fontSize: 42,
+    fill: "#00f0ff",
+    stroke: "#000000",
+    strokeWidth: 6,
+    paintFirst: "stroke",
+    backgroundColor: "#0a0f1d",
+    skewX: -2,
+    shadowColor: "#00f0ff",
+    shadowBlur: 24,
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
+    desc: "Electric Cyan Glow + Tech Pill",
+  },
+  {
+    name: "Gold Showdown",
+    category: "WWE / Entertainment",
+    text: "THE FINAL BATTLE 👑",
+    fontFamily: "Rozha One",
+    fontWeight: "bold",
+    fontSize: 38,
+    fill: "#ffd700",
+    stroke: "#451a03",
+    strokeWidth: 5,
+    paintFirst: "stroke",
+    backgroundColor: "",
+    skewX: 0,
+    shadowColor: "#b45309",
+    shadowBlur: 20,
+    shadowOffsetX: 4,
+    shadowOffsetY: 6,
+    desc: "Gold Gradient Luxury Heading",
+  },
+  {
+    name: "Exposed Ribbon",
+    category: "Investigative",
+    text: "पर्दाफाश! महाघोटाला 🔥",
+    fontFamily: "Yatra One",
+    fontWeight: "bold",
+    fontSize: 38,
+    fill: "#ffffff",
+    stroke: "#000000",
+    strokeWidth: 6,
+    paintFirst: "stroke",
+    backgroundColor: "#000000",
+    skewX: -3,
+    shadowColor: "#dc2626",
+    shadowBlur: 20,
+    shadowOffsetX: 0,
+    shadowOffsetY: 5,
+    desc: "Black Ribbon + Crimson Underglow",
+  },
+];
 
-export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
-  const router = useRouter();
+const THUMBNAIL_ARROWS = [
+  {
+    name: "Curved Red Arrow",
+    desc: "Crime / Attention Swoop",
+    path: "M 25 120 Q 90 20 180 50 L 165 20 L 220 55 L 175 95 L 180 65 Q 105 38 25 120 Z",
+    fill: "#ef4444",
+    stroke: "#ffffff",
+    strokeWidth: 3,
+    scale: 0.9,
+  },
+  {
+    name: "Curved Yellow Arrow",
+    desc: "Tech / Notice Hook",
+    path: "M 25 120 Q 90 20 180 50 L 165 20 L 220 55 L 175 95 L 180 65 Q 105 38 25 120 Z",
+    fill: "#facc15",
+    stroke: "#000000",
+    strokeWidth: 3,
+    scale: 0.9,
+  },
+  {
+    name: "Straight Dynamic Pointer",
+    desc: "Direct Focus Arrow",
+    path: "M 20 50 L 120 50 L 120 20 L 180 65 L 120 110 L 120 80 L 20 80 Z",
+    fill: "#ef4444",
+    stroke: "#000000",
+    strokeWidth: 3,
+    scale: 0.8,
+  },
+];
+
+const THUMBNAIL_EMOJIS = [
+  "🚨", "😱", "🤯", "🤬", "🔥", "💸", "⚡", "🎯", "👑", "💥", "🥊", "🏆", "👀", "❌", "💯", "📈"
+];
+
+const THUMBNAIL_BADGES = [
+  { text: "🚨 ALERT", bg: "#dc2626", fill: "#ffffff" },
+  { text: "🔥 100% EXPOSED", bg: "#ea580c", fill: "#ffffff" },
+  { text: "₹ HUGE DISCOUNT", bg: "#16a34a", fill: "#ffffff" },
+  { text: "🤬 SHOCKING TRUTH", bg: "#7f1d1d", fill: "#fef08a" },
+  { text: "⚡ EXCLUSIVE", bg: "#2563eb", fill: "#ffffff" },
+  { text: "✔️ VERIFIED", bg: "#0284c7", fill: "#ffffff" },
+];
+
+export function EditorToolsPanel({ 
+  editor, 
+  exportDialogOpen: externalExportOpen, 
+  setExportDialogOpen: setExternalExportOpen,
+  resizeDrawerOpen,
+  setResizeDrawerOpen
+}: EditorToolsPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
-  const [brushMenuOpen, setBrushMenuOpen] = useState(false);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null);
+  const [localExportOpen, setLocalExportOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
+
+  const isExportOpen = externalExportOpen !== undefined ? externalExportOpen : localExportOpen;
+  const setExportOpen = setExternalExportOpen || setLocalExportOpen;
+
   const [exportForm, setExportForm] = useState<ExportFormState>({
     format: "png",
     quality: 1,
@@ -38,406 +220,876 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
     filename: "canvas-export",
     enableRetinaScaling: true,
   });
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [projectName, setProjectName] = useState("");
+
   const qualitySupported = exportForm.format === "jpeg" || exportForm.format === "webp";
 
-  const handleSaveSubmit = () => {
-    editor.saveProject(projectName || undefined);
-    setSaveDialogOpen(false);
+  // Respond to resize trigger from TopBar
+  useEffect(() => {
+    if (resizeDrawerOpen) {
+      setActiveDrawer('resize');
+      setResizeDrawerOpen?.(false);
+    }
+  }, [resizeDrawerOpen, setResizeDrawerOpen]);
+
+  // Synchronize active tool with drawer
+  const handleToolClick = (drawer: DrawerType) => {
+    if (activeDrawer === drawer) {
+      setActiveDrawer(null);
+      return;
+    }
+    setActiveDrawer(drawer);
   };
 
   return (
     <>
-      <aside className={`fixed left-0 top-0 z-30 h-screen w-[min(95vw,360px)] border-r border-white/10 bg-[#09182b]/95 backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-[calc(100%-0px)]'}`}>
-        <div className='flex h-full flex-col'>
-          <div className='border-b border-white/10 px-4 py-4 md:px-5 md:py-5'>
-            <div className='flex items-center justify-between'>
-              <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Workspace</div>
-              <div className='flex gap-1.5'>
-                <button
-                  onClick={() => router.push('/image-home-screen')}
-                  className='p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all'
-                  title="Go to Home"
-                >
-                  <Home size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    if (editor.currentProjectId) {
-                      editor.saveProject();
-                      toast.success("Project updated!");
-                    } else {
-                      const current = editor.recentProjects.find(p => p.id === editor.currentProjectId);
-                      setProjectName(current?.name || "");
-                      setSaveDialogOpen(true);
-                    }
-                  }}
-                  className='p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all'
-                  title="Save Project"
-                >
-                  <Save size={14} />
-                </button>
-                <button
-                  onClick={() => editor.setLeftPanelOpen(false)}
-                  className='p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all'
-                  title="Close Panel"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-            <h1 className='mt-1 text-xl font-black text-white'>Editor</h1>
-            <p className='mt-1 text-[11px] leading-relaxed text-white/50'>
-              Arrange and generate assets in one workspace.
-            </p>
+      {/* Tool Rail (Width: 64px) & Slide-out Drawer */}
+      <aside className={`fixed left-0 top-14 bottom-0 z-30 flex transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+        editor.leftPanelOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        {/* Sleek Tool Icon Rail */}
+        <div className="flex h-full w-16 flex-col items-center justify-between border-r border-white/[0.08] bg-[#0c1017]/95 py-3 backdrop-blur-xl">
+          <div className="flex w-full flex-col items-center gap-1.5 px-2">
+            {/* Select Tool */}
+            <button
+              onClick={() => {
+                editor.resetToSelectMode();
+                setActiveDrawer(null);
+              }}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                editor.activeTool === "select" && !activeDrawer
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Select / Move (V)"
+            >
+              <MousePointer2 size={17} />
+              <span className="mt-0.5 text-[9px] font-bold">Select</span>
+            </button>
+
+            {/* Text Tool */}
+            <button
+              onClick={() => handleToolClick('text')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'text' || editor.activeTool === "text"
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Add Text (T)"
+            >
+              <Type size={17} />
+              <span className="mt-0.5 text-[9px] font-bold">Text</span>
+            </button>
+
+            {/* Shapes Tool */}
+            <button
+              onClick={() => handleToolClick('shapes')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'shapes' || ["rectangle", "circle", "triangle", "polyline"].includes(editor.activeTool)
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Shapes & Lines"
+            >
+              <ShapesIcon size={17} />
+              <span className="mt-0.5 text-[9px] font-bold">Shapes</span>
+            </button>
+
+            {/* Free Draw Tool */}
+            <button
+              onClick={() => {
+                handleToolClick('draw');
+                if (editor.activeTool !== "freeDrawing") {
+                  editor.onShapeClick("freeDrawing");
+                }
+              }}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'draw' || editor.activeTool === "freeDrawing"
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Brush & Drawing"
+            >
+              <PenTool size={17} />
+              <span className="mt-0.5 text-[9px] font-bold">Draw</span>
+            </button>
+
+            {/* Images & Uploads */}
+            <button
+              onClick={() => handleToolClick('images')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'images' || editor.activeTool === "image"
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Upload & Images"
+            >
+              <ImageUpIcon size={17} />
+              <span className="mt-0.5 text-[9px] font-bold">Images</span>
+            </button>
+
+            {/* AI Studio */}
+            <button
+              onClick={() => handleToolClick('ai')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'ai'
+                  ? 'bg-gradient-to-tr from-violet-600 to-fuchsia-600 text-white shadow-md shadow-fuchsia-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="AI Magic Tools"
+            >
+              <Sparkles size={17} className="text-amber-300" />
+              <span className="mt-0.5 text-[9px] font-bold">AI</span>
+            </button>
+
+            {/* YouTube Thumbnails Tool */}
+            <button
+              onClick={() => handleToolClick('thumbnail')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'thumbnail'
+                  ? 'bg-gradient-to-tr from-rose-600 to-amber-500 text-white shadow-md shadow-rose-600/30'
+                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="YouTube Thumbnail Superpowers"
+            >
+              <Flame size={17} className="text-amber-400 shrink-0" />
+              <span className="mt-0.5 text-[8px] font-black uppercase tracking-tighter text-center leading-none max-w-[42px] truncate">YT Studio</span>
+            </button>
           </div>
 
-          <div className='historyScrollbar flex-1 space-y-4 overflow-y-auto overflow-x-visible px-3 py-4 pb-24'>
+          {/* Bottom Settings in Rail */}
+          <div className="flex flex-col items-center gap-1.5 px-2">
+            <button
+              onClick={() => handleToolClick('resize')}
+              className={`group relative flex h-11 w-11 flex-col items-center justify-center rounded-xl transition ${
+                activeDrawer === 'resize'
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                  : 'text-white/50 hover:bg-white/[0.06] hover:text-white'
+              }`}
+              title="Canvas Dimensions"
+            >
+              <Sliders size={16} />
+              <span className="mt-0.5 text-[9px] font-bold">Canvas</span>
+            </button>
+          </div>
+        </div>
 
-            <section className='rounded-2xl border border-white/5 bg-white/[0.02] p-3.5'>
-              <div className='mb-3'>
-                <h2 className='text-xs font-bold text-white uppercase tracking-wider'>Custom Size</h2>
+        {/* Contextual Secondary Drawer */}
+        {activeDrawer && (
+          <div className="h-full w-72 border-r border-white/[0.08] bg-[#0f141f]/95 p-4 shadow-2xl backdrop-blur-2xl flex flex-col justify-between">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-4">
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  {activeDrawer === 'text' && 'Typography'}
+                  {activeDrawer === 'shapes' && 'Shapes & Lines'}
+                  {activeDrawer === 'draw' && 'Drawing & Brushes'}
+                  {activeDrawer === 'images' && 'Add Images'}
+                  {activeDrawer === 'ai' && 'AI Magic Studio'}
+                  {activeDrawer === 'thumbnail' && 'YouTube Thumbnail Studio'}
+                  {activeDrawer === 'resize' && 'Canvas Dimensions'}
+                </span>
+                <button
+                  onClick={() => setActiveDrawer(null)}
+                  className="rounded-lg p-1 text-white/40 hover:bg-white/[0.08] hover:text-white transition"
+                >
+                  <X size={15} />
+                </button>
               </div>
-              <div className='flex gap-2'>
-                <div className='flex-1'>
-                  <label className='text-[9px] font-black uppercase tracking-widest text-white/30'>Width</label>
-                  <input
-                    type='number'
-                    value={editor.canvasDimensions.width}
-                    onChange={(e) => {
-                      editor.updateCanvasDimensions(Number(e.target.value), editor.canvasDimensions.height);
+
+              {/* DRAWER: TEXT */}
+              {activeDrawer === 'text' && (
+                <div className="space-y-3">
+                  <p className="text-[11px] text-white/50 leading-relaxed">
+                    Click to add a customizable text layer to your canvas.
+                  </p>
+                  <button
+                    onClick={() => {
+                      editor.addTextLayer();
                     }}
-                    className='mt-1 w-full rounded-xl border border-white/5 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/30'
-                  />
-                </div>
-                <div className='flex-1'>
-                  <label className='text-[9px] font-black uppercase tracking-widest text-white/30'>Height</label>
-                  <input
-                    type='number'
-                    value={editor.canvasDimensions.height}
-                    onChange={(e) => {
-                      editor.updateCanvasDimensions(editor.canvasDimensions.width, Number(e.target.value));
+                    className="w-full flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-left transition hover:border-violet-500/50 hover:bg-violet-600/10 group"
+                  >
+                    <div>
+                      <div className="text-lg font-black text-white group-hover:text-violet-300">Add a heading</div>
+                      <div className="text-[10px] text-white/40">Large bold title layer</div>
+                    </div>
+                    <Plus size={16} className="text-white/40 group-hover:text-white" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      editor.addTextLayer();
                     }}
-                    className='mt-1 w-full rounded-xl border border-white/5 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/30'
-                  />
-                </div>
-              </div>
-            </section>
+                    className="w-full flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-left transition hover:border-violet-500/50 hover:bg-violet-600/10 group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-white group-hover:text-violet-300">Add a subheading</div>
+                      <div className="text-[10px] text-white/40">Medium subtitle layer</div>
+                    </div>
+                    <Plus size={16} className="text-white/40 group-hover:text-white" />
+                  </button>
 
-            <section className='rounded-2xl border border-white/5 bg-white/[0.02] p-3.5'>
-              <div className='mb-3'>
-                <h2 className='text-xs font-bold text-white uppercase tracking-wider'>Quick Actions</h2>
-              </div>
+                  <button
+                    onClick={() => {
+                      editor.addTextLayer();
+                    }}
+                    className="w-full flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-left transition hover:border-violet-500/50 hover:bg-violet-600/10 group"
+                  >
+                    <div>
+                      <div className="text-xs font-medium text-white/80 group-hover:text-violet-300">Add paragraph text</div>
+                      <div className="text-[10px] text-white/40">Regular descriptive body text</div>
+                    </div>
+                    <Plus size={16} className="text-white/40 group-hover:text-white" />
+                  </button>
 
-              <div className='grid grid-cols-2 gap-2'>
-                <InfoActionButton
-                  icon={MousePointer2}
-                  label='Select'
-                  description='Return to selection mode to move, resize, or edit existing layers.'
-                  onClick={editor.resetToSelectMode}
-                  active={editor.activeTool === "select"}
-                />
-
-                <InfoActionButton
-                  icon={Type}
-                  label='Add Text'
-                  description='Insert an editable text layer on the canvas and make it the active selection.'
-                  onClick={editor.addTextLayer}
-                  active={editor.activeTool === "text"}
-                />
-
-                <div className='relative'>
-                  <InfoActionButton
-                    icon={ShapesIcon}
-                    label='Shapes'
-                    description='Open shape tools and draw rectangles, circles, or triangles directly on the canvas.'
-                    onClick={() => setShapeMenuOpen((prev) => !prev)}
-                    active={shapeMenuOpen || ["rectangle", "circle", "triangle"].includes(editor.activeTool)}
-                  />
-
-                  {shapeMenuOpen && (
-                    <div className='absolute left-0 top-full z-20 mt-3 w-full rounded-2xl border border-white/10 bg-[#081221] p-2 shadow-2xl'>
-                      {[
-                        { label: "Rectangle", type: "rectangle" },
-                        { label: "Circle", type: "circle" },
-                        { label: "Triangle", type: "triangle" },
-                      ].map((shape) => (
+                  {/* 1-Click Viral Headline Presets */}
+                  <div className="pt-3 border-t border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                        <Flame size={12} /> Viral Headline Presets
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {THUMBNAIL_TEXT_PRESETS.map((p) => (
                         <button
-                          key={shape.type}
-                          type='button'
+                          key={p.name}
+                          type="button"
                           onClick={() => {
-                            editor.onShapeClick(shape.type);
-                            setShapeMenuOpen(false);
+                            editor.addTextLayer({
+                              text: p.text,
+                              fontFamily: p.fontFamily,
+                              fontSize: p.fontSize,
+                              fontWeight: p.fontWeight,
+                              fill: p.fill,
+                              stroke: p.stroke,
+                              strokeWidth: p.strokeWidth,
+                              paintFirst: p.paintFirst,
+                              backgroundColor: p.backgroundColor,
+                              skewX: p.skewX,
+                              shadowColor: p.shadowColor,
+                              shadowBlur: p.shadowBlur,
+                              shadowOffsetX: p.shadowOffsetX,
+                              shadowOffsetY: p.shadowOffsetY,
+                            });
+                            toast.success(`Inserted "${p.name}" headline!`);
                           }}
-                          className='block w-full rounded-xl px-3 py-2 text-left text-sm text-white/85 transition hover:bg-white/10'
+                          className="w-full flex flex-col items-start rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 text-left transition hover:border-amber-500/50 hover:bg-white/[0.07]"
                         >
-                          {shape.label}
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[11px] font-bold text-white">{p.name}</span>
+                            <span className="text-[9px] text-amber-400 font-mono">{p.fontFamily}</span>
+                          </div>
+                          <span className="text-[10px] text-white/50 mt-0.5">{p.desc}</span>
                         </button>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
+              )}
 
-                <div className='relative'>
-                  <InfoActionButton
-                    icon={PenTool}
-                    label='Free Draw'
-                    description='Draw a freehand path directly on the canvas and store it as a new editable layer.'
-                    onClick={() => {
-                      if (editor.activeTool === "freeDrawing") {
-                        editor.resetToSelectMode();
-                        setBrushMenuOpen(false);
-                      } else {
-                        editor.onShapeClick("freeDrawing");
-                        setBrushMenuOpen(true);
-                      }
-                    }}
-                    active={editor.activeTool === "freeDrawing"}
-                  />
+              {/* DRAWER: SHAPES */}
+              {activeDrawer === 'shapes' && (
+                <div className="space-y-4">
+                  <p className="text-[11px] text-white/50">
+                    Click any shape to draw or insert onto the canvas.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        editor.onShapeClick("rectangle");
+                        toast.info("Click and drag on the canvas to draw a rectangle");
+                      }}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-white/80 transition hover:border-violet-500/50 hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <div className="h-8 w-12 rounded border-2 border-violet-400 bg-violet-400/20" />
+                      <span className="text-[11px] font-semibold">Rectangle</span>
+                    </button>
 
-                  {brushMenuOpen && editor.activeTool === "freeDrawing" && (
-                    <div className='absolute left-0 top-full z-20 mt-3 w-full rounded-2xl border border-white/10 bg-[#081221] p-2 shadow-2xl'>
+                    <button
+                      onClick={() => {
+                        editor.onShapeClick("circle");
+                        toast.info("Click and drag on the canvas to draw a circle");
+                      }}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-white/80 transition hover:border-violet-500/50 hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <div className="h-10 w-10 rounded-full border-2 border-violet-400 bg-violet-400/20" />
+                      <span className="text-[11px] font-semibold">Circle</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        editor.onShapeClick("triangle");
+                        toast.info("Click and drag on the canvas to draw a triangle");
+                      }}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-white/80 transition hover:border-violet-500/50 hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <Triangle size={28} className="text-violet-400" />
+                      <span className="text-[11px] font-semibold">Triangle</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        editor.onShapeClick("polyline");
+                        toast.info("Click points to draw polyline, double-click to finish");
+                      }}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-white/80 transition hover:border-violet-500/50 hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <SquarePen size={28} className="text-violet-400" />
+                      <span className="text-[11px] font-semibold">Polyline</span>
+                    </button>
+                  </div>
+
+                  {/* Attention Arrows for Thumbnails */}
+                  <div className="pt-2 border-t border-white/[0.08] space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                      <ArrowUpRight size={12} /> Attention Arrows
+                    </span>
+                    <div className="grid grid-cols-1 gap-2">
+                      {THUMBNAIL_ARROWS.map((arr) => (
+                        <button
+                          key={arr.name}
+                          type="button"
+                          onClick={() => {
+                            editor.insertPath(arr.path, {
+                              fill: arr.fill,
+                              stroke: arr.stroke,
+                              strokeWidth: arr.strokeWidth,
+                              scale: arr.scale,
+                            });
+                            toast.success(`Inserted ${arr.name}!`);
+                          }}
+                          className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 text-left transition hover:border-rose-500/50 hover:bg-white/[0.07]"
+                        >
+                          <div>
+                            <div className="text-[11px] font-bold text-white">{arr.name}</div>
+                            <div className="text-[9px] text-white/40">{arr.desc}</div>
+                          </div>
+                          <div 
+                            className="h-6 w-6 rounded-lg flex items-center justify-center border border-white/20"
+                            style={{ backgroundColor: arr.fill }}
+                          >
+                            <ArrowUpRight size={14} className={arr.fill === '#facc15' ? 'text-black' : 'text-white'} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DRAWER: DRAW / BRUSH */}
+              {activeDrawer === 'draw' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Brush Type</label>
+                    <div className="grid grid-cols-2 gap-1.5">
                       {[
                         { label: "Pencil", type: "pencil" },
                         { label: "Spray", type: "spray" },
                         { label: "Pattern", type: "pattern" },
                         { label: "Eraser", type: "eraser" },
-                      ].map((brush) => (
+                      ].map((b) => (
                         <button
-                          key={brush.type}
-                          type='button'
-                          onClick={() => {
-                            editor.setBrushType(brush.type as any);
-                            setBrushMenuOpen(false);
-                          }}
-                          className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition ${editor.brushType === brush.type ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/85 hover:bg-white/10'}`}
+                          key={b.type}
+                          onClick={() => editor.setBrushType(b.type as any)}
+                          className={`rounded-xl py-2 text-xs font-semibold transition ${
+                            editor.brushType === b.type 
+                              ? 'bg-violet-600 text-white shadow-sm' 
+                              : 'border border-white/[0.06] bg-white/[0.02] text-white/60 hover:text-white'
+                          }`}
                         >
-                          {brush.label}
+                          {b.label}
                         </button>
                       ))}
                     </div>
-                  )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs text-white/70">
+                      <span>Brush Size</span>
+                      <span className="font-bold text-violet-400">{editor.eraserSize}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={100}
+                      value={editor.eraserSize}
+                      onChange={(e) => editor.setEraserSize(Number(e.target.value))}
+                      className="w-full accent-violet-500 cursor-pointer"
+                    />
+                  </div>
                 </div>
+              )}
 
-                <InfoActionButton
-                  icon={SquarePen}
-                  label='Polyline'
-                  description='Click multiple points to create a connected line path, then double-click to finish it.'
-                  onClick={() => editor.onShapeClick("polyline")}
-                  active={editor.activeTool === "polyline"}
-                />
+              {/* DRAWER: IMAGES */}
+              {activeDrawer === 'images' && (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-violet-500/40 bg-violet-600/10 p-6 text-center transition hover:border-violet-500 hover:bg-violet-600/15"
+                  >
+                    <UploadCloud size={28} className="text-violet-400" />
+                    <div>
+                      <div className="text-xs font-bold text-white">Upload from Computer</div>
+                      <div className="text-[10px] text-white/50 mt-0.5">PNG, JPG, WebP supported</div>
+                    </div>
+                  </button>
 
-                <InfoActionButton
-                  icon={Plus}
-                  label='Add Page'
-                  description='Create a new page by cloning the current canvas state.'
-                  onClick={editor.addPage}
-                  className='col-span-2'
-                />
+                  <div className="relative">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1.5">
+                      Or Add by URL
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        placeholder="https://example.com/image.png"
+                        value={imageUrlInput}
+                        onChange={(e) => setImageUrlInput(e.target.value)}
+                        className="flex-1 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-violet-500"
+                      />
+                      <button
+                        onClick={() => {
+                          if (imageUrlInput.trim()) {
+                            editor.insertImageFromUrl(imageUrlInput.trim());
+                            setImageUrlInput("");
+                            toast.success("Image loading onto canvas");
+                          }
+                        }}
+                        className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-500 transition"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
 
-                <InfoActionButton
-                  icon={ImageUpIcon}
-                  label='Insert Image'
-                  description='Upload a file, use a URL, or paste from clipboard to add a new layer.'
-                  onClick={() => setImageModalOpen(true)}
-                  active={imageModalOpen || editor.activeTool === "image"}
-                  className='col-span-2'
-                />
-
-                <InfoActionButton
-                  icon={Download}
-                  label='Export'
-                  description='Download the current canvas.'
-                  onClick={() => setExportDialogOpen(true)}
-                  className='col-span-2'
-                  compact
-                />
-              </div>
-
-              <input
-                ref={fileInputRef}
-                id='image-editor-upload'
-                type='file'
-                accept='image/*'
-                multiple
-                className='hidden'
-                onChange={(e) => {
-                  if (e.target.files) {
-                    editor.fileInserting(e.target.files);
-                  }
-                }}
-              />
-            </section>
-            {/* ai connection components */}
-            {/* <section className='rounded-3xl border border-white/10 bg-white/[0.04] p-4'>
-              <div className='mb-4 flex items-start justify-between gap-3'>
-                <div>
-                  <h2 className='text-sm font-semibold text-white'>AI Prompt Studio</h2>
-                  <p className='text-xs text-white/60'>Generate new visuals from your active canvas workflow.</p>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-white/50 leading-relaxed">
+                    💡 <strong className="text-white/80">Pro-tip:</strong> You can also directly paste an image from your clipboard (<code className="rounded bg-white/10 px-1 py-0.5 text-white/80">Ctrl + V</code>) or drag and drop any image into the workspace!
+                  </div>
                 </div>
-                <div className='rounded-full bg-emerald-400/15 p-2 text-emerald-200'>
-                  <Sparkles size={16} />
-                </div>
-              </div>
+              )}
 
-              <div className='rounded-2xl border border-white/10 bg-[#081221] p-2'>
-                <PromptComponencts
-                  canvasOrientation={editor.canvasOrientation}
-                  fabricJs={editor.fabricJs}
-                  imageSetting={editor.aiImageFn}
-                  state={editor.state}
-                />
-              </div>
-            </section> */}
+              {/* DRAWER: AI MAGIC */}
+              {activeDrawer === 'ai' && (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-200/80 leading-relaxed">
+                    ✨ Browser-local AI runs 100% on your GPU/CPU via WebGPU and WebAssembly. No data leaves your machine.
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (!editor.activeId) {
+                        toast.error("Please select an image on the canvas first!");
+                        return;
+                      }
+                      editor.setLayerMenu("AI Features");
+                      editor.setRightPanelOpen(true);
+                      toast.info("Opened AI Studio in Inspector panel");
+                    }}
+                    className="w-full flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-left transition hover:border-violet-500/40 hover:bg-white/[0.06]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                      <Scissors size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Background Removal</div>
+                      <div className="text-[10px] text-white/50">Instant clean cutout with RMBG-1.4</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!editor.activeId) {
+                        toast.error("Please select an element first to open Mask Studio!");
+                        return;
+                      }
+                      editor.setMaskStudioOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-left transition hover:border-violet-500/40 hover:bg-white/[0.06]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                      <Crop size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Mask Studio</div>
+                      <div className="text-[10px] text-white/50">Custom shape clipping & feathered masks</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!editor.activeId) {
+                        toast.error("Select an image first to edit with AI tools!");
+                        return;
+                      }
+                      editor.setAiEdit(true);
+                    }}
+                    className="w-full flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-left transition hover:border-violet-500/40 hover:bg-white/[0.06]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-fuchsia-500/10 text-fuchsia-400">
+                      <Wand2 size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Magic Object Eraser</div>
+                      <div className="text-[10px] text-white/50">Brush away unwanted objects</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* DRAWER: RESIZE CANVAS */}
+              {activeDrawer === 'resize' && (
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Width (px)</label>
+                      <input
+                        type="number"
+                        value={editor.canvasDimensions.width}
+                        onChange={(e) => {
+                          editor.updateCanvasDimensions(Number(e.target.value), editor.canvasDimensions.height);
+                        }}
+                        className="mt-1 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 py-2 text-xs font-bold text-white outline-none focus:border-violet-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Height (px)</label>
+                      <input
+                        type="number"
+                        value={editor.canvasDimensions.height}
+                        onChange={(e) => {
+                          editor.updateCanvasDimensions(editor.canvasDimensions.width, Number(e.target.value));
+                        }}
+                        className="mt-1 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 py-2 text-xs font-bold text-white outline-none focus:border-violet-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Popular Presets</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { label: "1:1 Square", w: 1080, h: 1080 },
+                        { label: "9:16 Story", w: 1080, h: 1920 },
+                        { label: "16:9 Landscape", w: 1280, h: 720 },
+                        { label: "4:5 Portrait", w: 1080, h: 1350 },
+                      ].map((p) => (
+                        <button
+                          key={p.label}
+                          onClick={() => editor.updateCanvasDimensions(p.w, p.h)}
+                          className="rounded-xl border border-white/[0.06] bg-white/[0.02] py-2 px-2.5 text-left text-[11px] font-semibold text-white/70 hover:border-violet-500/40 hover:bg-white/[0.06] hover:text-white transition"
+                        >
+                          <div>{p.label}</div>
+                          <div className="text-[9px] text-white/40">{p.w}×{p.h}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DRAWER: YOUTUBE THUMBNAIL STUDIO */}
+              {activeDrawer === 'thumbnail' && (
+                <div className="space-y-4">
+                  {/* YouTube 16:9 Quick Format */}
+                  <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 to-amber-500/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                        <Flame size={14} className="text-amber-400" />
+                        <span>YouTube 16:9 Canvas</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editor.updateCanvasDimensions(1280, 720);
+                          toast.success("Canvas set to 1280×720 (16:9 YouTube Thumbnail)");
+                        }}
+                        className="rounded-lg bg-rose-600 px-2 py-1 text-[10px] font-black uppercase text-white hover:bg-rose-500 transition"
+                      >
+                        Set 1280×720
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-white/50">
+                      Standard YouTube 1280×720 resolution for crisp mobile & desktop rendering.
+                    </p>
+                  </div>
+
+                  {/* 1-Click Viral Headlines */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                      <Flame size={12} /> Viral Headlines & Hooks
+                    </span>
+                    <div className="space-y-1.5">
+                      {THUMBNAIL_TEXT_PRESETS.map((p) => (
+                        <button
+                          key={p.name}
+                          type="button"
+                          onClick={() => {
+                            editor.addTextLayer({
+                              text: p.text,
+                              fontFamily: p.fontFamily,
+                              fontSize: p.fontSize,
+                              fontWeight: p.fontWeight,
+                              fill: p.fill,
+                              stroke: p.stroke,
+                              strokeWidth: p.strokeWidth,
+                              paintFirst: p.paintFirst,
+                              backgroundColor: p.backgroundColor,
+                              skewX: p.skewX,
+                              shadowColor: p.shadowColor,
+                              shadowBlur: p.shadowBlur,
+                              shadowOffsetX: p.shadowOffsetX,
+                              shadowOffsetY: p.shadowOffsetY,
+                            });
+                            toast.success(`Inserted "${p.name}" headline!`);
+                          }}
+                          className="w-full flex flex-col items-start rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 text-left transition hover:border-amber-500/50 hover:bg-white/[0.07]"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[11px] font-bold text-white">{p.name}</span>
+                            <span className="text-[8px] uppercase px-1.5 py-0.5 rounded bg-white/10 text-white/60 font-mono">
+                              {p.category}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/50 mt-0.5">{p.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Attention Arrows */}
+                  <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                      <ArrowUpRight size={12} /> Attention Arrows
+                    </span>
+                    <div className="grid grid-cols-1 gap-2">
+                      {THUMBNAIL_ARROWS.map((arr) => (
+                        <button
+                          key={arr.name}
+                          type="button"
+                          onClick={() => {
+                            editor.insertPath(arr.path, {
+                              fill: arr.fill,
+                              stroke: arr.stroke,
+                              strokeWidth: arr.strokeWidth,
+                              scale: arr.scale,
+                            });
+                            toast.success(`Inserted ${arr.name}!`);
+                          }}
+                          className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-2 text-left transition hover:border-rose-500/50 hover:bg-white/[0.07]"
+                        >
+                          <div>
+                            <div className="text-[11px] font-bold text-white">{arr.name}</div>
+                            <div className="text-[9px] text-white/40">{arr.desc}</div>
+                          </div>
+                          <div 
+                            className="h-6 w-6 rounded-lg flex items-center justify-center border border-white/20"
+                            style={{ backgroundColor: arr.fill }}
+                          >
+                            <ArrowUpRight size={14} className={arr.fill === '#facc15' ? 'text-black' : 'text-white'} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Viral Ribbons & Badges */}
+                  <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                      <BadgeCheck size={12} /> Viral Badges & Ribbons
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {THUMBNAIL_BADGES.map((b) => (
+                        <button
+                          key={b.text}
+                          type="button"
+                          onClick={() => {
+                            editor.addTextLayer({
+                              text: b.text,
+                              fontFamily: "Rajdhani",
+                              fontSize: 28,
+                              fontWeight: "bold",
+                              fill: b.fill,
+                              backgroundColor: b.bg,
+                              stroke: "#000000",
+                              strokeWidth: 3,
+                              paintFirst: "stroke",
+                              shadowColor: "rgba(0,0,0,0.8)",
+                              shadowBlur: 14,
+                            });
+                            toast.success(`Inserted ${b.text} badge!`);
+                          }}
+                          className="rounded-lg border border-white/10 px-2 py-2 text-center text-[10px] font-black uppercase tracking-wide text-white transition hover:scale-105"
+                          style={{ backgroundColor: b.bg }}
+                        >
+                          {b.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Reaction Emojis */}
+                  <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                      High-CTR Reaction Emojis
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {THUMBNAIL_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            editor.addTextLayer({
+                              text: emoji,
+                              fontFamily: "Segoe UI Emoji, Apple Color Emoji, sans-serif",
+                              fontSize: 64,
+                              fill: "#ffffff",
+                              stroke: undefined,
+                              strokeWidth: 0,
+                              shadowColor: "rgba(0,0,0,0.6)",
+                              shadowBlur: 16,
+                              shadowOffsetY: 8,
+                            });
+                            toast.success(`Added ${emoji} sticker to canvas!`);
+                          }}
+                          className="flex h-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-2xl transition hover:scale-125 hover:bg-white/[0.08]"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </aside>
 
-      {exportDialogOpen && typeof document !== "undefined" && createPortal(
-        <div
-          className='fixed inset-0 z-[80] flex items-center justify-center bg-[#020617]/75 p-4 backdrop-blur-sm'
-          onClick={() => setExportDialogOpen(false)}
-        >
-          <div
-            className='w-full max-w-md rounded-[28px] border border-white/10 bg-[#081221] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]'
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className='flex items-start justify-between gap-4'>
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) {
+            editor.fileInserting(e.target.files);
+          }
+        }}
+      />
+
+      {/* Export Dialog Portal */}
+      {isExportOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#0d121d] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <div className='text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/70'>Export</div>
-                <h3 className='mt-2 text-2xl font-black text-white'>Download Settings</h3>
-                <p className='mt-2 text-sm leading-6 text-white/65'>
-                  Choose a common Fabric-supported format and adjust quality or scale before exporting.
-                </p>
+                <h3 className="text-base font-black text-white">Export Canvas</h3>
+                <p className="text-xs text-white/50">Download high-resolution image</p>
               </div>
               <button
-                type='button'
-                onClick={() => setExportDialogOpen(false)}
-                className='inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10'
-                aria-label='Close export dialog'
+                onClick={() => setExportOpen(false)}
+                className="rounded-xl p-2 text-white/40 hover:bg-white/10 hover:text-white"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className='mt-6 space-y-4'>
-              <label className='block'>
-                <span className='mb-2 block text-sm font-semibold text-white/85'>Filename</span>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-white/70">Filename</label>
                 <input
-                  type='text'
+                  type="text"
                   value={exportForm.filename}
-                  onChange={(event) => setExportForm((prev) => ({ ...prev, filename: event.target.value }))}
-                  className='w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/60'
-                  placeholder='canvas-export'
+                  onChange={(e) => setExportForm((prev) => ({ ...prev, filename: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-xs text-white outline-none focus:border-violet-500"
                 />
-              </label>
+              </div>
 
-              <label className='block'>
-                <span className='mb-2 block text-sm font-semibold text-white/85'>Format</span>
-                <select
-                  value={exportForm.format}
-                  onChange={(event) => setExportForm((prev) => ({ ...prev, format: event.target.value as ExportFormatOption }))}
-                  className='w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/60'
-                >
-                  <option value='png' className='bg-slate-900 text-white'>PNG</option>
-                  <option value='jpeg' className='bg-slate-900 text-white'>JPEG</option>
-                  <option value='webp' className='bg-slate-900 text-white'>WEBP</option>
-                </select>
-              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['png', 'jpeg', 'webp'] as ExportFormatOption[]).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setExportForm((prev) => ({ ...prev, format: fmt }))}
+                    className={`rounded-xl py-2 text-xs font-bold uppercase transition ${
+                      exportForm.format === fmt
+                        ? 'bg-violet-600 text-white shadow-md'
+                        : 'border border-white/10 bg-white/[0.02] text-white/50 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    {fmt}
+                  </button>
+                ))}
+              </div>
 
-              <label className='block'>
-                <div className='mb-2 flex items-center justify-between gap-3'>
-                  <span className='text-sm font-semibold text-white/85'>Quality</span>
-                  <span className='rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-semibold text-cyan-100'>
-                    {exportForm.quality.toFixed(2)}
-                  </span>
-                </div>
-                <input
-                  type='range'
-                  min={0.1}
-                  max={1}
-                  step={0.05}
-                  value={exportForm.quality}
-                  onChange={(event) => setExportForm((prev) => ({ ...prev, quality: Number(event.target.value) }))}
-                  className='editorRange disabled:cursor-not-allowed disabled:opacity-40'
-                  disabled={!qualitySupported}
-                  style={{ "--range-percent": `${((exportForm.quality - 0.1) / 0.9) * 100}%` } as React.CSSProperties}
-                />
-                <div className='mt-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/35'>
-                  <span>0.10</span>
-                  <span>{qualitySupported ? '1.00' : 'PNG ignores quality'}</span>
-                </div>
-              </label>
-
-              <label className='block'>
-                <div className='mb-2 flex items-center justify-between gap-3'>
-                  <span className='text-sm font-semibold text-white/85'>Scale</span>
-                  <span className='rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-semibold text-cyan-100'>
-                    {exportForm.multiplier.toFixed(1)}x
-                  </span>
-                </div>
-                <input
-                  type='range'
-                  min={1}
-                  max={4}
-                  step={0.5}
-                  value={exportForm.multiplier}
-                  onChange={(event) => setExportForm((prev) => ({ ...prev, multiplier: Number(event.target.value) }))}
-                  className='editorRange'
-                  style={{ "--range-percent": `${((exportForm.multiplier - 1) / 3) * 100}%` } as React.CSSProperties}
-                />
-                <div className='mt-2 flex justify-between text-[11px] uppercase tracking-[0.18em] text-white/35'>
-                  <span>1x</span>
-                  <span>4x</span>
-                </div>
-              </label>
-
-              <label className='flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3'>
+              {qualitySupported && (
                 <div>
-                  <div className='text-sm font-semibold text-white/85'>Retina Scaling</div>
-                  <div className='text-xs text-white/55'>Keeps export sharper on high-density screens.</div>
+                  <div className="flex justify-between text-xs font-semibold text-white/70 mb-1">
+                    <span>Quality</span>
+                    <span className="text-violet-400">{Math.round(exportForm.quality * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    value={exportForm.quality}
+                    onChange={(e) => setExportForm((prev) => ({ ...prev, quality: Number(e.target.value) }))}
+                    className="w-full accent-violet-500 cursor-pointer"
+                  />
                 </div>
-                <input
-                  type='checkbox'
-                  checked={exportForm.enableRetinaScaling}
-                  onChange={(event) => setExportForm((prev) => ({ ...prev, enableRetinaScaling: event.target.checked }))}
-                  className='h-4 w-4 accent-cyan-300'
-                />
-              </label>
-            </div>
+              )}
 
-            <div className='mt-6 space-y-3'>
-              <div className='flex gap-3'>
+              <div>
+                <div className="flex justify-between text-xs font-semibold text-white/70 mb-1">
+                  <span>Resolution Scale</span>
+                  <span className="text-violet-400">{exportForm.multiplier}x</span>
+                </div>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((scale) => (
+                    <button
+                      key={scale}
+                      onClick={() => setExportForm((prev) => ({ ...prev, multiplier: scale }))}
+                      className={`flex-1 rounded-xl py-1.5 text-xs font-semibold transition ${
+                        exportForm.multiplier === scale
+                          ? 'border border-violet-500 bg-violet-600/20 text-violet-300'
+                          : 'border border-white/10 bg-white/[0.02] text-white/50 hover:text-white'
+                      }`}
+                    >
+                      {scale}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
                 <button
-                  type='button'
-                  onClick={() => setExportDialogOpen(false)}
-                  className='flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/[0.08]'
+                  onClick={() => setExportOpen(false)}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white/70 hover:bg-white/10 transition"
                 >
                   Cancel
                 </button>
                 <button
-                  type='button'
                   onClick={() => {
                     editor.exportCanvas(exportForm);
-                    setExportDialogOpen(false);
+                    setExportOpen(false);
+                    toast.success("Canvas exported successfully!");
                   }}
-                  className='flex-1 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/25'
+                  className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition"
                 >
-                  Export
+                  Download Image
                 </button>
               </div>
 
               <button
-                type='button'
                 onClick={() => {
                   editor.bulkExportAsZip();
-                  setExportDialogOpen(false);
+                  setExportOpen(false);
                 }}
-                className='w-full flex items-center justify-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-400/10 px-4 py-3 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/20'
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-purple-500/20 bg-purple-500/10 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 transition"
               >
-                <FolderArchive size={18} />
-                Bulk Assets (Export All Layers to ZIP)
+                <FolderArchive size={14} />
+                <span>Export All Layers (ZIP Archive)</span>
               </button>
             </div>
           </div>
@@ -445,50 +1097,7 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
         document.body
       )}
 
-      {saveDialogOpen && createPortal(
-        <div className='fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md'>
-          <div className='w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[#09182b]/95 p-8 shadow-[0_40px_100px_rgba(0,0,0,0.6)]'>
-            <div className='flex items-center justify-between mb-8'>
-              <h2 className='text-2xl font-black text-white'>Save Design</h2>
-              <button onClick={() => setSaveDialogOpen(false)} className='p-2 rounded-xl bg-white/5 text-white/50 hover:text-white transition-all'>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className='space-y-6'>
-              <div className='space-y-2'>
-                <label className='text-xs uppercase tracking-[0.2em] text-white/40 font-bold ml-1'>Project Name</label>
-                <input
-                  type='text'
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="Enter project name..."
-                  className='w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-cyan-500/50 transition-all text-lg font-bold text-white'
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveSubmit()}
-                />
-              </div>
-
-              <div className='flex gap-4 pt-4'>
-                <button
-                  onClick={() => setSaveDialogOpen(false)}
-                  className='flex-1 px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-white/70 font-bold hover:bg-white/10 transition-all'
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveSubmit}
-                  className='flex-1 px-6 py-4 rounded-2xl bg-cyan-500 text-black font-bold hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20'
-                >
-                  Save Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
+      {/* Insert Image Modal */}
       {imageModalOpen && createPortal(
         <InsertImageModal
           isOpen={imageModalOpen}
@@ -496,7 +1105,7 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
           onUrlInsert={editor.insertImageFromUrl}
           onFileUpload={() => fileInputRef.current?.click()}
         />,
-        document.getElementById("imageEdittingContainer") || document.body
+        document.body
       )}
     </>
   );

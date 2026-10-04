@@ -204,7 +204,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 // res is holding the return which send by geminaAiImage which are buffer , that is return from here
                 .then((res) => {
                     // console.log("Response:- ", res);
-                    return res as Buffer<ArrayBuffer>[]
+                    return res as Buffer[]
                 }) // if error come then it throw error
                 .catch((err) => {
                     // jo error bheja hai wo err ke message ke pass hota hai n ki err ke pass, pura object
@@ -213,7 +213,7 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 });
 
             // response is holding buffer number inside the array, make new blob object for storeing temporary inside the browser, take buffer value and make a image from it 
-            const blob = new Blob([reponse[0]], { type: "image/png" });
+            const blob = new Blob([new Uint8Array(reponse[0])], { type: "image/png" });
             // send this blob image to useState 
             imageSetting(blob);
             setError({

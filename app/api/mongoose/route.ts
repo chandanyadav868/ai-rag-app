@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiErrorRoutes, ApiSuccessRoutes } from "../register/route";
 import mongodbConnection from "@/mongodb/connection";
 import UserSchema from "@/mongodb/schema/User.Schema";
-import { tree } from "next/dist/build/templates/app-page";
+
 // ⬇️ Import DB code here, not at top-level
 
 

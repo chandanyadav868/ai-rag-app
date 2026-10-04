@@ -85,7 +85,7 @@ function readingFile(imagePathL: string) {
   return base64Image
 }
 
-export async function ImageGenerateWithAi({ text }: GeminaAiFunProps): Promise<Buffer<ArrayBuffer> | undefined> {
+export async function ImageGenerateWithAi({ text }: GeminaAiFunProps): Promise<Buffer | undefined> {
 
   // Load the image from the local file system
   const base64Image = readingFile("public/images/image.png");

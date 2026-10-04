@@ -2,12 +2,14 @@
 
 import ToolBox from '@/components/ToolBox';
 import Image from 'next/image';
-import { CheckCircleIcon, ChevronLeft, ChevronRight, Copy, Crop, Edit2, EyeIcon, EyeOff, Layers, Library, Loader2Icon, LockKeyhole, LockKeyholeOpen, MoreVertical, PlusSquare, Scissors, Trash2Icon, UploadCloud, X } from 'lucide-react';
+import { CheckCircleIcon, ChevronLeft, ChevronRight, Copy, Crop, Edit2, EyeIcon, EyeOff, Layers, Library, Loader2Icon, LockKeyhole, LockKeyholeOpen, MoreVertical, PlusSquare, Scissors, Sparkles, Trash2Icon, UploadCloud, X } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AssetLibrary } from './AssetLibrary';
 import { InfoActionButton } from './InfoActionButton';
 import { AIFeatures } from './AIFeatures';
+import { ElementAnimationDeck } from './ElementAnimationDeck';
+import { TransitionStudioDeck } from './TransitionStudioDeck';
 
 import { useGifEditor } from '../_hooks/useGifEditor';
 
@@ -28,8 +30,8 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
   return (
     <aside className={`fixed z-30 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] 
       ${editor.rightPanelOpen ? 'translate-x-0 translate-y-0' : 'max-md:translate-y-full md:translate-x-full'} 
-      md:right-0 md:left-auto md:top-0 md:h-screen md:w-[420px] md:border-l md:rounded-none
-      bottom-0 left-0 right-0 h-[40vh] md:h-screen w-full border-t md:border-t-0 rounded-t-[40px] md:rounded-t-none
+      md:right-0 md:left-auto md:top-14 md:h-[calc(100vh-3.5rem)] md:w-[420px] md:border-l md:rounded-none
+      bottom-0 left-0 right-0 h-[40vh] md:h-[calc(100vh-3.5rem)] w-full border-t md:border-t-0 rounded-t-[40px] md:rounded-t-none
       border-white/10 bg-[#0a1728]/95 backdrop-blur-xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-none`}>
       
       {/* Mobile Drag Handle */}
@@ -42,11 +44,13 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
           <div className='flex items-center justify-between gap-3'>
             <div>
               <div className='text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/50'>Inspector</div>
-              <h2 className='mt-1 text-lg font-black text-white'>Layers</h2>
+              <h2 className='mt-1 text-lg font-black text-white'>
+                {editor.layerMenu === "Transition" ? "Transitions" : editor.layerMenu === "Animate" ? "Motion" : editor.layerMenu === "Property" ? "Styles" : "Layers"}
+              </h2>
             </div>
             <div className='flex items-center gap-2'>
               <div className='rounded-2xl bg-cyan-400/10 p-2 text-cyan-400'>
-                <Layers size={16} />
+                {editor.layerMenu === "Transition" ? <Sparkles size={16} /> : <Layers size={16} />}
               </div>
               <button
                 onClick={() => editor.setRightPanelOpen(false)}
@@ -58,18 +62,31 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
             </div>
           </div>
 
-          <div className={`mt-4 grid gap-1.5 rounded-xl bg-white/5 p-1 transition-all duration-300 ${editor.selectedIds.length === 1 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            {["Layer", "Property", "Assets", ...(editor.selectedIds.length === 1 ? ["AI Features"] : [])].map((item) => (
-              <button
-                key={item}
-                type='button'
-                onClick={() => editor.setLayerMenu(item as any)}
-                className={`rounded-lg py-2 text-[10px] md:text-xs font-bold uppercase tracking-wider transition ${editor.layerMenu === item ? 'bg-white text-slate-950 shadow-md' : 'text-white/40 hover:bg-white/5'}`}
-              >
-                {item === "AI Features" ? "AI" : item}
-              </button>
-            ))}
-          </div>
+          {(() => {
+            const tabs = [
+              "Layer",
+              "Property",
+              "Assets",
+              ...(editor.selectedIds.length === 1 ? ["Animate", "AI Features"] : []),
+              ...(editor.frames.length > 1 ? ["Transition"] : [])
+            ];
+            return (
+              <div className={`mt-4 grid gap-1 rounded-xl bg-white/5 p-1 transition-all duration-300 ${
+                tabs.length >= 6 ? 'grid-cols-6' : tabs.length === 5 ? 'grid-cols-5' : tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'
+              }`}>
+                {tabs.map((item) => (
+                  <button
+                    key={item}
+                    type='button'
+                    onClick={() => editor.setLayerMenu(item as any)}
+                    className={`rounded-lg py-1.5 text-[9px] md:text-[11px] font-bold uppercase tracking-wider transition ${editor.layerMenu === item ? 'bg-cyan-400 text-slate-950 font-black shadow-md' : 'text-white/40 hover:bg-white/5'}`}
+                  >
+                    {item === "AI Features" ? "AI" : item === "Animate" ? "Motion" : item === "Transition" ? "Blend" : item}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className='historyScrollbar flex-1 overflow-y-auto overflow-x-visible p-4 min-h-0 pb-24'>
@@ -97,6 +114,10 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
             <AssetLibrary editor={editor} />
           ) : editor.layerMenu === "AI Features" ? (
             <AIFeatures editor={editor} />
+          ) : editor.layerMenu === "Animate" ? (
+            <ElementAnimationDeck editor={editor} />
+          ) : editor.layerMenu === "Transition" ? (
+            <TransitionStudioDeck editor={editor} />
           ) : (
             <div className='space-y-3'>
               {sortedLayers.length === 0 && (
@@ -140,6 +161,17 @@ export function EditorLayerPanel({ editor }: EditorLayerPanelProps) {
                         title={layer.layerlock ? 'Unlock' : 'Lock'}
                       >
                         {layer.layerlock ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editor.selectingItem(layer.id);
+                          editor.setLayerMenu("Animate");
+                        }}
+                        className='p-1.5 rounded-lg transition-all hover:bg-cyan-500/15 text-cyan-400/80 hover:text-cyan-300'
+                        title="Animate Layer"
+                      >
+                        <Sparkles size={14} />
                       </button>
                       <button
                         onClick={(e) => {

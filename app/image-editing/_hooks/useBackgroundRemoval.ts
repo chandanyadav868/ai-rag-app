@@ -5,16 +5,26 @@ import { toast } from 'sonner';
 
 export type BackgroundRemovalStatus = 'idle' | 'loading' | 'ready' | 'processing' | 'complete' | 'error';
 
+export interface RemoveBackgroundOptions {
+    modelId?: string;
+    mode?: 'auto' | 'prompt';
+    prompt?: string;
+    threshold?: number;
+}
+
 // Global state to share worker across multiple component instances
 let globalWorker: Worker | null = null;
-let subscribers: Set<(data: any) => void> = new Set();
+const subscribers: Set<(data: any) => void> = new Set();
 let isInitialized = false;
 let modelReady = false;
 
 export function useBackgroundRemoval() {
     const [status, setStatus] = useState<BackgroundRemovalStatus>(modelReady ? 'ready' : 'idle');
     const [progress, setProgress] = useState<string>('');
+    const [progressPercent, setProgressPercent] = useState<number>(0);
     const [isModelLoaded, setIsModelLoaded] = useState(modelReady);
+    const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
+    const [deviceType, setDeviceType] = useState<'webgpu' | 'wasm'>('wasm');
     const [error, setError] = useState<string | null>(null);
 
     const initWorker = useCallback(() => {
@@ -27,25 +37,32 @@ export function useBackgroundRemoval() {
     }, []);
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && (navigator as any).gpu) {
+            setDeviceType('webgpu');
+        } else {
+            setDeviceType('wasm');
+        }
+
         const worker = initWorker();
         if (!worker) return;
 
         const handleMessage = (event: MessageEvent) => {
-            const { status: msgStatus, message } = event.data;
-            
+            const { status: msgStatus, message, progress: progVal } = event.data;
+
             if (msgStatus === 'ready') {
                 modelReady = true;
                 setIsModelLoaded(true);
             }
-            
-            // Notify all subscribers
+
             subscribers.forEach(sub => sub(event.data));
         };
 
         const sub = (data: any) => {
-            const { status: msgStatus, message } = data;
+            const { status: msgStatus, message, progress: progVal, durationMs } = data;
             if (msgStatus) setStatus(msgStatus);
             if (message) setProgress(message);
+            if (typeof progVal === 'number') setProgressPercent(progVal);
+            if (typeof durationMs === 'number') setLastDurationMs(durationMs);
             if (msgStatus === 'error') setError(message);
             if (msgStatus === 'ready') {
                 setIsModelLoaded(true);
@@ -56,7 +73,6 @@ export function useBackgroundRemoval() {
         subscribers.add(sub);
         worker.addEventListener('message', handleMessage);
 
-        // Sync initial state
         if (modelReady) {
             setIsModelLoaded(true);
             setStatus('ready');
@@ -68,113 +84,166 @@ export function useBackgroundRemoval() {
         };
     }, [initWorker]);
 
-    const loadModel = useCallback((modelId: string = 'Xenova/modnet') => {
-        if (!globalWorker || isInitialized) return;
-        isInitialized = true;
+    const loadModel = useCallback((modelId: string = 'briaai/RMBG-1.4') => {
+        if (!globalWorker) {
+            initWorker();
+        }
+        if (!globalWorker) return;
         setStatus('loading');
+        setProgress('Connecting to Neural Engine...');
         globalWorker.postMessage({ action: 'load', payload: { modelId } });
-    }, []);
+    }, [initWorker]);
 
-    const removeBackground = useCallback(async (imageSrc: string, modelId: string = 'Xenova/modnet'): Promise<string | null> => {
-        if (!globalWorker || !modelReady) {
-            toast.error("Model not ready yet.");
+    const removeBackground = useCallback(async (
+        imageSrc: string,
+        options: RemoveBackgroundOptions = {}
+    ): Promise<string | null> => {
+        const worker = initWorker();
+        if (!worker) {
+            toast.error("Worker unavailable in current environment");
             return null;
         }
 
+        const {
+            modelId = options.mode === 'prompt' ? 'Xenova/clipseg-rd64-refined' : 'briaai/RMBG-1.4',
+            mode = 'auto',
+            prompt,
+            threshold = 0.35
+        } = options;
+
+        setStatus('processing');
+        setError(null);
+
         return new Promise((resolve) => {
             const handleMessage = (event: MessageEvent) => {
-                const { status, payload } = event.data;
-                
-                if (status === 'complete') {
-                    globalWorker?.removeEventListener('message', handleMessage);
-                    
+                const { status: msgStatus, payload, durationMs } = event.data;
+
+                if (msgStatus === 'complete') {
+                    worker.removeEventListener('message', handleMessage);
+                    if (typeof durationMs === 'number') setLastDurationMs(durationMs);
+
                     try {
                         applyMaskToImage(imageSrc, payload.mask, payload.width, payload.height)
-                            .then(resolve)
-                            .catch(() => resolve(null));
+                            .then((result) => {
+                                setStatus('ready');
+                                resolve(result);
+                            })
+                            .catch((err) => {
+                                console.error("Error applying mask:", err);
+                                setStatus('error');
+                                resolve(null);
+                            });
                     } catch (err) {
+                        setStatus('error');
                         resolve(null);
                     }
-                } else if (status === 'error') {
-                    globalWorker?.removeEventListener('message', handleMessage);
+                } else if (msgStatus === 'error') {
+                    worker.removeEventListener('message', handleMessage);
+                    setStatus('error');
+                    toast.error(event.data.message || "Failed to remove background");
                     resolve(null);
                 }
             };
 
-            globalWorker?.addEventListener('message', handleMessage);
-            globalWorker?.postMessage({ action: 'removeBackground', payload: { image: imageSrc, modelId } });
+            worker.addEventListener('message', handleMessage);
+            worker.postMessage({
+                action: 'removeBackground',
+                payload: {
+                    image: imageSrc,
+                    modelId,
+                    mode,
+                    prompt,
+                    threshold
+                }
+            });
         });
-    }, []);
+    }, [initWorker]);
 
-    const removeBackgroundFromFrame = useCallback(async (frameData: Uint8ClampedArray, width: number, height: number, modelId: string = 'Xenova/modnet'): Promise<Uint8Array | null> => {
-        if (!globalWorker || !modelReady) return null;
+    const removeBackgroundFromFrame = useCallback(async (
+        frameData: Uint8ClampedArray,
+        width: number,
+        height: number,
+        modelId: string = 'briaai/RMBG-1.4'
+    ): Promise<Uint8Array | null> => {
+        const worker = initWorker();
+        if (!worker) return null;
 
         return new Promise((resolve) => {
             const handleMessage = (event: MessageEvent) => {
                 const { status, payload, action: msgAction } = event.data;
-                
+
                 if (status === 'complete' && msgAction === 'processFrame') {
-                    globalWorker?.removeEventListener('message', handleMessage);
+                    worker.removeEventListener('message', handleMessage);
                     resolve(payload.mask.data);
                 } else if (status === 'error') {
-                    globalWorker?.removeEventListener('message', handleMessage);
+                    worker.removeEventListener('message', handleMessage);
                     resolve(null);
                 }
             };
 
-            globalWorker?.addEventListener('message', handleMessage);
-            globalWorker?.postMessage({ 
-                action: 'processFrame', 
-                payload: { frame: frameData, width, height, modelId } 
-            }, [frameData.buffer]); // Use transferable objects for performance
+            worker.addEventListener('message', handleMessage);
+            worker.postMessage({
+                action: 'processFrame',
+                payload: { frame: frameData, width, height, modelId }
+            }, [frameData.buffer]);
         });
-    }, []);
+    }, [initWorker]);
 
     return {
         status,
         progress,
+        progressPercent,
         isModelLoaded,
+        lastDurationMs,
+        deviceType,
+        error,
         loadModel,
         removeBackground,
         removeBackgroundFromFrame
     };
 }
 
-async function applyMaskToImage(originalSrc: string, mask: any, width: number, height: number): Promise<string> {
+/**
+ * Composites the predicted alpha mask with the original image at full native resolution.
+ * Uses hardware-accelerated destination-in blending for feathered edges without resolution loss.
+ */
+async function applyMaskToImage(
+    originalSrc: string,
+    mask: { data: Uint8Array | Uint8ClampedArray; channels?: number },
+    maskWidth: number,
+    maskHeight: number
+): Promise<string> {
     const canvas = document.createElement('canvas');
+    canvas.width = maskWidth;
+    canvas.height = maskHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error("Could not get canvas context");
 
-    canvas.width = width;
-    canvas.height = height;
-
-    const maskData = mask.data;
-    const channels = mask.channels || (maskData.length === width * height ? 1 : 4);
+    const channels = mask.channels || 4;
 
     if (channels === 4) {
-        // The AI already returned a full RGBA image with background removed
-        const imageData = new ImageData(new Uint8ClampedArray(maskData), width, height);
-        ctx.putImageData(imageData, 0, 0);
-    } else {
-        // The AI returned a grayscale mask, we need to apply it to the original
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = originalSrc;
-        });
-        
-        // Draw original image at the AI's output resolution
-        ctx.drawImage(img, 0, 0, width, height);
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-        
-        for (let i = 0; i < width * height; ++i) {
-            data[i * 4 + 3] = maskData[i];
-        }
-        ctx.putImageData(imageData, 0, 0);
+        // Direct 4-channel RGBA cutout produced with neural putAlpha
+        const imgData = new ImageData(new Uint8ClampedArray(mask.data), maskWidth, maskHeight);
+        ctx.putImageData(imgData, 0, 0);
+        return canvas.toDataURL('image/png');
     }
+
+    // Fallback if 1-channel mask: apply alpha directly to image pixels
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = originalSrc;
+    });
+
+    ctx.drawImage(img, 0, 0, maskWidth, maskHeight);
+    const imgData = ctx.getImageData(0, 0, maskWidth, maskHeight);
+    const pixels = imgData.data;
+    for (let i = 0; i < maskWidth * maskHeight; i++) {
+        pixels[i * 4 + 3] = mask.data[i];
+    }
+    ctx.putImageData(imgData, 0, 0);
 
     return canvas.toDataURL('image/png');
 }

@@ -5,7 +5,7 @@ import { Canvas } from "fabric"
 
 interface IntialState {
     canvasFabricjs:Canvas | null
-    image: Record<string, string | Array<Buffer<ArrayBuffer>>>[],
+    image: Record<string, string | Array<Buffer>>[],
     status: null | string,
     error: string | undefined
 }
@@ -21,7 +21,7 @@ const initialState: IntialState = {
 interface ApiAiImageGenerateProp {
     status: number;
     message: string;
-    data: Record<string, string | Array<Buffer<ArrayBuffer>>>
+    data: Record<string, string | Array<Buffer>>
 }
 
 // this interface is for what can retrun if asyncThunk reject

@@ -21,11 +21,13 @@ import {
   StaticCanvas,
   Textbox,
   Triangle,
+  Shadow,
   filters,
 } from 'fabric';
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import { loadGoogleFont } from '@/lib/googleFonts';
 
-type PanelTab = "Layer" | "Property" | "Assets" | "AI Features";
+type PanelTab = "Layer" | "Property" | "Assets" | "AI Features" | "Animate" | "Transition";
 type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline" | "pen" | "directSelect";
 type TemporaryCanvasEvent = "mouse:down" | "mouse:move" | "mouse:up" | "mouse:dblclick" | "path:created";
 type TemporaryCanvasHandler = (event: CanvasEvents[TemporaryCanvasEvent]) => void;
@@ -36,6 +38,15 @@ export interface ExportCanvasOptions {
   multiplier: number;
   enableRetinaScaling: boolean;
   filename: string;
+}
+
+export interface LayerAnimationTrack {
+  id: string;
+  layerId: string;
+  type: string;
+  startFrame: number;
+  durationFrames: number;
+  loopStyle: 'seamless' | 'oneway';
 }
 
 export function useGifEditor() {
@@ -53,6 +64,10 @@ export function useGifEditor() {
   const [somethingDrop, setSomethingDrop] = useState(false);
   const [aiEdit, setAiEdit] = useState(false);
   const [layerMenu, setLayerMenu] = useState<PanelTab>("Layer");
+  const [transitionTarget, setTransitionTarget] = useState<number | null>(null);
+  const [transitionType, setTransitionType] = useState<'crossfade' | 'slide-wipe'>('crossfade');
+  const [transitionSteps, setTransitionSteps] = useState<number>(4);
+  const [isGeneratingTransition, setIsGeneratingTransition] = useState<boolean>(false);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [viewportScale, setViewportScale] = useState(1);
@@ -86,6 +101,21 @@ export function useGifEditor() {
   const [frames, setFrames] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewIdx, setPreviewIdx] = useState(0);
+  const [activeFrameIndex, setActiveFrameIndex] = useState<number | null>(null);
+  const [stageMode, setStageMode] = useState<'canvas' | 'frame'>('canvas');
+  const [frameDelay, setFrameDelay] = useState(250);
+  const [loopCount, setLoopCount] = useState(0);
+  const [isExportingGif, setIsExportingGif] = useState(false);
+  const [layerTracks, setLayerTracks] = useState<LayerAnimationTrack[]>([]);
+  const layerBaseTransformsRef = useRef<Map<string, {
+    left: number;
+    top: number;
+    opacity: number;
+    scaleX: number;
+    scaleY: number;
+    angle: number;
+    visible: boolean;
+  }>>(new Map());
 
   // Pen Tool state
   const [penPoints, setPenPoints] = useState<any[]>([]);
@@ -103,16 +133,25 @@ export function useGifEditor() {
   }, [aiEdit]);
 
   const aiEditRef = useRef(aiEdit);
-  // GIF playback logic
+  // High-precision smooth requestAnimationFrame GIF playback loop (jitter-free)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && frames.length > 0) {
-      interval = setInterval(() => {
+    if (!isPlaying || frames.length === 0) return;
+
+    let animId: number;
+    let lastTime = performance.now();
+
+    const loop = (currentTime: number) => {
+      const elapsed = currentTime - lastTime;
+      if (elapsed >= frameDelay) {
         setPreviewIdx((prev) => (prev + 1) % frames.length);
-      }, 500); // 500ms per frame
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, frames.length]);
+        lastTime = currentTime - (elapsed % frameDelay);
+      }
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, frames.length, frameDelay]);
 
   useEffect(() => {
     if (fabricJs.current && fabricJs.current.isDrawingMode) {
@@ -1287,12 +1326,409 @@ export function useGifEditor() {
     setIsPlaying(false);
   };
 
+  const duplicateFrame = (index: number) => {
+    if (index < 0 || index >= frames.length) return;
+    setFrames((prev) => {
+      const copy = [...prev];
+      copy.splice(index + 1, 0, copy[index]);
+      return copy;
+    });
+    toast.success("Frame duplicated!");
+  };
+
+  const reorderFrames = (fromIndex: number, toIndex: number) => {
+    if (fromIndex < 0 || fromIndex >= frames.length || toIndex < 0 || toIndex >= frames.length) return;
+    setFrames((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(fromIndex, 1);
+      copy.splice(toIndex, 0, moved);
+      return copy;
+    });
+  };
+
+  const updateActiveFrameFromCanvas = () => {
+    if (!fabricJs.current) return;
+    fabricJs.current.discardActiveObject();
+
+    const currentVpt = fabricJs.current.viewportTransform;
+    fabricJs.current.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    fabricJs.current.renderAll();
+
+    const dataUrl = fabricJs.current.toDataURL({
+      format: 'png',
+      quality: 1,
+      multiplier: 1
+    });
+
+    if (currentVpt) {
+      fabricJs.current.setViewportTransform(currentVpt);
+      fabricJs.current.renderAll();
+    }
+
+    if (activeFrameIndex !== null && activeFrameIndex >= 0 && activeFrameIndex < frames.length) {
+      setFrames((prev) => {
+        const copy = [...prev];
+        copy[activeFrameIndex] = dataUrl;
+        return copy;
+      });
+      toast.success(`Updated Frame #${activeFrameIndex + 1} from canvas!`);
+    } else {
+      setFrames((prev) => [...prev, dataUrl]);
+      setActiveFrameIndex(frames.length);
+      toast.success("Captured new frame to timeline!");
+    }
+  };
+
+  const renderMultiTrackComposition = async (
+    tracksToRender?: LayerAnimationTrack[],
+    desiredTotalFrames?: number
+  ) => {
+    const canvas = fabricJs.current;
+    if (!canvas) return;
+
+    const tracks = tracksToRender ?? layerTracks;
+    if (tracks.length === 0) return;
+
+    // Determine total scene frames: at least max(startFrame + durationFrames) across all tracks
+    const maxTrackEnd = tracks.reduce((max, t) => Math.max(max, t.startFrame + t.durationFrames), 0);
+    const totalFrames = desiredTotalFrames ?? Math.max(frames.length > 0 ? frames.length : 8, maxTrackEnd, 4);
+
+    // Save baseline transforms for all objects on the canvas
+    const objects = canvas.getObjects();
+    const baseMap = new Map<string, {
+      left: number;
+      top: number;
+      opacity: number;
+      scaleX: number;
+      scaleY: number;
+      angle: number;
+      visible: boolean;
+    }>();
+
+    objects.forEach((obj) => {
+      const id = obj.get("id");
+      if (id) {
+        const stored = layerBaseTransformsRef.current.get(id);
+        const base = stored ?? {
+          left: obj.left ?? 0,
+          top: obj.top ?? 0,
+          opacity: obj.opacity ?? 1,
+          scaleX: obj.scaleX ?? 1,
+          scaleY: obj.scaleY ?? 1,
+          angle: obj.angle ?? 0,
+          visible: obj.visible !== false,
+        };
+        baseMap.set(id, base);
+        if (!stored) {
+          layerBaseTransformsRef.current.set(id, base);
+        }
+      }
+    });
+
+    canvas.discardActiveObject();
+    const currentVpt = canvas.viewportTransform;
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+    const cw = canvasDimensions.width;
+    const ch = canvasDimensions.height;
+    const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const newCompositionFrames: string[] = [];
+
+    for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
+      // Evaluate EVERY object on the canvas at this specific frame!
+      for (const obj of objects) {
+        const id = obj.get("id");
+        if (!id) continue;
+        const base = baseMap.get(id);
+        if (!base) continue;
+
+        const objTracks = tracks.filter((t) => t.layerId === id);
+        if (objTracks.length === 0) {
+          obj.set({
+            left: base.left,
+            top: base.top,
+            opacity: base.opacity,
+            scaleX: base.scaleX,
+            scaleY: base.scaleY,
+            angle: base.angle,
+            visible: base.visible,
+          });
+          obj.setCoords();
+          continue;
+        }
+
+        const track = objTracks.find((t) => frameIdx >= t.startFrame && frameIdx < t.startFrame + t.durationFrames)
+          || (frameIdx >= objTracks[0].startFrame + objTracks[0].durationFrames ? objTracks[objTracks.length - 1] : objTracks[0]);
+
+        if (frameIdx < track.startFrame) {
+          const isEntrance = ['fade-in', 'slide-left', 'slide-right', 'slide-top', 'slide-bottom'].includes(track.type);
+          if (isEntrance) {
+            if (track.type === 'fade-in') {
+              obj.set({ ...base, opacity: 0, visible: false });
+            } else if (track.type === 'slide-left') {
+              obj.set({ ...base, left: cw, visible: false });
+            } else if (track.type === 'slide-right') {
+              obj.set({ ...base, left: - (obj.getScaledWidth() || 200), visible: false });
+            } else if (track.type === 'slide-top') {
+              obj.set({ ...base, top: - (obj.getScaledHeight() || 200), visible: false });
+            } else if (track.type === 'slide-bottom') {
+              obj.set({ ...base, top: ch, visible: false });
+            }
+          } else {
+            obj.set(base);
+          }
+        } else if (frameIdx >= track.startFrame && frameIdx < track.startFrame + track.durationFrames) {
+          const localStep = frameIdx - track.startFrame;
+          const rawProgress = track.durationFrames > 1 ? localStep / (track.durationFrames - 1) : 1;
+
+          const seamlessProgress = track.loopStyle === 'seamless'
+            ? (1 - Math.cos(rawProgress * 2 * Math.PI)) / 2
+            : easeInOutCubic(rawProgress);
+
+          const oneWayProgress = easeInOutCubic(rawProgress);
+
+          switch (track.type) {
+            case 'fade-in': {
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, opacity: base.opacity * p, visible: true });
+              break;
+            }
+            case 'fade-out': {
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, opacity: base.opacity * (1 - p), visible: true });
+              break;
+            }
+            case 'slide-left': {
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, left: cw + (base.left - cw) * p, visible: true });
+              break;
+            }
+            case 'slide-right': {
+              const startLeft = - (obj.getScaledWidth() || 200);
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, left: startLeft + (base.left - startLeft) * p, visible: true });
+              break;
+            }
+            case 'slide-top': {
+              const startTop = - (obj.getScaledHeight() || 200);
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, top: startTop + (base.top - startTop) * p, visible: true });
+              break;
+            }
+            case 'slide-bottom': {
+              const p = track.loopStyle === 'seamless' ? seamlessProgress : oneWayProgress;
+              obj.set({ ...base, top: ch + (base.top - ch) * p, visible: true });
+              break;
+            }
+            case 'scale-pulse': {
+              const pulseOffset = 0.35 * Math.sin(rawProgress * Math.PI);
+              obj.set({
+                ...base,
+                scaleX: base.scaleX * (1 + pulseOffset),
+                scaleY: base.scaleY * (1 + pulseOffset),
+                visible: true,
+              });
+              break;
+            }
+            case 'spin-360': {
+              obj.set({ ...base, angle: base.angle + 360 * rawProgress, visible: true });
+              break;
+            }
+            case 'bounce': {
+              const bounceOffset = -35 * Math.sin(rawProgress * Math.PI);
+              obj.set({ ...base, top: base.top + bounceOffset, visible: true });
+              break;
+            }
+            case 'blink': {
+              const blinkOpacity = Math.sin(rawProgress * Math.PI * 4) > 0 ? 1 : 0.15;
+              obj.set({ ...base, opacity: base.opacity * blinkOpacity, visible: true });
+              break;
+            }
+            default:
+              obj.set(base);
+              break;
+          }
+        } else {
+          obj.set({
+            left: base.left,
+            top: base.top,
+            opacity: base.opacity,
+            scaleX: base.scaleX,
+            scaleY: base.scaleY,
+            angle: base.angle,
+            visible: base.visible,
+          });
+        }
+        obj.setCoords();
+      }
+
+      canvas.renderAll();
+      const dataUrl = canvas.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 1,
+      });
+      newCompositionFrames.push(dataUrl);
+    }
+
+    objects.forEach((obj) => {
+      const id = obj.get("id");
+      if (id) {
+        const base = baseMap.get(id);
+        if (base) {
+          obj.set(base);
+          obj.setCoords();
+        }
+      }
+    });
+
+    if (currentVpt) {
+      canvas.setViewportTransform(currentVpt);
+    }
+    canvas.renderAll();
+
+    setFrames(newCompositionFrames);
+    setActiveFrameIndex(0);
+    setPreviewIdx(0);
+  };
+
+  const applyLayerAnimation = async (
+    layerId: string,
+    type: string,
+    startFrame: number = 0,
+    durationFrames: number = 8,
+    loopStyle: 'seamless' | 'oneway' = 'seamless'
+  ) => {
+    const canvas = fabricJs.current;
+    if (!canvas) return;
+    const obj = canvas.getObjects().find((item) => item.get("id") === layerId);
+    if (!obj) {
+      toast.error("Please select a layer to animate");
+      return;
+    }
+
+    if (!layerBaseTransformsRef.current.has(layerId)) {
+      layerBaseTransformsRef.current.set(layerId, {
+        left: obj.left ?? 0,
+        top: obj.top ?? 0,
+        opacity: obj.opacity ?? 1,
+        scaleX: obj.scaleX ?? 1,
+        scaleY: obj.scaleY ?? 1,
+        angle: obj.angle ?? 0,
+        visible: obj.visible !== false,
+      });
+    }
+
+    const newTrack: LayerAnimationTrack = {
+      id: uuidv4(),
+      layerId,
+      type,
+      startFrame,
+      durationFrames,
+      loopStyle,
+    };
+
+    const updatedTracks = [...layerTracks.filter((t) => t.layerId !== layerId), newTrack];
+    setLayerTracks(updatedTracks);
+
+    await renderMultiTrackComposition(updatedTracks);
+    toast.success(`Applied ${type} to layer (Frames ${startFrame + 1}-${startFrame + durationFrames})!`);
+  };
+
+  const removeLayerAnimation = async (layerId: string) => {
+    const updatedTracks = layerTracks.filter((t) => t.layerId !== layerId);
+    setLayerTracks(updatedTracks);
+    if (updatedTracks.length > 0) {
+      await renderMultiTrackComposition(updatedTracks);
+    }
+    toast.success("Animation removed from layer");
+  };
+
+  const generateElementAnimation = async (
+    layerId: string,
+    type: string,
+    frameCount: number = 8,
+    mode: 'sync' | 'append' = 'sync',
+    loopStyle: 'seamless' | 'oneway' = 'seamless',
+    startFrame: number = 0
+  ) => {
+    await applyLayerAnimation(layerId, type, startFrame, frameCount, loopStyle);
+  };
+
+  const generateTransition = async (fromIdx: number, toIdx: number, type: 'crossfade' | 'slide-wipe' = 'crossfade', steps: number = 4) => {
+    if (fromIdx < 0 || toIdx < 0 || fromIdx >= frames.length || toIdx >= frames.length) {
+      toast.error("Invalid frame index for transition");
+      return;
+    }
+
+    try {
+      const imgA = new Image();
+      const imgB = new Image();
+      await Promise.all([
+        new Promise((res, rej) => { imgA.onload = res; imgA.onerror = rej; imgA.src = frames[fromIdx]; }),
+        new Promise((res, rej) => { imgB.onload = res; imgB.onerror = rej; imgB.src = frames[toIdx]; }),
+      ]);
+
+      const offscreen = document.createElement('canvas');
+      offscreen.width = canvasDimensions.width;
+      offscreen.height = canvasDimensions.height;
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) return;
+
+      const interpolated: string[] = [];
+
+      for (let s = 1; s <= steps; s++) {
+        const t = s / (steps + 1);
+        ctx.clearRect(0, 0, offscreen.width, offscreen.height);
+
+        if (type === 'crossfade') {
+          ctx.globalAlpha = 1 - t;
+          ctx.drawImage(imgA, 0, 0, offscreen.width, offscreen.height);
+          ctx.globalAlpha = t;
+          ctx.drawImage(imgB, 0, 0, offscreen.width, offscreen.height);
+          ctx.globalAlpha = 1.0;
+        } else if (type === 'slide-wipe') {
+          ctx.drawImage(imgA, 0, 0, offscreen.width, offscreen.height);
+          const xOffset = (1 - t) * offscreen.width;
+          ctx.drawImage(imgB, xOffset, 0, offscreen.width, offscreen.height);
+        }
+
+        interpolated.push(offscreen.toDataURL('image/png'));
+      }
+
+      setFrames((prev) => {
+        const copy = [...prev];
+        copy.splice(fromIdx + 1, 0, ...interpolated);
+        return copy;
+      });
+
+      toast.success(`Inserted ${steps} transition frames!`);
+    } catch (err) {
+      console.error("Transition generation error:", err);
+      toast.error("Failed to generate transition frames");
+    }
+  };
+
+  const applyTransition = async () => {
+    if (transitionTarget === null || transitionTarget >= frames.length - 1) return;
+    setIsGeneratingTransition(true);
+    try {
+      await generateTransition(transitionTarget, transitionTarget + 1, transitionType, transitionSteps);
+      setTransitionTarget(null);
+      setLayerMenu("Layer");
+    } finally {
+      setIsGeneratingTransition(false);
+    }
+  };
+
   const exportGif = async () => {
     if (frames.length === 0) {
       toast.error("Please add at least one frame before exporting.");
       return;
     }
     
+    setIsExportingGif(true);
     toast.info("Preparing GIF export...");
     
     try {
@@ -1305,6 +1741,7 @@ export function useGifEditor() {
         workerScript: '/gif.worker.js',
         width: canvasDimensions.width,
         height: canvasDimensions.height,
+        repeat: loopCount,
         background: '#ffffff'
       });
       
@@ -1320,18 +1757,19 @@ export function useGifEditor() {
       const images = await Promise.all(imagePromises);
       
       images.forEach(img => {
-        gif.addFrame(img, { delay: 500, copy: true });
+        gif.addFrame(img, { delay: frameDelay, copy: true });
       });
       
       gif.on('finished', (blob: Blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'animated.gif';
+        a.download = `animated_${canvasDimensions.width}x${canvasDimensions.height}.gif`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        setIsExportingGif(false);
         toast.success("GIF exported successfully!");
       });
       
@@ -1339,6 +1777,7 @@ export function useGifEditor() {
       
     } catch (error) {
       console.error("Error creating GIF:", error);
+      setIsExportingGif(false);
       toast.error("There was an error creating the GIF.");
     }
   };
@@ -1424,39 +1863,64 @@ export function useGifEditor() {
     setState((prev) => prev.map((item) => item.id === layerId ? ({ ...item, hideLayer: !object.visible }) : item));
   };
 
-  const addTextLayer = () => {
+  const addTextLayer = async (customProps?: Partial<any>) => {
     if (!fabricJs.current) return;
     setActiveTool("text");
     updateCanvasCursor("text");
     const canvas = fabricJs.current;
 
+    if (customProps?.fontFamily) {
+      try {
+        await loadGoogleFont(customProps.fontFamily);
+      } catch {}
+    }
+
+    const layerId = generateLayerId("text");
     const nextLayer: StateProps = {
-      left: 100,
-      top: 100,
-      fontSize: 24,
-      fill: "#000000",
-      fontFamily: "Arial",
+      left: customProps?.left ?? 100,
+      top: customProps?.top ?? 100,
+      fontSize: customProps?.fontSize ?? (customProps ? 36 : 24),
+      fill: customProps?.fill ?? (customProps ? "#ffffff" : "#000000"),
+      fontFamily: customProps?.fontFamily ?? "Arial",
+      fontWeight: customProps?.fontWeight ?? (customProps ? "bold" : "normal"),
+      stroke: customProps?.stroke ?? (customProps?.strokeWidth ? "#000000" : undefined),
+      strokeWidth: customProps?.strokeWidth ?? 0,
+      backgroundColor: customProps?.backgroundColor ?? "",
       width: 0,
       height: 0,
-      angle: 0,
-      id: generateLayerId("text"),
+      angle: customProps?.angle ?? 0,
+      id: layerId,
       type: "text",
       order: getMaxOrder() + 1,
       scale: 1,
     };
 
-    const textbox = new Textbox("Hello", {
+    const textbox = new Textbox(customProps?.text ?? (customProps ? "HEADLINE" : "Hello"), {
       editable: true,
       left: nextLayer.left,
       top: nextLayer.top,
-      width: 220,
-      fill: "#000000",
+      width: customProps?.text && customProps.text.length > 8 ? 360 : 220,
+      fill: (nextLayer.fill as string) || "#ffffff",
       fontSize: nextLayer.fontSize,
       fontFamily: nextLayer.fontFamily,
+      fontWeight: nextLayer.fontWeight,
+      stroke: (nextLayer.stroke as string) || undefined,
+      strokeWidth: nextLayer.strokeWidth || 0,
+      paintFirst: (customProps?.paintFirst as any) || (nextLayer.strokeWidth ? "stroke" : "fill"),
+      backgroundColor: nextLayer.backgroundColor || undefined,
       angle: nextLayer.angle,
       originX: "left",
       originY: "top",
     });
+
+    if (customProps?.shadowColor) {
+      textbox.set("shadow", new Shadow({
+        color: customProps.shadowColor,
+        blur: customProps.shadowBlur ?? 16,
+        offsetX: customProps.shadowOffsetX ?? 4,
+        offsetY: customProps.shadowOffsetY ?? 6,
+      }));
+    }
 
     canvas.add(textbox);
     // ensure the fabric object has the same id as the layer state so selection/inspector can sync
@@ -1473,9 +1937,10 @@ export function useGifEditor() {
       ...nextLayer,
       left: textbox.left ?? nextLayer.left,
       top: textbox.top ?? nextLayer.top,
-      width: textbox.width ?? nextLayer.width,
-      height: textbox.height ?? nextLayer.height,
+      width: Number(Math.round(textbox.getScaledWidth()).toFixed(0)),
+      height: Number(Math.round(textbox.getScaledHeight()).toFixed(0)),
     }, ...prev]);
+    saveHistory();
   };
 
   const onShapeClick = (type: string) => {
@@ -1914,9 +2379,28 @@ export function useGifEditor() {
     addFrame,
     removeFrame,
     clearFrames,
+    duplicateFrame,
+    reorderFrames,
+    generateElementAnimation,
+    generateTransition,
+    frameDelay,
+    setFrameDelay,
+    loopCount,
+    setLoopCount,
+    isExportingGif,
     exportGif,
     isPlaying,
     setIsPlaying,
+    activeFrameIndex,
+    setActiveFrameIndex,
+    stageMode,
+    setStageMode,
+    updateActiveFrameFromCanvas,
+    layerTracks,
+    setLayerTracks,
+    applyLayerAnimation,
+    removeLayerAnimation,
+    renderMultiTrackComposition,
     previewIdx,
     setPreviewIdx,
     assetSaveOpen,
@@ -1924,5 +2408,13 @@ export function useGifEditor() {
     assetSaveLayerId,
     setAssetSaveLayerId,
     confirmSaveAsset,
+    transitionTarget,
+    setTransitionTarget,
+    transitionType,
+    setTransitionType,
+    transitionSteps,
+    setTransitionSteps,
+    isGeneratingTransition,
+    applyTransition,
   };
 }

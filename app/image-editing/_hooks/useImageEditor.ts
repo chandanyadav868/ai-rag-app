@@ -17,6 +17,8 @@ import {
   Point,
   Polyline,
   Rect,
+  Shadow,
+  Path,
   SprayBrush,
   StaticCanvas,
   Textbox,
@@ -26,7 +28,18 @@ import {
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { storeLocalAsset, getLocalAsset, storeLocalFont, getAllLocalFonts, getAllLocalAssets, StoredAsset } from '@/lib/persistent-storage';
+import { 
+  storeLocalAsset, 
+  getLocalAsset, 
+  storeLocalFont, 
+  getAllLocalFonts, 
+  getAllLocalAssets, 
+  StoredAsset, 
+  storeProjectData, 
+  getProjectData, 
+  storeDataUrlAsAsset, 
+  storeElementAsAsset 
+} from '@/lib/persistent-storage';
 
 type PanelTab = "Layer" | "Property" | "Assets" | "AI Features";
 type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline";
@@ -40,6 +53,12 @@ export interface ExportCanvasOptions {
   enableRetinaScaling: boolean;
   filename: string;
 }
+
+const SERIALIZE_PROPERTIES = [
+  'id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 
+  'visible', 'src', 'clipPath', 'filters', 'radius', 'rx', 'ry', 'assetId',
+  'stroke', 'strokeWidth', 'fill', 'opacity', 'angle', 'scaleX', 'scaleY'
+];
 
 export function useImageEditor() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -65,6 +84,10 @@ export function useImageEditor() {
 
   const [history, setHistory] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
+  const currentStateRef = useRef<any>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [assets, setAssets] = useState<{ id: string, src: string, name: string }[]>([]);
   const [customFonts, setCustomFonts] = useState<{ name: string, data: string }[]>([]);
   const [fontLoading, setFontLoading] = useState(false);
@@ -103,18 +126,29 @@ export function useImageEditor() {
     return latestPages;
   };
 
+  const FALLBACK_TRANSPARENT_PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
   const rehydrateCanvasData = async (data: any) => {
     if (!data || !data.objects) return data;
     
     const rehydrateObjects = async (objs: any[]) => {
       for (const obj of objs) {
-        if (obj.assetId) {
-          const storedAsset = await getLocalAsset(obj.assetId);
-          if (storedAsset) {
-            obj.src = URL.createObjectURL(storedAsset.blob);
+        if (obj.type === 'image' || obj.src) {
+          let resolved = false;
+          if (obj.assetId) {
+            const storedAsset = await getLocalAsset(obj.assetId);
+            if (storedAsset) {
+              obj.src = URL.createObjectURL(storedAsset.blob);
+              resolved = true;
+            }
+          }
+          // If not resolved and src is an ephemeral blob: URL, it's expired! Replace with safe fallback
+          if (!resolved && obj.src && typeof obj.src === 'string' && obj.src.startsWith('blob:')) {
+            console.warn("Encountered expired blob URL without stored asset, using safe fallback to prevent canvas crash:", obj.src);
+            obj.src = FALLBACK_TRANSPARENT_PIXEL;
           }
         }
-        if (obj.objects) {
+        if (obj.objects && Array.isArray(obj.objects)) {
           await rehydrateObjects(obj.objects);
         }
       }
@@ -187,42 +221,75 @@ export function useImageEditor() {
       setRecentProjects(projectsList);
     }
 
-    // Check for URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const w = params.get('width');
-    const h = params.get('height');
-    const pid = params.get('projectId');
+    // Check for URL parameters and persistent projects
+    const initProjects = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const w = params.get('width');
+      const h = params.get('height');
+      const pid = params.get('projectId');
 
-    if (w && h) {
-      createNewProject(Number(w), Number(h));
-    } else if (pid) {
-      const metadata = projectsList.find((p: any) => p.id === pid);
-      if (metadata) {
-        const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${pid}`);
-        if (projectDataRaw) {
-          const parsed = JSON.parse(projectDataRaw);
-          if (parsed.pages) {
-            setPages(parsed.pages);
-            pagesRef.current = parsed.pages;
-            const activeIdx = parsed.activePageIndex || 0;
-            setActivePageIndex(activeIdx);
-            activePageIndexRef.current = activeIdx;
-            
-            const activePage = parsed.pages[activeIdx];
-            setPendingProject({ 
-              id: pid, 
-              data: activePage.data, 
-              width: activePage.width || metadata.width, 
-              height: activePage.height || metadata.height 
-            });
-          } else {
-            // Legacy load
-            setPendingProject({ id: pid, data: parsed, width: metadata.width, height: metadata.height });
+      if (w && h) {
+        createNewProject(Number(w), Number(h));
+      } else {
+        const targetPid = pid || localStorage.getItem('polish_ai_last_active_project_id');
+        if (targetPid) {
+          let parsed: any = await getProjectData(targetPid);
+          if (!parsed) {
+            const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${targetPid}`);
+            if (projectDataRaw) {
+              try { parsed = JSON.parse(projectDataRaw); } catch(e){}
+            }
           }
-          setView("editor");
+          const metadata = projectsList.find((p: any) => p.id === targetPid);
+          if (parsed) {
+            if (parsed.pages && parsed.pages.length > 0) {
+              setPages(parsed.pages);
+              pagesRef.current = parsed.pages;
+              const activeIdx = parsed.activePageIndex || 0;
+              setActivePageIndex(activeIdx);
+              activePageIndexRef.current = activeIdx;
+              
+              const activePage = parsed.pages[activeIdx];
+              setPendingProject({ 
+                id: targetPid, 
+                data: activePage?.data || null, 
+                width: activePage?.width || metadata?.width || 1080, 
+                height: activePage?.height || metadata?.height || 1080 
+              });
+            } else {
+              // Legacy load
+              setPendingProject({ 
+                id: targetPid, 
+                data: parsed, 
+                width: metadata?.width || 1080, 
+                height: metadata?.height || 1080 
+              });
+            }
+            setView("editor");
+          }
         }
       }
-    }
+
+      // Check for imported cutout from Background Removal or Home Screen
+      const importedCutout = sessionStorage.getItem('polish_ai_imported_cutout');
+      if (importedCutout) {
+        sessionStorage.removeItem('polish_ai_imported_cutout');
+        try {
+          const assetId = await storeDataUrlAsAsset(importedCutout, `cutout_${Date.now()}`);
+          const asset = await getLocalAsset(assetId);
+          if (asset) {
+            const url = URL.createObjectURL(asset.blob);
+            setTimeout(() => {
+              addImageToCanvas(url, { assetId });
+            }, 500);
+          }
+        } catch (e) {
+          console.error("Failed to load imported cutout:", e);
+        }
+      }
+    };
+
+    initProjects();
 
     const savedAssets = localStorage.getItem('polish_ai_assets');
     if (savedAssets) {
@@ -314,19 +381,20 @@ export function useImageEditor() {
     }
   }, []);
 
-  const addPage = async () => {
+  const addPage = async (blankOrEvent?: boolean | unknown) => {
     if (!fabricJs.current || isHistoryAction.current) return;
+    const blank = typeof blankOrEvent === 'boolean' ? blankOrEvent : true;
     
     // 1. Sync current page first
     const updatedPages = syncCurrentPageToData();
-    const currentData = updatedPages[activePageIndexRef.current].data;
+    const currentData = updatedPages[activePageIndexRef.current]?.data;
 
-    // 2. Create new page (cloned from current or empty)
+    // 2. Create new page (blank or cloned)
     const newPage = {
       id: uuidv4(),
       name: `Page ${updatedPages.length + 1}`,
-      data: currentData,
-      layers: [...state],
+      data: blank ? null : currentData,
+      layers: blank ? [] : [...state],
       width: canvasDimensions.width,
       height: canvasDimensions.height,
       viewportScale: viewportScale
@@ -341,21 +409,35 @@ export function useImageEditor() {
     setPages(finalPages);
     setActivePageIndex(newPageIndex);
     
-    // 4. Reload canvas to ensure object independence
+    // 4. Reload canvas
     isHistoryAction.current = true;
     try {
       fabricJs.current.clear();
-      const rehydratedData = await rehydrateCanvasData(currentData);
-      await fabricJs.current.loadFromJSON(rehydratedData);
-      fabricJs.current.getObjects().forEach(obj => attachTransformListeners(obj));
+      fabricJs.current.backgroundColor = "#ffffff";
+      if (!blank && currentData) {
+        const rehydratedData = await rehydrateCanvasData(currentData);
+        await fabricJs.current.loadFromJSON(rehydratedData);
+        fabricJs.current.getObjects().forEach(obj => {
+          attachTransformListeners(obj);
+          obj.setCoords();
+        });
+      }
       fabricJs.current.renderAll();
       syncCanvasToState();
-      toast.success("New page added from current canvas!");
+      toast.success(blank ? "New blank page added!" : "Page duplicated!");
     } catch (err) {
       console.error("Add page error:", err);
     } finally {
       isHistoryAction.current = false;
     }
+  };
+
+  const duplicatePage = async (index?: number) => {
+    const targetIdx = index !== undefined ? index : activePageIndexRef.current;
+    if (targetIdx !== activePageIndexRef.current) {
+      await switchPage(targetIdx);
+    }
+    await addPage(false);
   };
 
   const switchPage = async (index: number) => {
@@ -473,14 +555,35 @@ export function useImageEditor() {
     localStorage.setItem('polish_ai_assets', JSON.stringify(assets));
   }, [assets]);
 
-  const saveProject = async (projectName?: string) => {
+  const saveProject = async (projectName?: string, silent: boolean = false) => {
     if (!fabricJs.current) return;
+    if (!silent) setSaveStatus('saving');
+
+    // Persist all images on canvas to IndexedDB before saving!
+    const canvas = fabricJs.current;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if (obj.type === 'image') {
+        let currentAssetId = (obj as any).assetId;
+        let hasAsset = currentAssetId ? await getLocalAsset(currentAssetId) : null;
+        if (!hasAsset) {
+          const el = (obj as any).getElement?.() || (obj as any)._element;
+          if (el) {
+            const newAssetId = await storeElementAsAsset(el, (obj as any).name || `img_${Date.now()}`);
+            if (newAssetId) {
+              (obj as any).assetId = newAssetId;
+              obj.set('assetId', newAssetId);
+            }
+          }
+        }
+      }
+    }
 
     const id = currentProjectId || uuidv4();
     const thumbnail = fabricJs.current.toDataURL({
       format: 'webp',
       quality: 0.5,
-      multiplier: 200 / canvasDimensions.width
+      multiplier: Math.min(1, 200 / canvasDimensions.width)
     });
 
     // 1. Sync current page state before global save
@@ -503,20 +606,54 @@ export function useImageEditor() {
       lastEdited: Date.now(),
     };
 
-    localStorage.setItem(`polish_ai_project_data_${id}`, JSON.stringify(projectData));
+    // Store in IndexedDB (full persistent data) AND fallback to localStorage
+    await storeProjectData(id, projectData);
+    try {
+      localStorage.setItem(`polish_ai_project_data_${id}`, JSON.stringify(projectData));
+    } catch (e) {
+      console.warn("Project data safely persisted in IndexedDB", e);
+    }
     const updatedMetadata = [metadata, ...recentProjects.filter(p => p.id !== id)].slice(0, 50);
     localStorage.setItem('polish_ai_projects_metadata', JSON.stringify(updatedMetadata));
+    localStorage.setItem('polish_ai_last_active_project_id', id);
     setRecentProjects(updatedMetadata);
     setCurrentProjectId(id);
     setPages(latestPages);
+    setSaveStatus('saved');
+    if (!silent) {
+      toast.success("Project saved successfully!");
+    }
+  };
+
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    setSaveStatus('unsaved');
+    autoSaveTimerRef.current = setTimeout(() => {
+      setSaveStatus('saving');
+      saveProject(undefined, true).catch((e) => {
+        console.error("Auto-save failed:", e);
+        setSaveStatus('unsaved');
+      });
+    }, 1200);
   };
 
   const loadProject = async (id: string) => {
-    const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${id}`);
+    setHistory([]);
+    setRedoStack([]);
+    currentStateRef.current = null;
+
+    let parsed: any = await getProjectData(id);
+    if (!parsed) {
+      const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${id}`);
+      if (projectDataRaw) {
+        try { parsed = JSON.parse(projectDataRaw); } catch(e){}
+      }
+    }
     const metadata = recentProjects.find(p => p.id === id);
-    if (projectDataRaw && metadata) {
-      const parsed = JSON.parse(projectDataRaw);
-      if (parsed.pages) {
+    if (parsed) {
+      if (parsed.pages && parsed.pages.length > 0) {
         // Multi-page format
         setPages(parsed.pages);
         pagesRef.current = parsed.pages;
@@ -527,14 +664,14 @@ export function useImageEditor() {
         const activePage = parsed.pages[activeIdx];
         setPendingProject({ 
           id, 
-          data: activePage.data, 
-          width: activePage.width || metadata.width, 
-          height: activePage.height || metadata.height 
+          data: activePage?.data || null, 
+          width: activePage?.width || metadata?.width || 1080, 
+          height: activePage?.height || metadata?.height || 1080 
         });
       } else {
         // Legacy project format
-        const legacyWidth = metadata.width || 1280;
-        const legacyHeight = metadata.height || 720;
+        const legacyWidth = metadata?.width || 1280;
+        const legacyHeight = metadata?.height || 720;
         const newPages = [{ id: uuidv4(), name: "Page 1", data: parsed, layers: [], width: legacyWidth, height: legacyHeight }];
         setPages(newPages);
         pagesRef.current = newPages;
@@ -547,6 +684,9 @@ export function useImageEditor() {
   };
 
   const createNewProject = (width: number, height: number) => {
+    setHistory([]);
+    setRedoStack([]);
+    currentStateRef.current = null;
     setPages([{ id: uuidv4(), name: "Page 1", data: null, layers: [], width, height }]);
     setActivePageIndex(0);
     setPendingProject({ width, height, isNew: true });
@@ -584,29 +724,44 @@ export function useImageEditor() {
         if (fabricJs.current) fabricJs.current.setDimensions({ width, height });
 
         if (isNew) {
-        fabricJs.current?.clear();
+          fabricJs.current?.clear();
           if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
           setCurrentProjectId(null);
           setState([]);
         } else if (data) {
-          const rehydratedData = await rehydrateCanvasData(data);
-          await fabricJs.current?.loadFromJSON(rehydratedData);
-          setCurrentProjectId(id);
-          
-          // Force render after load
-          fabricJs.current?.requestRenderAll();
+          try {
+            const rehydratedData = await rehydrateCanvasData(data);
+            await fabricJs.current?.loadFromJSON(rehydratedData);
+            setCurrentProjectId(id);
+            
+            // Force render after load
+            fabricJs.current?.requestRenderAll();
 
-          // Rebuild layers state from loaded objects
-          const objects = fabricJs.current.getObjects();
-          objects.forEach((obj: any) => attachTransformListeners(obj));
-          
-          // Synchronize state from the loaded canvas
-          syncCanvasToState();
+            // Rebuild layers state and re-attach listeners
+            const objects = fabricJs.current?.getObjects() || [];
+            objects.forEach((obj: any) => {
+              attachTransformListeners(obj);
+              obj.setCoords();
+            });
+            
+            // Synchronize state from the loaded canvas
+            syncCanvasToState();
+          } catch (loadErr) {
+            console.error("Error loading project from JSON:", loadErr);
+            toast.error("Notice: Canvas loaded with fallback assets.");
+          }
         }
 
         fabricJs.current?.renderAll();
         fitCanvasToViewport({ width, height });
         setPendingProject(null);
+
+        // Snapshot clean initial state and reset history stacks
+        if (fabricJs.current) {
+          currentStateRef.current = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
+        }
+        setHistory([]);
+        setRedoStack([]);
         isHistoryAction.current = false;
       }
     };
@@ -760,43 +915,65 @@ export function useImageEditor() {
 
   const saveHistory = () => {
     if (!fabricJs.current || isHistoryAction.current) return;
-    const json = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
-    setHistory((prev) => [json, ...prev].slice(0, 10));
-    setRedoStack([]);
+    const json = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
+    if (!currentStateRef.current) {
+      currentStateRef.current = json;
+      scheduleAutoSave();
+      return;
+    }
+    // Push the prior state onto the undo history stack (max 10)
+    setHistory((prev) => [currentStateRef.current, ...prev].slice(0, 10));
+    currentStateRef.current = json;
+    setRedoStack([]); // Clear redo stack on new modification
+    scheduleAutoSave();
   };
 
   const undo = async () => {
     if (!fabricJs.current || history.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
+    const currentJson = currentStateRef.current || fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const prevJson = history[0];
+    const newHistory = history.slice(1);
 
     await fabricJs.current.loadFromJSON(prevJson);
-    fabricJs.current.renderAll();
+    fabricJs.current.getObjects().forEach((obj) => {
+      attachTransformListeners(obj);
+      obj.setCoords();
+    });
+    fabricJs.current.requestRenderAll();
 
     setRedoStack((prev) => [currentJson, ...prev].slice(0, 10));
-    setHistory((prev) => prev.slice(1));
+    setHistory(newHistory);
+    currentStateRef.current = prevJson;
     syncCanvasToState();
 
     isHistoryAction.current = false;
+    scheduleAutoSave();
   };
 
   const redo = async () => {
     if (!fabricJs.current || redoStack.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'assetId']);
+    const currentJson = currentStateRef.current || fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const nextJson = redoStack[0];
+    const newRedoStack = redoStack.slice(1);
 
     await fabricJs.current.loadFromJSON(nextJson);
-    fabricJs.current.renderAll();
+    fabricJs.current.getObjects().forEach((obj) => {
+      attachTransformListeners(obj);
+      obj.setCoords();
+    });
+    fabricJs.current.requestRenderAll();
 
     setHistory((prev) => [currentJson, ...prev].slice(0, 10));
-    setRedoStack((prev) => prev.slice(1));
+    setRedoStack(newRedoStack);
+    currentStateRef.current = nextJson;
     syncCanvasToState();
 
     isHistoryAction.current = false;
+    scheduleAutoSave();
   };
 
   const addAsset = (src: string, name: string) => {
@@ -1311,15 +1488,112 @@ export function useImageEditor() {
     }
   };
 
-  const applyMask = async (maskDataUrl: string, options: { left: number, top: number, scaleX: number, scaleY: number, angle: number, feather?: number }) => {
+  const replaceLayerImage = async (layerId: string, newImageUrl: string) => {
     if (!fabricJs.current) return;
-    const activeObject = fabricJs.current.getActiveObject();
+    const canvas = fabricJs.current;
+    const targetObj = canvas.getObjects().find(o => (o as any).id === layerId);
+    if (!targetObj) return;
+
+    try {
+      const newImg = await FabricImage.fromURL(newImageUrl, { crossOrigin: "anonymous" });
+      const center = targetObj.getCenterPoint();
+      const baseScale = targetObj.scaleX || 1;
+
+      newImg.set({
+        id: layerId,
+        originX: 'center',
+        originY: 'center',
+        left: center.x,
+        top: center.y,
+        angle: targetObj.angle || 0,
+        scaleX: baseScale,
+        scaleY: baseScale,
+        objectCaching: false,
+      });
+
+      const idx = canvas.getObjects().indexOf(targetObj);
+      canvas.remove(targetObj);
+      canvas.insertAt(idx, newImg);
+      attachTransformListeners(newImg);
+      newImg.setCoords();
+      canvas.setActiveObject(newImg);
+      canvas.requestRenderAll();
+
+      setState(prev => prev.map(l => l.id === layerId ? {
+        ...l,
+        src: newImageUrl,
+        width: Math.round(newImg.getScaledWidth()),
+        height: Math.round(newImg.getScaledHeight()),
+      } : l));
+      saveHistory();
+    } catch (e) {
+      console.error("Failed to replace layer image:", e);
+      toast.error("Failed to update image on layer.");
+    }
+  };
+
+  const applyMask = async (
+    maskDataUrl: string, 
+    options: { 
+      left: number; 
+      top: number; 
+      scaleX: number; 
+      scaleY: number; 
+      angle: number; 
+      feather?: number;
+      isRasterized?: boolean;
+      rasterizedDataUrl?: string;
+    }
+  ) => {
+    if (!fabricJs.current) return;
+    const canvas = fabricJs.current;
+    const activeObject = canvas.getActiveObject();
     if (!activeObject) {
       toast.error("Please select an element to mask first.");
       return;
     }
 
     try {
+      // If rasterized tight crop is available, replace layer with tight PNG bounding box
+      if (options.isRasterized && options.rasterizedDataUrl) {
+        const rasterizedImg = await FabricImage.fromURL(options.rasterizedDataUrl, { crossOrigin: "anonymous" });
+        const center = activeObject.getCenterPoint();
+        const baseScale = (activeObject.scaleX || 1) / 2; // Compensate for multiplier 2
+
+        rasterizedImg.set({
+          id: (activeObject as any).id,
+          name: (activeObject as any).name,
+          originX: 'center',
+          originY: 'center',
+          left: center.x,
+          top: center.y,
+          angle: activeObject.angle || 0,
+          scaleX: baseScale,
+          scaleY: baseScale,
+          objectCaching: false,
+        });
+
+        const idx = canvas.getObjects().indexOf(activeObject);
+        canvas.remove(activeObject);
+        canvas.insertAt(idx, rasterizedImg);
+        attachTransformListeners(rasterizedImg);
+        rasterizedImg.setCoords();
+        canvas.setActiveObject(rasterizedImg);
+        canvas.requestRenderAll();
+
+        setState(prev => prev.map(l => l.id === (activeObject as any).id ? {
+          ...l,
+          src: options.rasterizedDataUrl!,
+          width: Math.round(rasterizedImg.getScaledWidth()),
+          height: Math.round(rasterizedImg.getScaledHeight()),
+        } : l));
+
+        saveHistory();
+        toast.success("Mask applied with tight bounding box!");
+        setMaskStudioOpen(false);
+        return;
+      }
+
       const maskImage = await FabricImage.fromURL(maskDataUrl, { crossOrigin: "anonymous" });
       
       // In Fabric, the clipPath is relative to the object's transform.
@@ -1346,7 +1620,7 @@ export function useImageEditor() {
         dirty: true
       });
 
-      fabricJs.current.requestRenderAll();
+      canvas.requestRenderAll();
       saveHistory();
       toast.success("Mask applied successfully!");
       setMaskStudioOpen(false);
@@ -1725,39 +1999,73 @@ export function useImageEditor() {
     setState((prev) => prev.map((item) => item.id === layerId ? ({ ...item, hideLayer: !object.visible }) : item));
   };
 
-  const addTextLayer = () => {
+  const addTextLayer = (customProps?: Partial<StateProps> & {
+    text?: string;
+    paintFirst?: string;
+    shadowColor?: string;
+    shadowBlur?: number;
+    shadowOffsetX?: number;
+    shadowOffsetY?: number;
+  }) => {
     if (!fabricJs.current) return;
     setActiveTool("text");
     updateCanvasCursor("text");
     const canvas = fabricJs.current;
 
+    const layerId = generateLayerId("text");
     const nextLayer: StateProps = {
-      left: 100,
-      top: 100,
-      fontSize: 24,
-      fill: "#000000",
-      fontFamily: "Arial",
+      left: customProps?.left ?? 120,
+      top: customProps?.top ?? 120,
+      fontSize: customProps?.fontSize ?? (customProps ? 36 : 24),
+      fill: customProps?.fill ?? (customProps ? "#ffffff" : "#000000"),
+      fontFamily: customProps?.fontFamily ?? (customProps ? "Anton" : "Arial"),
+      fontWeight: customProps?.fontWeight ?? (customProps ? "bold" : "normal"),
+      stroke: customProps?.stroke ?? (customProps?.strokeWidth ? "#000000" : undefined),
+      strokeWidth: customProps?.strokeWidth ?? 0,
+      backgroundColor: customProps?.backgroundColor ?? "",
+      skewX: customProps?.skewX ?? 0,
+      lineHeight: customProps?.lineHeight ?? 1.15,
+      charSpacing: customProps?.charSpacing ?? 0,
+      textAlign: customProps?.textAlign ?? "left",
       width: 0,
       height: 0,
-      angle: 0,
-      id: generateLayerId("text"),
+      angle: customProps?.angle ?? 0,
+      id: layerId,
       type: "text",
       order: getMaxOrder() + 1,
       scale: 1,
     };
 
-    const textbox = new Textbox("Hello", {
+    const textbox = new Textbox(customProps?.text ?? (customProps ? "HEADLINE" : "Hello"), {
       editable: true,
       left: nextLayer.left,
       top: nextLayer.top,
-      width: 220,
-      fill: "#000000",
+      width: customProps?.text && customProps.text.length > 8 ? 380 : 220,
+      fill: (nextLayer.fill as string) || "#ffffff",
       fontSize: nextLayer.fontSize,
       fontFamily: nextLayer.fontFamily,
+      fontWeight: nextLayer.fontWeight,
+      stroke: (nextLayer.stroke as string) || undefined,
+      strokeWidth: nextLayer.strokeWidth || 0,
+      paintFirst: (customProps?.paintFirst as any) || (nextLayer.strokeWidth ? "stroke" : "fill"),
+      backgroundColor: nextLayer.backgroundColor || undefined,
+      skewX: nextLayer.skewX || 0,
+      lineHeight: nextLayer.lineHeight,
+      charSpacing: nextLayer.charSpacing,
+      textAlign: nextLayer.textAlign,
       angle: nextLayer.angle,
       originX: "left",
       originY: "top",
     });
+
+    if (customProps?.shadowColor) {
+      textbox.set("shadow", new Shadow({
+        color: customProps.shadowColor,
+        blur: customProps.shadowBlur ?? 16,
+        offsetX: customProps.shadowOffsetX ?? 4,
+        offsetY: customProps.shadowOffsetY ?? 6,
+      }));
+    }
 
     canvas.add(textbox);
     // ensure the fabric object has the same id as the layer state so selection/inspector can sync
@@ -1777,6 +2085,54 @@ export function useImageEditor() {
       width: textbox.width ?? nextLayer.width,
       height: textbox.height ?? nextLayer.height,
     }, ...prev]);
+  };
+
+  const insertPath = (pathString: string, options?: { fill?: string; stroke?: string; strokeWidth?: number; left?: number; top?: number; scale?: number }) => {
+    if (!fabricJs.current) return null;
+    const canvas = fabricJs.current;
+    const layerId = generateLayerId("shape");
+
+    const pathObj = new Path(pathString, {
+      left: options?.left ?? 160,
+      top: options?.top ?? 160,
+      fill: options?.fill ?? "#ef4444",
+      stroke: options?.stroke ?? "#000000",
+      strokeWidth: options?.strokeWidth ?? 3,
+      scaleX: options?.scale ?? 1,
+      scaleY: options?.scale ?? 1,
+      objectCaching: false,
+      originX: "center",
+      originY: "center",
+    });
+
+    pathObj.set({ id: layerId });
+    if (options?.stroke) {
+      pathObj.set("paintFirst", "stroke" as any);
+    }
+
+    canvas.add(pathObj);
+    pathObj.setCoords();
+    attachTransformListeners(pathObj);
+    canvas.setActiveObject(pathObj);
+    setActiveId(layerId);
+    canvas.requestRenderAll();
+
+    setState((prev) => [{
+      id: layerId,
+      type: "shape",
+      order: getMaxOrder() + 1,
+      left: pathObj.left ?? 160,
+      top: pathObj.top ?? 160,
+      width: pathObj.width ?? 100,
+      height: pathObj.height ?? 100,
+      angle: 0,
+      scale: options?.scale ?? 1,
+      fill: options?.fill ?? "#ef4444",
+      stroke: options?.stroke ?? "#000000",
+      strokeWidth: options?.strokeWidth ?? 3,
+    }, ...prev]);
+
+    return pathObj;
   };
 
   const onShapeClick = (type: string) => {
@@ -2172,6 +2528,7 @@ export function useImageEditor() {
     uploadImageGemina,
     viewportScale,
     addTextLayer,
+    insertPath,
     aiImageFn,
     checkingBox,
     copyLayer,
@@ -2195,6 +2552,7 @@ export function useImageEditor() {
     maskStudioOpen,
     setMaskStudioOpen,
     applyMask,
+    replaceLayerImage,
     // New exports
     view,
     setView,
@@ -2218,8 +2576,11 @@ export function useImageEditor() {
     pages,
     activePageIndex,
     addPage,
+    duplicatePage,
     switchPage,
     deletePage,
     bulkExportAsZip,
+    fitCanvasToViewport,
+    saveStatus,
   };
 }

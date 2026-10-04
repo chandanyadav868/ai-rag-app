@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         }
 
 
-        const data: Record<string, string | number | undefined | Buffer<ArrayBuffer>> = {};
+        const data: Record<string, string | number | undefined | Buffer> = {};
 
         // ye method gemina ke api ko call karta hai, with object body
         let promptGeneration;

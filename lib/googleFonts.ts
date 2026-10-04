@@ -5,6 +5,7 @@
 
 export async function loadGoogleFont(family: string, variants: string[] = ["400", "700"]): Promise<void> {
   try {
+    // @ts-ignore
     const WebFont = (await import('webfontloader')).default;
     return new Promise((resolve, reject) => {
       let finished = false;
