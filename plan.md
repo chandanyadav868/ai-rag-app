@@ -1,127 +1,243 @@
-# Production-Grade Multi-Track Animation & Timeline Fix Plan
+# Polish AI — Comprehensive Responsive Architecture & Feature Expansion Plan
 
-## Executive Summary & Root Cause Analysis
+## Executive Summary
 
-Based on the uploaded screenshots and 3 audio recordings, here are the root causes of the issues and the comprehensive architectural plan to achieve production-ready GIF animations:
+This document outlines the master architectural plan for **Polish AI — Pro Image & GIF Studio**. It is organized into two primary pillars:
 
----
-
-### Root Cause 1: Timeline Locked on Frame #3 & Can't Scroll to Frame #1 (Audio 1 & Screenshot 1)
-- **Why it happens:**
-  In `GifTimeline.tsx`, an aggressive `scrollIntoView({ behavior: 'smooth', inline: 'center' })` was triggered on `activeFrameIndex`.
-  When `activeFrameIndex` is 2 (Frame #3), the browser permanently pulls the scroll container to center Frame #3.
-  Any time the user attempts to scroll left towards Frame #1 or #2, the `useEffect` continuously re-triggers and violently snaps the scroll position back to Frame #3.
-  Additionally, flex container properties combined with `inline: 'center'` caused Frame #1 and #2 to be pushed outside the scrollable viewable area.
-- **The Fix:**
-  1. Completely remove `scrollIntoView` from the timeline component.
-  2. Implement manual and safe container-relative scrolling using `filmstripRef.current.scrollLeft`.
-  3. Auto-scroll will **only** trigger during active playback if the running frame exceeds the visible right edge of the viewport. When paused, the user has 100% free horizontal scrolling control.
-  4. Add explicit **Jump to Start (`|<<`)** and **Jump to End (`>>|`)** buttons so the user can immediately jump to Frame #1 with a single click.
-  5. Add a styled, interactive horizontal scrollbar for frictionless dragging.
+1. **Complete Cross-Device Responsive Blueprint**: A systematic Tailwind CSS strategy to ensure every tool (Canvas Studio, Background Remover, GIF Timeline Animator, Dashboards, and Landing Experience) adapts fluidly across Mobile (`<640px`), Tablet (`768px–1024px`), Desktop (`1024px–1536px`), and Ultra-wide (`>1536px`) displays.
+2. **High-Value Product Feature Roadmap**: Curated high-impact features that transform Polish AI into an indispensable, commercial-grade creative suite for content creators, e-commerce sellers, marketers, and designers.
 
 ---
 
-### Root Cause 2: Animating One Element Removes the Animation of the Other (Audio 2)
-- **Why it happens:**
-  In the current procedural implementation, `generateElementAnimation` only moves the **currently selected object** in a loop on the live Fabric.js canvas while assuming all other layers are static.
-  - When the user animates Element 1 (Text), it records 8 frames where Text moves and Image is static.
-  - When the user then selects Element 2 (Image) and generates animation, it resets the timeline and renders from the live canvas where Text is sitting at its final resting position!
-  - Therefore, in the newly rendered frames, **Element 2 moves but Element 1 is completely frozen/static**!
-  - The previous animation of Element 1 was lost because there was no persistent **Animation Track Registry** tracking which layer has which motion across time.
-- **The Fix: Multi-Track Scene Animation Engine:**
-  1. Implement a persistent `layerAnimationTracks: Record<string, LayerAnimationTrack>` registry in `useGifEditor.ts`.
-  2. When an animation is applied to Element 1 (Text), it registers `Text -> { type: 'slide-left', startFrame: 0, duration: 8 }`.
-  3. When an animation is applied to Element 2 (Image), it registers `Image -> { type: 'fade-in', startFrame: 2, duration: 6 }`.
-  4. When generating the scene frames, the engine evaluates **ALL layers simultaneously for every frame $i$**:
-     - At Frame $i$, Text is placed at its step $i$ transform.
-     - At Frame $i$, Image is placed at its step $i$ transform.
-     - The canvas is rendered and captured into `frames[i]`.
-  5. **Result:** Both Text and Image animate harmoniously and simultaneously within the exact same frames! Neither element overwrites or removes the other's animation!
+## Part 1: Cross-Device Responsive Architecture (Mobile, Tablet, Desktop, Ultra-Wide)
+
+### 1.1 Responsive Breakpoint & Layout System
+
+We standardize on a 5-tier responsive breakpoint matrix leveraging Tailwind CSS core utilities:
+
+| Tier | Screen Width | Device Targets | Layout Paradigm |
+| :--- | :--- | :--- | :--- |
+| **Mobile (Compact)** | `< 640px` (`sm`) | iPhone, Android phones | Single-column, floating bottom action bar, bottom sheet drawers for layers/tools, full-bleed canvas. |
+| **Mobile (Large / Phablet)** | `640px – 767px` (`sm` to `md`) | Foldables, large smartphones in landscape | Adaptive 2-column drawer, compact header with icon-only badges. |
+| **Tablet (Portrait & Landscape)** | `768px – 1023px` (`md` to `lg`) | iPad Mini, iPad 10.9", Galaxy Tab | Collapsible sidebar docks, touch-optimized tool palettes, responsive timeline scrubber. |
+| **Desktop / Laptop** | `1024px – 1535px` (`lg` to `2xl`) | MacBooks, 13"–16" Laptops, 1080p monitors | 3-column studio layout (Left: Tools, Center: Canvas Workspace, Right: Layers & Properties). |
+| **Ultra-Wide / Workstation** | `≥ 1536px` (`2xl+`) | 27" 4K, 34"+ curved ultra-wides | Centered bounded workspace, dual pin-open inspector panels, expanded multi-track filmstrip. |
 
 ---
 
-### Root Cause 3: Starting Animation from Selected Frame (Audio 3)
-- **User Requirement:**
-  "If I have selected frame 2 and I applied the animation, you have to implement animation from second frame till the end... as I have chosen 4, 8 frames... from that position!"
-- **The Solution:**
-  1. In `ElementAnimationDeck.tsx`, provide a **"Start From Frame"** control:
-     - Defaults to the currently selected active frame in the timeline (e.g. Frame #2 / index 1).
-     - Allows selecting Frame #1, #2, #3, etc.
-  2. The animation track records `startFrame: selectedFrameIndex`.
-  3. In the multi-track evaluation:
-     - For frames before `startFrame`: the element stays at its initial pre-animation state (e.g. 0% opacity for fade-in, off-canvas for slide-in).
-     - From `startFrame` to `startFrame + duration`: the element animates smoothly with cubic easing.
-     - After `startFrame + duration`: the element holds its completed state or seamlessly loops.
-  4. This provides professional keyframing and staging capability:
-     - Frame 1: Headline Ribbon slides in.
-     - Frame 3: Portrait photo fades in!
+### 1.2 Studio Component-by-Component Responsive Architecture
+
+#### A. Image Editing Studio (`/image-editing`)
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ Desktop (lg/xl/2xl): 3-Column Studio                                    │
+│ [TopBar: Name | Zoom | Undo/Redo | Actions | Export]                  │
+├──────────────┬──────────────────────────────────────────┬──────────────┤
+│ Tools Panel  │ Canvas Workspace (Infinite Centered)     │ Layers Panel │
+│ (280px Dock) │ Auto-scaled Fabric.js Canvas + Zoom Pan  │ (300px Dock) │
+└──────────────┴──────────────────────────────────────────┴──────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Mobile (< md): Single-View Canvas + Bottom App Bar & Drawers           │
+│ [Compact TopBar: Back | Undo/Redo | Zoom % | Export]                   │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│                      Full-Bleed Responsive Canvas                      │
+│                                                                        │
+├────────────────────────────────────────────────────────────────────────┤
+│ [Floating Tool Sheet Drawer] (Opens upwards on touch: Crop, Text, etc) │
+├────────────────────────────────────────────────────────────────────────┤
+│ Bottom Bar: [Tools Icon] [Layers (Badge)] [Filters] [Transform] [Save] │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Fabric.js Canvas Responsive Viewport**:
+   * *Problem on mobile*: Fabric canvas fixed pixel width/height overflows small screens.
+   * *Solution*: Implement a responsive canvas container with `resizeObserver` that scales the visual zoom factor `canvas.setZoom(scale)` while keeping original export resolution intact.
+   * *Tailwind pattern*: `relative flex-1 w-full h-[calc(100dvh-120px)] md:h-[calc(100dvh-60px)] overflow-hidden`.
+2. **Left Tools Panel (`EditorToolsPanel.tsx`)**:
+   * **Desktop (`lg+`)**: Fixed left sidebar `w-72 lg:w-80 shrink-0 border-r border-white/10`.
+   * **Tablet (`md` to `lg`)**: Collapsible icon sidebar (`w-16`) that expands on hover/tap.
+   * **Mobile (`< md`)**: Rendered as a swipeable bottom sheet (`fixed inset-x-0 bottom-16 max-h-[60vh] rounded-t-3xl bg-[#09101d] border-t border-white/10 p-4 transition-transform z-40`).
+3. **Right Layers Panel (`EditorLayerPanel.tsx`)**:
+   * **Desktop (`lg+`)**: Persistent right sidebar `w-72 lg:w-80 shrink-0 border-l border-white/10`.
+   * **Mobile / Tablet**: Triggered via a badge button (`[Layers 3]`) opening a modal drawer with reorder handle gestures.
+4. **Studio TopBar (`EditorTopBar.tsx`)**:
+   * **Mobile**: Group non-essential buttons into a dropdown menu (`...`). Show only `Back`, `Undo/Redo`, and `Export` primary button.
 
 ---
 
-### Root Cause 4: Multiple Sequential Animations on the Same Element (Audio 2)
-- **User Requirement:**
-  "I am not able to use multiple animations on same element."
-- **The Solution:**
-  Support chaining multiple animation tracks on a single layer:
-  - Track 1: Slide In from Frame 1 to Frame 4.
-  - Track 2: Scale Pulse from Frame 5 to Frame 8.
-  The multi-track evaluator checks which track is active for that layer at frame $i$ and applies the corresponding transform!
+#### B. AI Background Removal Studio (`/image-bg-removal`)
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ Desktop: Side-by-Side Live Compare or Large Split-Slider View          │
+│ Left: Original Image                    Right: Transparent Cutout      │
+│ [Backdrop Selector: Transparent | Color Presets | Studio Shadow]       │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ Mobile: Stacked View with Touch Split-Slider                           │
+│ [Top: Interactive Split Slider (Auto-fit aspect ratio)]               │
+│ [Middle: Horizontal Scrolling Backdrop Swatches]                       │
+│ [Bottom: Action Toolbar: Selective Prompt, Inpainting, Download]       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Touch-Optimized Split-Slider**:
+   * Support `onTouchStart`, `onTouchMove`, and `onTouchEnd` alongside mouse drag.
+   * Add a larger touch-target thumb (`w-10 h-10` with vibration/haptic feedback on mobile browsers).
+   * Tailwind: `touch-none select-none cursor-ew-resize`.
+2. **Horizontal Scrolling Backdrop & Cutout Bar**:
+   * Use smooth horizontal scroll with hidden scrollbar:
+   * Tailwind: `flex gap-2 overflow-x-auto no-scrollbar py-2 px-4 -mx-4`.
+3. **Batch Processing Queue**:
+   * On mobile: Swipeable carousel of thumbnails at the bottom.
+   * On desktop: Dedicated sidebar drawer with batch upload dropzone.
 
 ---
 
-## Detailed Step-by-Step Implementation Roadmap
+#### C. GIF Maker & Timeline Animator (`/gif-maker`)
 
-### Phase 1: Multi-Track Animation Engine ([useGifEditor.ts](file:///d:/deploymentProject/aiapp/app/gif-maker/_hooks/useGifEditor.ts))
-1. Define `LayerAnimationTrack` interface:
-   ```ts
-   export interface LayerAnimationTrack {
-     id: string;
-     layerId: string;
-     type: string;
-     startFrame: number;
-     durationFrames: number;
-     loopStyle: 'seamless' | 'oneway';
-   }
-   ```
-2. Store `layerTracks: LayerAnimationTrack[]` with methods:
-   - `addLayerTrack(track: LayerAnimationTrack)`
-   - `removeLayerTrack(trackId: string)`
-   - `clearLayerTracks()`
-3. Implement `renderMultiTrackComposition(totalFrames?: number)`:
-   - Saves base transforms for all canvas objects.
-   - For frame $i = 0 \dots totalFrames - 1$:
-     - For each object on canvas, evaluates all active tracks for that object at frame $i$.
-     - Computes animated transform (left, top, opacity, scaleX, scaleY, angle) using organic easing.
-     - Renders canvas and captures dataURL into `frames[i]`.
-   - Restores all canvas objects to base transforms.
-   - Updates `setFrames(newFrames)` and syncs `activeFrameIndex`.
+1. **Responsive Filmstrip Timeline (`GifTimeline.tsx`)**:
+   * **Desktop (`lg+`)**: Full-width bottom dock (`h-44`) with frame cards (`w-28 h-28`), frame numbering, active playhead, and timing controls.
+   * **Mobile (`< md`)**: Compact timeline dock (`h-28`) with micro-thumbnails (`w-16 h-16`), horizontal swipe, play/pause floating action button, and frame count badge.
+2. **Animation Decks (`ElementAnimationDeck.tsx` & `TransitionStudioDeck.tsx`)**:
+   * **Desktop**: Tabbed inspector on the right or modal flyout.
+   * **Mobile**: Full-screen overlay or bottom drawer with easy touch sliders for duration (e.g., 4f, 8f, 12f) and motion presets (Fade, Slide, Bounce).
 
-### Phase 2: Timeline Navigation & Scroll Lock Fix ([GifTimeline.tsx](file:///d:/deploymentProject/aiapp/app/gif-maker/_components/GifTimeline.tsx))
-1. Remove `scrollIntoView` completely.
-2. Implement safe manual scrolling with standard `scrollBy` and boundary clamping.
-3. Add `Jump to Start (|<<)` and `Jump to End (>>|)` buttons.
-4. Auto-scroll during playback **only** when `previewIdx` scrolls off the visible right edge of `filmstripRef.current`.
-5. Ensure frame cards `#1` and `#2` are immediately visible at `scrollLeft = 0`.
+---
 
-### Phase 3: Animation Deck Controls & Staging ([ElementAnimationDeck.tsx](file:///d:/deploymentProject/aiapp/app/gif-maker/_components/ElementAnimationDeck.tsx))
-1. Add **"Start From Frame"** selector (defaults to current `activeFrameIndex + 1`, e.g. Frame #2).
-2. Add **"Duration (Frames)"** selector (4, 6, 8, 12 frames).
-3. Display **Active Layer Motions**:
-   - Lists existing animations on the selected element with a delete button.
-4. Display **Scene Composition Summary**:
-   - Shows all active animated elements in the scene (e.g. `Headline: Slide In (1-6)`, `Portrait: Fade In (2-8)`).
-5. "Apply Animation" button commits the track and instantly triggers `renderMultiTrackComposition()`.
+#### D. Dashboards & Presets (`/image-home-screen` & `/gif-home-screen`)
 
-### Phase 4: Main Canvas Live Sync ([EditorCanvasWorkspace.tsx](file:///d:/deploymentProject/aiapp/app/gif-maker/_components/EditorCanvasWorkspace.tsx))
-1. Ensure clicking any frame in the timeline updates the main canvas view seamlessly.
-2. Clicking "Live Edit" brings back interactive layer manipulation.
-3. "Update Frame" captures the current canvas back into the selected frame.
+1. **Preset Card Grid**:
+   * Tailwind: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6`.
+2. **Project Action Modals**:
+   * Full-width responsive dialogs: `w-full max-w-lg mx-4 rounded-3xl p-6 sm:p-8`.
 
-### Phase 5: Verification & Quality Assurance
-1. Compile with `npx tsc --noEmit` and confirm exit code 0.
-2. Test timeline scrolling: confirm frames #1, #2, #3, etc. are freely scrollable without snapping.
-3. Test multi-element animation:
-   - Animate Text (e.g. Slide In from Frame 1).
-   - Animate Image (e.g. Fade In from Frame 2).
-   - Confirm **both** Text and Image animate together in the final timeline frames!
-   - Confirm neither element's animation is deleted or overwritten.
+---
+
+#### E. Landing Page & Global Header / Footer
+
+1. **Header Navigation (`Header.tsx`)**:
+   * Mobile drawer with glassmorphism backdrop (`backdrop-blur-2xl bg-[#091528]/95`), animated hamburger icon, and touch-friendly link targets (`py-3.5 px-4 rounded-2xl`).
+2. **Hero Showcase Split Slider (`HeroProductShowcase.tsx`)**:
+   * Bounded responsive container: `aspect-[4/3] sm:aspect-[16/10] md:aspect-[16/9] max-h-[520px] w-full`.
+3. **Feature Cards (`ProductPillarsSection.tsx`)**:
+   * `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8`.
+
+---
+
+### 1.3 Key Tailwind CSS Utilities for Mobile & Touch Ergonomics
+
+```css
+/* Touch Ergonomics & Safe Areas */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 16px); }
+
+/* Prevent accidental browser gestures on canvas */
+.canvas-touch-guard {
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Fluid Typography */
+.text-fluid-title {
+  font-size: clamp(1.75rem, 4vw + 1rem, 3.75rem);
+}
+```
+
+---
+
+## Part 2: High-Value Features Recommended to Add
+
+These features will provide the highest perceived value to end users, differentiate Polish AI from standard editors, and drive retention:
+
+### Feature 1: E-Commerce Product Studio with Contact & Floating Shadows
+* **What it does**: When a user removes a background from a product (shoes, bottle, electronics), placing it on pure white or a colored background often looks flat or fake. This feature automatically generates a realistic **Contact Shadow** or **Soft Ambient Drop Shadow** beneath the object.
+* **Why users love it**: Essential for Amazon, Shopify, Etsy, and eBay sellers who need professional product photos in seconds without Photoshop.
+* **Implementation**:
+  * Canvas blur filter with directional offset `y` and perspective skewing.
+  * Presets: *Floor Contact Shadow*, *Floating Soft Glow*, *Directional Sunlight Shadow*.
+
+### Feature 2: Client-Side Neural Magic Eraser (Object Inpainting)
+* **What it does**: Allows the user to paint a brush over an unwanted tourist, power line, or watermark and cleanly erase it using browser-based inpainting.
+* **Why users love it**: One of the most viral photo-editing features on smartphones (Google Magic Eraser).
+* **Implementation**:
+  * Run LaMa or Slim-MMSegmentation ONNX model directly inside `_workers/inpaint.worker.ts` with WebGPU/WASM.
+  * Real-time brush size and feathering control in `MaskStudio.tsx`.
+
+### Feature 3: Smart Social Aspect Ratio Reframe (1-Click Multi-Format Export)
+* **What it does**: Automatically converts a single design into all social media dimensions at once:
+  * Instagram Post (`1:1`)
+  * Instagram Story / TikTok (`9:16`)
+  * YouTube Thumbnail (`16:9`)
+  * Twitter / LinkedIn Header (`3:1`)
+* **Why users love it**: Saves social media creators and agencies hours of manual resizing.
+
+### Feature 4: Batch Background Removal with 1-Click ZIP Export
+* **What it does**: Allows users to drop 10 to 50 images at once. Polish AI processes them in parallel (using Web Workers without freezing the UI) and downloads them in a single `.zip` file with transparent PNGs or WebP cutouts.
+* **Why users love it**: Commercial photographers and catalogue managers need bulk operations.
+* **Implementation**:
+  * Built on existing `JSZip` and `file-saver` libraries already installed in the repo.
+
+### Feature 5: Seamless Hand-off Between Tools (Unified Creative Pipeline)
+* **What it does**: Connects the 3 standalone tools into one seamless workflow:
+  * Remove Background on `/image-bg-removal` $\rightarrow$ 1-Click **"Open in Canvas Studio"** (adds cutout as a layer with shadows and text).
+  * Design graphic in `/image-editing` $\rightarrow$ 1-Click **"Animate as GIF"** in `/gif-maker`.
+* **Why users love it**: Creates a unified suite feel rather than disconnected utilities.
+
+### Feature 6: Video-to-GIF Trimmer & High-Speed Converter
+* **What it does**: Drop an MP4, MOV, or WebM video file, select a 2 to 5-second slice on a video scrubber, set frame rate (10, 15, 24 FPS), and convert directly to an animated GIF or vice-versa.
+* **Why users love it**: Memes, reaction clips, and animated tutorial loops.
+* **Implementation**:
+  * Leverage `@ffmpeg/ffmpeg` and `@ffmpeg/util` (already present in `package.json`).
+
+### Feature 7: Undo / Redo History Visualizer & Keyboard Shortcuts
+* **What it does**:
+  * `Ctrl+Z` / `Cmd+Z`: Undo
+  * `Ctrl+Y` / `Cmd+Shift+Z`: Redo
+  * `Space + Drag`: Pan Canvas
+  * `Delete` / `Backspace`: Remove selected layer
+  * Visual history step list showing past 20 operations (e.g., "Add Text", "Change Filter", "Move Layer").
+
+### Feature 8: Offline PWA & Cloud Project Synchronization
+* **What it does**:
+  * Enables full offline capability via Service Worker so users can edit images and make GIFs even without internet access.
+  * Persists projects in browser `IndexedDB` (using `idb-keyval`) with optional Appwrite/MongoDB cloud backup for authenticated users.
+
+---
+
+## Part 3: Phased Implementation Roadmap
+
+```mermaid
+graph TD
+    A[Phase 1: Mobile & Responsive Layout Overhaul] --> B[Phase 2: Touch Interactions & Canvas Gestures]
+    B --> C[Phase 3: E-Commerce Shadows & Batch Export]
+    C --> D[Phase 4: Tool Interoperability & Video-to-GIF]
+    D --> E[Phase 5: PWA & Offline Experience]
+```
+
+### Phase 1: Responsive Layout Foundations (Week 1)
+- [ ] Add mobile bottom action bar and responsive drawers to `/image-editing`.
+- [ ] Implement responsive touch-safe split slider for `/image-bg-removal`.
+- [ ] Adapt `/gif-maker` timeline to auto-collapse cards on mobile screens (`<640px`).
+- [ ] Add `resizeObserver` auto-scaling to `EditorCanvasWorkspace.tsx`.
+
+### Phase 2: Touch Ergonomics & Gestures (Week 2)
+- [ ] Implement two-finger pinch-to-zoom and two-finger canvas pan on mobile.
+- [ ] Add haptic feedback and tap-to-select layer behaviors on touch devices.
+- [ ] Build floating mobile quick-action wheel (Delete, Duplicate, Flip, Layer Up/Down).
+
+### Phase 3: E-Commerce Product Studio & Batch Tools (Week 3)
+- [ ] Add automatic Contact Shadow and Ambient Shadow generator to `/image-bg-removal`.
+- [ ] Build multi-file batch upload queue with progress indicators and `JSZip` export.
+- [ ] Add pre-configured E-commerce backdrop templates (Studio White, Soft Pastel, Neon Podium).
+
+### Phase 4: Creative Pipeline & Media Hand-Off (Week 4)
+- [ ] Add "Export to Canvas Studio" button in Background Remover.
+- [ ] Add "Send to GIF Maker" button in Image Editing Studio.
+- [ ] Implement Video-to-GIF timeline converter using client-side `@ffmpeg/ffmpeg`.

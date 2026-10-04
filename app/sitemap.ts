@@ -5,14 +5,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const routes = [
     '',
-    '/image-ai',
     '/gif-maker',
     '/image-editing',
     '/image-bg-removal',
     '/image-home-screen',
     '/gif-home-screen',
-    '/chat-app',
-    '/pdf-ai',
     '/about',
     '/feedback',
     '/desclaimer',

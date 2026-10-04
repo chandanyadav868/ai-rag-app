@@ -30,8 +30,8 @@ const navigationGroups: NavItem[] = [
     label: "Tools",
     children: [
       { label: "Image Editing", href: "/image-home-screen" },
-      { label: "GIF Maker", href: "/gif-home-screen" },
-      { label: "Image BG Removal", href: "/image-bg-removal" }
+      { label: "Image BG Removal", href: "/image-bg-removal" },
+      { label: "GIF Maker", href: "/gif-home-screen" }
     ],
   },
   {

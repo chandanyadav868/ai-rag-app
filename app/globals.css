@@ -565,36 +565,6 @@ pre code.hljs, code.hljs, .hljs {
   background: rgba(255,255,255,0.06);
 }
 
-/* ── RightSide panel scrollbar ───────────────────────────────
-   Thin, dark-themed scrollbar for the editor / preview area.
-────────────────────────────────────────────────────────────── */
-.rightside-scrollbar {
-  /* Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(99, 120, 180, 0.45) transparent;
-}
-
-/* Chrome / Safari / Edge */
-.rightside-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-
-.rightside-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.rightside-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(99, 120, 180, 0.40);
-  border-radius: 9999px;
-}
-
-.rightside-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(129, 150, 220, 0.70);
-}
-
-.rightside-scrollbar::-webkit-scrollbar-button {
-  display: none;
-}
 
 /* Custom Scrollbar for Workspace */
 .custom-scrollbar::-webkit-scrollbar {

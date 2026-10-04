@@ -533,21 +533,17 @@ export const HeaderList = [
         name: "Home",
         link: "/"
     },
-    // {
-    //     name: "Pdf Ai",
-    //     link: "/pdf-ai"
-    // },
-    // {
-    //     name: "Image Generate",
-    //     link: "/image-ai"
-    // },
-    // {
-    //     name: "Chat Ai",
-    //     link: "/chat-ai"
-    // },
     {
-        name: "Image Editting",
-        link: "/image-editing"
+        name: "Image Editing",
+        link: "/image-home-screen"
+    },
+    {
+        name: "Image BG Removal",
+        link: "/image-bg-removal"
+    },
+    {
+        name: "GIF Maker",
+        link: "/gif-home-screen"
     },
     {
         name: "About",

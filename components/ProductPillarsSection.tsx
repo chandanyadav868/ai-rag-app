@@ -58,25 +58,6 @@ const PRODUCTS = [
     previewType: 'canvas'
   },
   {
-    id: 'image-ai',
-    title: 'AI Photorealistic & Art Generator',
-    badge: 'Prompt-to-Image AI',
-    badgeColor: 'border-pink-500/30 bg-pink-500/10 text-pink-400',
-    description: 'Transform words into breathtaking 8K visuals. Built-in smart prompt refiner expands simple concepts into richly detailed masterpieces with multiple aspect ratios and stylistic controls.',
-    href: '/image-ai',
-    gradient: 'from-pink-500 to-rose-600',
-    hoverBorder: 'hover:border-pink-500/40',
-    ctaText: 'Generate Images',
-    features: [
-      'Smart Prompt Expansion with Gemini AI Integration',
-      'Photorealism, Cyberpunk, 3D Render & Anime Aesthetic Styles',
-      'Multi-Aspect Ratio Presets (16:9, 1:1, 9:16, 4:5)',
-      'Direct 1-Click Export to Canvas Editor for Fine-Tuning'
-    ],
-    previewImg: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-    previewType: 'generator'
-  },
-  {
     id: 'gif-maker',
     title: 'Professional GIF Maker & Timeline Animator',
     badge: 'Keyframe Motion Studio',
@@ -110,12 +91,12 @@ export default function ProductPillarsSection() {
           Everything You Need to Create &amp; Polish
         </h2>
         <p className="mt-4 max-w-2xl text-slate-400 text-base sm:text-lg">
-          No fragmented apps or costly subscriptions. Four professional visual creative tools unified into one blazing-fast, privacy-first web studio.
+          No fragmented apps or costly subscriptions. Three professional visual creative tools unified into one blazing-fast, privacy-first web studio.
         </p>
       </div>
 
-      {/* 2x2 Feature Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* 3-Column Feature Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {PRODUCTS.map((prod) => (
           <div
             key={prod.id}

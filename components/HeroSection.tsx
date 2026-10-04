@@ -33,7 +33,7 @@ export default function HeroSection() {
 
         {/* Hero Value Subtitle */}
         <p className="text-slate-300 text-base sm:text-xl max-w-3xl mx-auto font-normal mb-8 leading-relaxed">
-          Remove backgrounds with neural precision, isolate objects by text prompt, edit on a multi-layer canvas, generate photorealistic images, and animate GIFs — all running 100% privately in your browser.
+          Remove backgrounds with neural precision, isolate objects by text prompt, edit on a multi-layer canvas, and animate GIFs — all running 100% privately in your browser.
         </p>
 
         {/* Primary Call to Action Buttons */}

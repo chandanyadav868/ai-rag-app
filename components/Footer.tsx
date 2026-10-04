@@ -3,9 +3,9 @@ import Link from 'next/link'
 import React from 'react'
 
 const servicesLinks = [
-  { name: "Image AI", link: "/image-home-screen" },
-  { name: "Gif Maker", link: "/gif-home-screen" },
-  { name: "Image BG Removal", link: "/image-bg-removal" }
+  { name: "Image Editing", link: "/image-home-screen" },
+  { name: "Image BG Removal", link: "/image-bg-removal" },
+  { name: "GIF Maker", link: "/gif-home-screen" }
 ];
 const companyLinks = [
   { name: "Home", link: "/" },

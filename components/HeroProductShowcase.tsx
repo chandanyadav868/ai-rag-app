@@ -20,7 +20,7 @@ import {
   Sliders
 } from 'lucide-react';
 
-type TabKey = 'bg-removal' | 'eraser' | 'image-gen' | 'gif-maker';
+type TabKey = 'bg-removal' | 'eraser' | 'gif-maker';
 
 export default function HeroProductShowcase() {
   const [activeTab, setActiveTab] = useState<TabKey>('bg-removal');
@@ -122,18 +122,6 @@ export default function HeroProductShowcase() {
         </button>
 
         <button
-          onClick={() => setActiveTab('image-gen')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-            activeTab === 'image-gen'
-              ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-500/25 scale-[1.02]'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <Sparkles size={16} />
-          <span>AI Image Generation</span>
-        </button>
-
-        <button
           onClick={() => setActiveTab('gif-maker')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
             activeTab === 'gif-maker'
@@ -160,7 +148,6 @@ export default function HeroProductShowcase() {
             <span className="text-xs font-semibold text-slate-400 border-l border-white/10 pl-3">
               {activeTab === 'bg-removal' && 'RMBG-1.4 Neural Matting Studio • Drag slider to test live'}
               {activeTab === 'eraser' && 'AI Inpainting & Object Removal • Clean Scenery Restoration'}
-              {activeTab === 'image-gen' && 'Photorealistic Art Generation • Prompt Engine'}
               {activeTab === 'gif-maker' && 'Frame Timeline & Motion Sequencer'}
             </span>
           </div>
@@ -201,8 +188,6 @@ export default function HeroProductShowcase() {
                   ? '/image-bg-removal'
                   : activeTab === 'eraser'
                   ? '/image-home-screen'
-                  : activeTab === 'image-gen'
-                  ? '/image-ai'
                   : '/gif-home-screen'
               }
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-cyan-500 text-white hover:text-slate-900 text-xs font-bold transition-all shadow"
@@ -254,7 +239,7 @@ export default function HeroProductShowcase() {
                 />
               </div>
 
-              {/* Right Side: Cutout Image (Simulated isolated dog cutout over backdrop) */}
+              {/* Right Side: Cutout Image (Real AI transparent pet cutout over backdrop) */}
               <div
                 className="absolute inset-0 overflow-hidden flex items-center justify-center pointer-events-none"
                 style={{
@@ -264,9 +249,9 @@ export default function HeroProductShowcase() {
                 }}
               >
                 <img
-                  src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=1200&q=80"
-                  alt="AI Cutout"
-                  className="max-w-full max-h-full object-contain pointer-events-none [mask-image:radial-gradient(ellipse_60%_80%_at_50%_52%,black_70%,transparent_100%)]"
+                  src="/images/golden-retriever-cutout.webp"
+                  alt="AI Transparent Cutout"
+                  className="max-w-full max-h-full object-contain pointer-events-none"
                 />
               </div>
 
@@ -322,37 +307,7 @@ export default function HeroProductShowcase() {
             </div>
           )}
 
-          {/* TAB 3: AI Text-to-Image Generation */}
-          {activeTab === 'image-gen' && (
-            <div className="relative w-full h-full flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#091528] to-[#040810]">
-              <div className="w-full max-w-2xl flex flex-col gap-4">
-                {/* Prompt Input Bar Mockup */}
-                <div className="flex items-center gap-3 bg-black/60 border border-white/15 rounded-2xl p-2.5 shadow-xl">
-                  <Sparkles size={18} className="text-pink-400 ml-2 shrink-0" />
-                  <p className="text-xs sm:text-sm text-slate-200 truncate flex-1 font-mono">
-                    &quot;Futuristic golden retriever in a holographic cyberpunk city, 8k ultra-detailed, cinematic lighting&quot;
-                  </p>
-                  <span className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shrink-0">
-                    Generated
-                  </span>
-                </div>
-
-                {/* Generated Result Showcase */}
-                <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-                  <img
-                    src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80"
-                    alt="AI Generated Artwork"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-semibold text-pink-300">
-                    Aspect: 16:9 • Style: Cinematic Digital Art
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: GIF Timeline Animator */}
+          {/* TAB 3: GIF Timeline Animator */}
           {activeTab === 'gif-maker' && (
             <div className="relative w-full h-full flex flex-col items-center justify-between p-6 bg-slate-950">
               {/* Preview Stage */}
