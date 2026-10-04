@@ -9,7 +9,6 @@ import { EditorLayerPanel } from './_components/EditorLayerPanel';
 import { EditorToolsPanel } from './_components/EditorToolsPanel';
 import { useImageEditor } from './_hooks/useImageEditor';
 import { MaskStudio } from './_components/MaskStudio';
-import { MagicEraserStudio } from './_components/MagicEraserStudio';
 
 function ProImageEditor() {
   const editor = useImageEditor();
@@ -68,20 +67,6 @@ function ProImageEditor() {
         mainFabricCanvas={editor.fabricJs}
         onApply={(url, opts) => editor.applyMask(url, opts)}
         assets={editor.assets}
-      />
-
-      {/* AI Magic Eraser Studio (Neural Inpainting) */}
-      <MagicEraserStudio
-        isOpen={editor.magicEraserOpen}
-        onClose={() => editor.setMagicEraserOpen(false)}
-        selectedId={editor.activeId}
-        mainFabricCanvas={editor.fabricJs?.current}
-        onApply={(newSrc) => {
-          if (editor.activeId) {
-            editor.replaceLayerImage(editor.activeId, newSrc);
-            editor.saveHistory();
-          }
-        }}
       />
     </div>
   );

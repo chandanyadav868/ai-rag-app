@@ -15,6 +15,7 @@ import {
   Triangle,
   UploadCloud,
   Wand2,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -494,24 +495,23 @@ export function EditorToolsPanelDrawer({
 
           <button
             onClick={() => {
-              if (!editor.activeId) {
-                toast.error("Select an image first to open Magic Eraser!");
-                return;
-              }
-              editor.setMagicEraserOpen(true);
+              toast.info("Neural Magic Eraser is locked to protect browser memory and prevent crashes. Cloud GPU integration coming soon!");
             }}
-            className="w-full flex items-center gap-3 rounded-xl border border-pink-500/20 bg-gradient-to-r from-pink-500/10 to-rose-500/10 p-3 text-left transition hover:border-pink-500/50 hover:bg-pink-500/20"
+            className="w-full flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-left opacity-70 hover:opacity-100 transition"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/20 text-pink-400">
-              <Wand2 size={18} />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white">Neural Magic Eraser</span>
-                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-pink-500/30 text-pink-300">AI</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10 text-pink-400">
+                <Wand2 size={18} />
               </div>
-              <div className="text-[10px] text-white/50">Brush away photobombers, wires & watermarks</div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-white">Neural Magic Eraser</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Locked</span>
+                </div>
+                <div className="text-[10px] text-white/40">Locked to protect browser memory and prevent tab crash</div>
+              </div>
             </div>
+            <Lock size={15} className="text-amber-400 shrink-0 mr-1" />
           </button>
         </div>
       )}
