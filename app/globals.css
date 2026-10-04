@@ -618,14 +618,27 @@ pre code.hljs, code.hljs, .hljs {
   background: rgba(34, 211, 238, 1);
 }
 
-/* Video AI Scan Animation */
-@keyframes scan {
-  0% { top: 0%; opacity: 0; }
-  5% { opacity: 1; }
-  95% { opacity: 1; }
-  100% { top: 100%; opacity: 0; }
+/* Touch Ergonomics & Safe Areas */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-.animate-scan {
-  animation: scan 3s linear infinite;
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 16px);
+}
+
+.canvas-touch-guard {
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -111,6 +111,61 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
     }
   };
 
+  const touchStateRef = useRef<{
+    initialDistance: number;
+    initialScale: number;
+    initialMidpoint: { x: number; y: number };
+    initialScroll: { left: number; top: number };
+  } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      const container = scrollContainerRef.current;
+      if (container) {
+        touchStateRef.current = {
+          initialDistance: dist,
+          initialScale: editor.viewportScale,
+          initialMidpoint: { x: midX, y: midY },
+          initialScroll: { left: container.scrollLeft, top: container.scrollTop },
+        };
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStateRef.current) {
+      e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+
+      const scaleFactor = dist / touchStateRef.current.initialDistance;
+      const newScale = Math.max(0.2, Math.min(3, Number((touchStateRef.current.initialScale * scaleFactor).toFixed(2))));
+      editor.setViewportScale(newScale);
+
+      const deltaX = midX - touchStateRef.current.initialMidpoint.x;
+      const deltaY = midY - touchStateRef.current.initialMidpoint.y;
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollLeft = touchStateRef.current.initialScroll.left - deltaX;
+        container.scrollTop = touchStateRef.current.initialScroll.top - deltaY;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      touchStateRef.current = null;
+    }
+  };
+
   const canPanMode = isSpacePressed || isAltPressed;
   const cursorClass = isPanning
     ? 'cursor-grabbing'
@@ -127,7 +182,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   const currentFrameSrc = editor.frames[currentFrameIdx];
 
   return (
-    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#07111f] flex flex-col justify-between">
+    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#07111f] flex flex-col justify-between canvas-touch-guard">
       {/* Subtle Dot Grid Background */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -194,6 +249,9 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
         onClick={(e) => {
           if (e.target === e.currentTarget && !isPanning) editor.deselectAll();

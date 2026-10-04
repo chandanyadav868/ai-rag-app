@@ -117,6 +117,8 @@ export default function ImageBgRemovalPage() {
   const [viewMode, setViewMode] = useState<'split' | 'cutout' | 'original' | 'side-by-side'>('split');
   const [sliderPosition, setSliderPosition] = useState<number>(50);
   const [activeBackdrop, setActiveBackdrop] = useState<string>('transparent');
+  const [shadowMode, setShadowMode] = useState<'none' | 'contact' | 'floating' | 'sunlight'>('none');
+  const [shadowIntensity, setShadowIntensity] = useState<number>(0.55);
   const [blurRadius, setBlurRadius] = useState<number>(18);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -299,10 +301,10 @@ export default function ImageBgRemovalPage() {
   };
 
   // Download single image (either transparent PNG or with current backdrop)
-  const downloadImage = async (item: ProcessedImage, withBackdrop = false) => {
+  const downloadImage = async (item: ProcessedImage, withBackdrop: boolean = false) => {
     if (!item.processedUrl) return;
 
-    if (!withBackdrop || activeBackdrop === 'transparent') {
+    if (!withBackdrop && shadowMode === 'none') {
       const a = document.createElement('a');
       a.href = item.processedUrl;
       a.download = `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout.png`;
@@ -311,7 +313,7 @@ export default function ImageBgRemovalPage() {
       return;
     }
 
-    // Composite with background
+    // Composite with background and/or shadow
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -324,43 +326,84 @@ export default function ImageBgRemovalPage() {
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
 
-    const backdropConfig = PRESET_BACKDROPS.find(b => b.id === activeBackdrop);
-    if (backdropConfig) {
-      if (backdropConfig.type === 'color') {
-        ctx.fillStyle = backdropConfig.value;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else if (backdropConfig.type === 'gradient') {
-        const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        if (backdropConfig.id === 'neon') {
-          grad.addColorStop(0, '#6366F1');
-          grad.addColorStop(1, '#A855F7');
-        } else if (backdropConfig.id === 'sunset') {
-          grad.addColorStop(0, '#F97316');
-          grad.addColorStop(1, '#EC4899');
-        } else {
-          grad.addColorStop(0, '#0EA5E9');
-          grad.addColorStop(1, '#3B82F6');
+    if (withBackdrop && activeBackdrop !== 'transparent') {
+      const backdropConfig = PRESET_BACKDROPS.find(b => b.id === activeBackdrop);
+      if (backdropConfig) {
+        if (backdropConfig.type === 'color') {
+          ctx.fillStyle = backdropConfig.value;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (backdropConfig.type === 'gradient') {
+          const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          if (backdropConfig.id === 'neon') {
+            grad.addColorStop(0, '#6366F1');
+            grad.addColorStop(1, '#A855F7');
+          } else if (backdropConfig.id === 'sunset') {
+            grad.addColorStop(0, '#F97316');
+            grad.addColorStop(1, '#EC4899');
+          } else {
+            grad.addColorStop(0, '#0EA5E9');
+            grad.addColorStop(1, '#3B82F6');
+          }
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (backdropConfig.type === 'blur') {
+          const origImg = new Image();
+          origImg.crossOrigin = 'anonymous';
+          origImg.src = item.originalUrl;
+          await new Promise(r => origImg.onload = r);
+          ctx.filter = `blur(${blurRadius}px)`;
+          ctx.drawImage(origImg, -20, -20, canvas.width + 40, canvas.height + 40);
+          ctx.filter = 'none';
         }
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else if (backdropConfig.type === 'blur') {
-        const origImg = new Image();
-        origImg.crossOrigin = 'anonymous';
-        origImg.src = item.originalUrl;
-        await new Promise(r => origImg.onload = r);
-        ctx.filter = `blur(${blurRadius}px)`;
-        ctx.drawImage(origImg, -20, -20, canvas.width + 40, canvas.height + 40);
-        ctx.filter = 'none';
       }
     }
 
-    ctx.drawImage(img, 0, 0);
+    // Draw shadow if enabled
+    if (shadowMode === 'contact') {
+      const cx = canvas.width / 2;
+      const cy = canvas.height * 0.94;
+      const rx = canvas.width * 0.35;
+      const ry = canvas.height * 0.055;
+      ctx.save();
+      ctx.beginPath();
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+      grad.addColorStop(0, `rgba(0,0,0,${shadowIntensity})`);
+      grad.addColorStop(0.5, `rgba(0,0,0,${shadowIntensity * 0.4})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.filter = `blur(${Math.max(6, Math.round(canvas.width * 0.015))}px)`;
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (shadowMode === 'floating') {
+      ctx.save();
+      ctx.shadowColor = `rgba(0,0,0,${shadowIntensity})`;
+      ctx.shadowBlur = Math.round(canvas.width * 0.035);
+      ctx.shadowOffsetY = Math.round(canvas.height * 0.03);
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+    } else if (shadowMode === 'sunlight') {
+      ctx.save();
+      ctx.shadowColor = `rgba(0,0,0,${shadowIntensity})`;
+      ctx.shadowBlur = Math.round(canvas.width * 0.025);
+      ctx.shadowOffsetX = Math.round(canvas.width * 0.025);
+      ctx.shadowOffsetY = Math.round(canvas.height * 0.035);
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+    }
+
+    if (shadowMode !== 'floating' && shadowMode !== 'sunlight') {
+      ctx.drawImage(img, 0, 0);
+    }
+
     const compositeUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = compositeUrl;
-    a.download = `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-backdrop.png`;
+    a.download = withBackdrop 
+      ? `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-backdrop.png`
+      : `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout-shadow.png`;
     a.click();
-    toast.success('Downloaded with studio backdrop!');
+    toast.success(withBackdrop ? 'Downloaded with studio backdrop!' : 'Downloaded cutout with shadow!');
   };
 
   // Download all completed as ZIP
@@ -817,6 +860,59 @@ export default function ImageBgRemovalPage() {
                 )}
               </div>
 
+              {/* E-Commerce Product Studio & Shadow Generator */}
+              <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-amber-400" />
+                    Product Contact Shadows
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                    E-Commerce
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'none', label: 'Crisp Cutout', desc: 'Pure Alpha' },
+                    { id: 'contact', label: 'Floor Contact', desc: 'Amazon / Shopify' },
+                    { id: 'floating', label: 'Soft Floating', desc: 'Apple Glow' },
+                    { id: 'sunlight', label: 'Sunlight Cast', desc: '45° Directional' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setShadowMode(s.id as any)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        shadowMode === s.id
+                          ? 'border-amber-400 bg-amber-500/10 text-white shadow-md shadow-amber-500/10'
+                          : 'border-white/10 bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <div className="text-xs font-bold">{s.label}</div>
+                      <div className="text-[10px] text-white/40 mt-0.5">{s.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {shadowMode !== 'none' && (
+                  <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Shadow Density</span>
+                      <span className="font-mono text-amber-400">{Math.round(shadowIntensity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="0.9"
+                      step="0.05"
+                      value={shadowIntensity}
+                      onChange={(e) => setShadowIntensity(parseFloat(e.target.value))}
+                      className="accent-amber-400 h-1 bg-white/10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Quick Actions Panel */}
               <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 pb-2">
@@ -961,11 +1057,30 @@ export default function ImageBgRemovalPage() {
                 >
                   {/* Mode: Cutout Only */}
                   {viewMode === 'cutout' && (
-                    <img
-                      src={activeImage.processedUrl || activeImage.originalUrl}
-                      alt="Processed Cutout"
-                      className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-2xl"
-                    />
+                    <div className="relative max-w-full max-h-full flex items-center justify-center">
+                      {shadowMode === 'contact' && (
+                        <div
+                          className="absolute bottom-[3%] w-[68%] h-[12%] rounded-[100%] pointer-events-none transition-all"
+                          style={{
+                            background: `radial-gradient(ellipse at center, rgba(0,0,0,${shadowIntensity}) 0%, rgba(0,0,0,${shadowIntensity * 0.4}) 45%, transparent 75%)`,
+                            filter: 'blur(10px)',
+                          }}
+                        />
+                      )}
+                      <img
+                        src={activeImage.processedUrl || activeImage.originalUrl}
+                        alt="Processed Cutout"
+                        className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-2xl"
+                        style={{
+                          filter:
+                            shadowMode === 'floating'
+                              ? `drop-shadow(0 25px 25px rgba(0,0,0,${shadowIntensity}))`
+                              : shadowMode === 'sunlight'
+                              ? `drop-shadow(20px 25px 20px rgba(0,0,0,${shadowIntensity}))`
+                              : undefined
+                        }}
+                      />
+                    </div>
                   )}
 
                   {/* Mode: Original Only */}
@@ -988,8 +1103,12 @@ export default function ImageBgRemovalPage() {
                       />
                     ) : (
                       <div
-                        className="relative w-full h-full flex items-center justify-center overflow-hidden select-none cursor-ew-resize"
+                        className="relative w-full h-full flex items-center justify-center overflow-hidden select-none cursor-ew-resize touch-none"
                         onMouseDown={handleMouseDown}
+                        onTouchStart={(e) => {
+                          isDraggingSlider.current = true;
+                          if (e.touches[0]) handleSliderMove(e.touches[0].clientX);
+                        }}
                       >
                         {/* Sizing placeholder maintaining container aspect ratio */}
                         <img
@@ -1023,11 +1142,30 @@ export default function ImageBgRemovalPage() {
                             transform: 'translateZ(0)'
                           }}
                         >
-                          <img
-                            src={activeImage.processedUrl}
-                            alt="Processed Cutout"
-                            className="max-w-full max-h-full object-contain pointer-events-none"
-                          />
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            {shadowMode === 'contact' && (
+                              <div
+                                className="absolute bottom-[3%] w-[68%] h-[12%] rounded-[100%] pointer-events-none transition-all"
+                                style={{
+                                  background: `radial-gradient(ellipse at center, rgba(0,0,0,${shadowIntensity}) 0%, rgba(0,0,0,${shadowIntensity * 0.4}) 45%, transparent 75%)`,
+                                  filter: 'blur(10px)',
+                                }}
+                              />
+                            )}
+                            <img
+                              src={activeImage.processedUrl}
+                              alt="Processed Cutout"
+                              className="max-w-full max-h-full object-contain pointer-events-none"
+                              style={{
+                                filter:
+                                  shadowMode === 'floating'
+                                    ? `drop-shadow(0 25px 25px rgba(0,0,0,${shadowIntensity}))`
+                                    : shadowMode === 'sunlight'
+                                    ? `drop-shadow(20px 25px 20px rgba(0,0,0,${shadowIntensity}))`
+                                    : undefined
+                              }}
+                            />
+                          </div>
                         </div>
 
                         {/* Draggable Divider Handle */}
@@ -1035,8 +1173,8 @@ export default function ImageBgRemovalPage() {
                           className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-[0_0_15px_rgba(255,255,255,0.7)] flex items-center justify-center pointer-events-none"
                           style={{ left: `${sliderPosition}%`, willChange: 'left', transform: 'translateZ(0)' }}
                         >
-                          <div className="w-8 h-8 -ml-3.5 rounded-full bg-white text-slate-900 shadow-xl flex items-center justify-center border-2 border-slate-900/20 active:scale-110 transition-transform">
-                            <SplitSquareVertical size={16} />
+                          <div className="w-10 h-10 -ml-4.5 rounded-full bg-white text-slate-900 shadow-2xl flex items-center justify-center border-2 border-slate-900/20 active:scale-110 transition-transform cursor-ew-resize">
+                            <SplitSquareVertical size={18} />
                           </div>
                         </div>
 

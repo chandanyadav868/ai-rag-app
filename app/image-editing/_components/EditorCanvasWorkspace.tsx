@@ -1,6 +1,20 @@
 "use client";
 
-import { Hand, Maximize2, Minus, Move, Plus } from 'lucide-react';
+import { 
+  Hand, 
+  Maximize2, 
+  Minus, 
+  Move, 
+  Plus, 
+  Copy, 
+  Trash2, 
+  FlipHorizontal, 
+  FlipVertical, 
+  ArrowUp, 
+  ArrowDown, 
+  Lock, 
+  Unlock 
+} from 'lucide-react';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface EditorCanvasWorkspaceProps {
@@ -8,11 +22,19 @@ interface EditorCanvasWorkspaceProps {
 }
 
 export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
+  const workspaceSectionRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isAltPressed, setIsAltPressed] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  const touchStateRef = useRef<{
+    initialDistance: number;
+    initialScale: number;
+    initialMidpoint: { x: number; y: number };
+    initialScroll: { left: number; top: number };
+  } | null>(null);
 
   // Center canvas in viewport on mount and when dimensions change
   const centerCanvas = useCallback(() => {
@@ -28,6 +50,23 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
     const timer = setTimeout(centerCanvas, 50);
     return () => clearTimeout(timer);
   }, [editor.canvasDimensions.width, editor.canvasDimensions.height, centerCanvas]);
+
+  // Responsive ResizeObserver for orientation / viewport resizing
+  useEffect(() => {
+    if (!workspaceSectionRef.current) return;
+    let prevWidth = workspaceSectionRef.current.clientWidth;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const currentWidth = entry.contentRect.width;
+        if (Math.abs(currentWidth - prevWidth) > 80) {
+          prevWidth = currentWidth;
+          centerCanvas();
+        }
+      }
+    });
+    observer.observe(workspaceSectionRef.current);
+    return () => observer.disconnect();
+  }, [centerCanvas]);
 
   // Track Space and Alt keys for panning
   useEffect(() => {
@@ -101,12 +140,105 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
     }
   };
 
+  // Two-finger touch gestures: pinch-to-zoom & two-finger pan
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      const container = scrollContainerRef.current;
+      if (container) {
+        touchStateRef.current = {
+          initialDistance: dist,
+          initialScale: editor.viewportScale,
+          initialMidpoint: { x: midX, y: midY },
+          initialScroll: { left: container.scrollLeft, top: container.scrollTop },
+        };
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStateRef.current) {
+      e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+
+      // Pinch zoom
+      const scaleFactor = dist / touchStateRef.current.initialDistance;
+      const newScale = Math.max(0.2, Math.min(3, Number((touchStateRef.current.initialScale * scaleFactor).toFixed(2))));
+      editor.resizeCanvas("intial", newScale);
+
+      // Two-finger pan
+      const deltaX = midX - touchStateRef.current.initialMidpoint.x;
+      const deltaY = midY - touchStateRef.current.initialMidpoint.y;
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollLeft = touchStateRef.current.initialScroll.left - deltaX;
+        container.scrollTop = touchStateRef.current.initialScroll.top - deltaY;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      touchStateRef.current = null;
+    }
+  };
+
   // Ctrl + Wheel / Pinch Zoom support on workspace container
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       editor.resizeCanvas(delta > 0 ? "ZoomIn" : "ZoomOut", Math.abs(delta));
+    }
+  };
+
+  // Active object actions
+  const activeLayer = editor.state.find((l) => l.id === editor.activeId);
+  const isLayerLocked = activeLayer?.layerlock ?? false;
+
+  const handleFlipH = () => {
+    const activeObj = editor.fabricJs.current?.getActiveObject();
+    if (activeObj) {
+      activeObj.set('flipX', !activeObj.flipX);
+      activeObj.setCoords();
+      editor.fabricJs.current?.requestRenderAll();
+      editor.saveHistory();
+    }
+  };
+
+  const handleFlipV = () => {
+    const activeObj = editor.fabricJs.current?.getActiveObject();
+    if (activeObj) {
+      activeObj.set('flipY', !activeObj.flipY);
+      activeObj.setCoords();
+      editor.fabricJs.current?.requestRenderAll();
+      editor.saveHistory();
+    }
+  };
+
+  const handleBringForward = () => {
+    const activeObj = editor.fabricJs.current?.getActiveObject();
+    if (activeObj && editor.fabricJs.current) {
+      editor.fabricJs.current.bringObjectForward(activeObj);
+      editor.fabricJs.current.requestRenderAll();
+      editor.saveHistory();
+    }
+  };
+
+  const handleSendBackwards = () => {
+    const activeObj = editor.fabricJs.current?.getActiveObject();
+    if (activeObj && editor.fabricJs.current) {
+      editor.fabricJs.current.sendObjectBackwards(activeObj);
+      editor.fabricJs.current.requestRenderAll();
+      editor.saveHistory();
     }
   };
 
@@ -122,7 +254,10 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   const scaledHeight = Math.round(editor.canvasDimensions.height * editor.viewportScale);
 
   return (
-    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#090d16] flex flex-col justify-between">
+    <section 
+      ref={workspaceSectionRef}
+      className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#090d16] flex flex-col justify-between canvas-touch-guard"
+    >
       {/* Subtle Dot Grid Background */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -132,6 +267,65 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         }}
       />
 
+      {/* Floating Quick Action Bar for selected element */}
+      {editor.activeId && (
+        <div className="absolute top-3 sm:top-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-1.5 rounded-2xl border border-white/10 bg-[#0e1420]/95 px-2.5 py-1 sm:px-3 sm:py-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in duration-200">
+          <button
+            onClick={() => editor.activeId && editor.copyLayer(editor.activeId)}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white transition active:scale-95"
+            title="Duplicate Layer"
+          >
+            <Copy size={13} />
+          </button>
+          <button
+            onClick={handleFlipH}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white transition active:scale-95"
+            title="Flip Horizontal"
+          >
+            <FlipHorizontal size={13} />
+          </button>
+          <button
+            onClick={handleFlipV}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white transition active:scale-95"
+            title="Flip Vertical"
+          >
+            <FlipVertical size={13} />
+          </button>
+          <button
+            onClick={handleBringForward}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white transition active:scale-95"
+            title="Bring Forward"
+          >
+            <ArrowUp size={13} />
+          </button>
+          <button
+            onClick={handleSendBackwards}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white transition active:scale-95"
+            title="Send Backward"
+          >
+            <ArrowDown size={13} />
+          </button>
+          <button
+            onClick={() => editor.activeId && editor.lockLayer(editor.activeId)}
+            className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl transition active:scale-95 ${
+              isLayerLocked 
+                ? 'bg-amber-500/20 text-amber-300' 
+                : 'bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+            title={isLayerLocked ? "Unlock Layer" : "Lock Layer"}
+          >
+            {isLayerLocked ? <Lock size={13} /> : <Unlock size={13} />}
+          </button>
+          <button
+            onClick={() => editor.activeId && editor.deleteLayer(editor.activeId)}
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition active:scale-95"
+            title="Delete Layer"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+
       {/* Main Interactive Canvas Scrollable Viewport without flex scroll clipping */}
       <div
         ref={scrollContainerRef}
@@ -139,6 +333,9 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
         onClick={(e) => {
           if (e.target === e.currentTarget && !isPanning) editor.deselectAll();
@@ -191,7 +388,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#0c1017]/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl">
         <span className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold text-white/40 border-r border-white/[0.08] pr-2.5">
           <Move size={11} />
-          <span>Alt / Space + Drag to Pan</span>
+          <span>Alt / Space + Drag or Pinch to Pan</span>
         </span>
 
         <button
@@ -232,4 +429,5 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
     </section>
   );
 }
+
 

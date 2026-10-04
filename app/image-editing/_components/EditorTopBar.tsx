@@ -132,8 +132,8 @@ export function EditorTopBar({ editor, onOpenExport, onOpenResize }: EditorTopBa
           <span>{editor.canvasDimensions.width} × {editor.canvasDimensions.height}</span>
         </button>
 
-        {/* Multi-Page Tabs */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+        {/* Multi-Page Tabs (Hidden on very small screens, visible on sm+) */}
+        <div className="hidden sm:flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
           <div className="flex items-center gap-1 max-w-[180px] sm:max-w-[280px] overflow-x-auto custom-scrollbar">
             {editor.pages.map((p, idx) => {
               const isActive = editor.activePageIndex === idx;
@@ -262,7 +262,7 @@ export function EditorTopBar({ editor, onOpenExport, onOpenResize }: EditorTopBa
         {/* Panel Toggles */}
         <button
           onClick={() => editor.setLeftPanelOpen(!editor.leftPanelOpen)}
-          className={`flex h-8 w-8 items-center justify-center rounded-xl border transition ${
+          className={`hidden md:flex h-8 w-8 items-center justify-center rounded-xl border transition ${
             editor.leftPanelOpen 
               ? 'border-violet-500/40 bg-violet-600/20 text-violet-300' 
               : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:text-white'

@@ -1,12 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { EditorTopBar } from './_components/EditorTopBar';
 import { EditorCanvasWorkspace } from './_components/EditorCanvasWorkspace';
 import { EditorLayerPanel } from './_components/EditorLayerPanel';
 import { EditorToolsPanel } from './_components/EditorToolsPanel';
 import { useGifEditor } from './_hooks/useGifEditor';
 import { GifPreviewModal } from './_components/GifPreviewModal';
+import { toast } from 'sonner';
 
 import { createPortal } from 'react-dom';
 import EditTool from '@/components/EditTool';
@@ -14,6 +15,25 @@ import { MaskStudio } from './_components/MaskStudio';
 
 function ProGifMaker() {
   const editor = useGifEditor();
+
+  // Seamless Creative Pipeline: Import design handed off from /image-editing
+  useEffect(() => {
+    try {
+      const importedFrame = sessionStorage.getItem('polish_ai_imported_gif_frame');
+      if (importedFrame) {
+        sessionStorage.removeItem('polish_ai_imported_gif_frame');
+        setTimeout(() => {
+          editor.insertImageFromUrl(importedFrame);
+          setTimeout(() => {
+            editor.addFrame();
+            toast.success("Imported design from Studio as Frame #1!");
+          }, 400);
+        }, 300);
+      }
+    } catch (e) {
+      console.error("Failed to load imported frame:", e);
+    }
+  }, [editor.insertImageFromUrl, editor.addFrame]);
   
   return (
     <div id="gifMakerContainer" className="flex flex-col h-screen w-screen overflow-hidden bg-[#07111f] text-white select-none">
