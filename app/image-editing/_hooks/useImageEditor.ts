@@ -92,6 +92,7 @@ export function useImageEditor() {
   const [customFonts, setCustomFonts] = useState<{ name: string, data: string }[]>([]);
   const [fontLoading, setFontLoading] = useState(false);
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
+  const [magicEraserOpen, setMagicEraserOpen] = useState(false);
   const [assetSaveOpen, setAssetSaveOpen] = useState(false);
   const [assetSaveLayerId, setAssetSaveLayerId] = useState<string | null>(null);
   const [assetSaveToPublic, setAssetSaveToPublic] = useState(false);
@@ -101,6 +102,7 @@ export function useImageEditor() {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const isHistoryAction = useRef(false);
   const maskStudioOpenRef = useRef(false);
+  const magicEraserOpenRef = useRef(false);
   const aiEditRef = useRef(aiEdit);
   const pagesRef = useRef(pages);
   const activePageIndexRef = useRef(activePageIndex);
@@ -169,6 +171,10 @@ export function useImageEditor() {
   useEffect(() => {
     maskStudioOpenRef.current = maskStudioOpen;
   }, [maskStudioOpen]);
+
+  useEffect(() => {
+    magicEraserOpenRef.current = magicEraserOpen;
+  }, [magicEraserOpen]);
 
   useEffect(() => {
     aiEditRef.current = aiEdit;
@@ -2551,6 +2557,8 @@ export function useImageEditor() {
     fontLoading,
     maskStudioOpen,
     setMaskStudioOpen,
+    magicEraserOpen,
+    setMagicEraserOpen,
     applyMask,
     replaceLayerImage,
     // New exports

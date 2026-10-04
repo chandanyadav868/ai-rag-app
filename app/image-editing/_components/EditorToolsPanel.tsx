@@ -373,6 +373,18 @@ export function EditorToolsPanel({
         </button>
 
         <button
+          onClick={() => handleToolClick('ai')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+            activeDrawer === 'ai'
+              ? 'text-pink-400 font-bold'
+              : 'text-white/50 hover:text-white'
+          }`}
+        >
+          <Sparkles size={16} className="text-amber-300" />
+          <span className="text-[9px] mt-0.5">AI</span>
+        </button>
+
+        <button
           onClick={() => handleToolClick('thumbnail')}
           className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
             activeDrawer === 'thumbnail'

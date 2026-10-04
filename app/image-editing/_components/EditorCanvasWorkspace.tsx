@@ -13,7 +13,8 @@ import {
   ArrowUp, 
   ArrowDown, 
   Lock, 
-  Unlock 
+  Unlock,
+  Wand2 
 } from 'lucide-react';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
@@ -276,6 +277,14 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
             title="Duplicate Layer"
           >
             <Copy size={13} />
+          </button>
+          <button
+            onClick={() => editor.setMagicEraserOpen(true)}
+            className="flex h-7 px-2 sm:h-8 sm:px-2.5 items-center gap-1 rounded-xl bg-gradient-to-r from-pink-500/20 to-rose-500/20 text-pink-300 border border-pink-500/30 hover:border-pink-500/60 hover:from-pink-500/30 hover:to-rose-500/30 transition active:scale-95"
+            title="AI Magic Eraser (Inpaint)"
+          >
+            <Wand2 size={12} className="text-pink-400" />
+            <span className="text-[10px] font-bold hidden sm:inline">Magic Erase</span>
           </button>
           <button
             onClick={handleFlipH}
