@@ -17,11 +17,15 @@ import {
   Eye, 
   Cpu, 
   Zap,
-  Undo2
+  Undo2,
+  Search,
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FabricImage } from 'fabric';
 import { useMagicEraser } from '../_hooks/useMagicEraser';
+import { useBackgroundRemoval } from '../_hooks/useBackgroundRemoval';
 
 interface MagicEraserStudioProps {
   isOpen: boolean;
@@ -41,10 +45,20 @@ export function MagicEraserStudio({
   const containerRef = useRef<HTMLDivElement>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const cursorCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Magic eraser neural hook
-  const { status, isProcessing, progressMessage, deviceType, inpaint } = useMagicEraser();
+  // Magic eraser neural hook (LaMa ONNX)
+  const { 
+    status, 
+    isProcessing, 
+    isLoading, 
+    progressMessage, 
+    progressPercent, 
+    deviceType, 
+    inpaint 
+  } = useMagicEraser();
+
+  // Background removal hook for CLIPSeg prompt-based object isolation
+  const { removeBackground } = useBackgroundRemoval();
 
   // State
   const [brushSize, setBrushSize] = useState<number>(32);
@@ -58,8 +72,21 @@ export function MagicEraserStudio({
   const [showOriginal, setShowOriginal] = useState(false);
   const [maskHistory, setMaskHistory] = useState<ImageData[]>([]);
 
+  // Prompt-guided object detection
+  const [promptText, setPromptText] = useState('');
+  const [isPromptDetecting, setIsPromptDetecting] = useState(false);
+
   // Track cursor position for custom brush ring
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Quick prompt suggestions
+  const QUICK_PROMPTS = [
+    { label: '👔 Tie', prompt: 'tie' },
+    { label: '👓 Glasses', prompt: 'glasses' },
+    { label: '🏷️ Watermark', prompt: 'watermark' },
+    { label: '⌚ Watch', prompt: 'watch' },
+    { label: '☕ Cup', prompt: 'cup' }
+  ];
 
   // Load the selected Fabric image
   useEffect(() => {
@@ -83,6 +110,7 @@ export function MagicEraserStudio({
         setHasMask(false);
         setMaskHistory([]);
         setPan({ x: 0, y: 0 });
+        setPromptText('');
       };
       img.src = src;
     } else {
@@ -174,7 +202,7 @@ export function MagicEraserStudio({
     ctx.save();
     if (brushMode === 'paint') {
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.65)'; // Neon Pink / Rose
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.7)'; // Neon Rose Pink
       ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)';
       ctx.lineWidth = brushSize;
       ctx.lineCap = 'round';
@@ -225,7 +253,7 @@ export function MagicEraserStudio({
     checkIfMaskExists();
   };
 
-  // Run inpainting
+  // Run LaMa neural inpainting on drawn mask
   const handleInpaint = async () => {
     if (!sourceImage || !maskCanvasRef.current) return;
     if (!hasMask) {
@@ -238,10 +266,79 @@ export function MagicEraserStudio({
       const resultDataUrl = await inpaint(activeSource, maskCanvasRef.current);
       setInpaintedResult(resultDataUrl);
       clearMask();
-      toast.success('Object cleanly erased and background restored!');
+      toast.success('Cleanly erased with LaMa Neural Model!');
     } catch (err: any) {
       console.error(err);
-      toast.error('Inpainting failed. Please try again.');
+      toast.error('Inpainting failed. Please check your network and try again.');
+    }
+  };
+
+  // Handle prompt-driven object detection + LaMa inpainting
+  const handlePromptErase = async (textToErase: string) => {
+    if (!sourceImage || !maskCanvasRef.current) return;
+    const target = textToErase.trim();
+    if (!target) {
+      toast.error('Please enter what you want to erase (e.g. tie, glasses, watermark).');
+      return;
+    }
+
+    try {
+      setIsPromptDetecting(true);
+      toast.info(`Detecting "${target}" with Neural Vision...`);
+
+      // Use CLIPSeg to locate the target object
+      const activeSourceSrc = inpaintedResult || sourceImage.src;
+      const resultUrl = await removeBackground(activeSourceSrc, {
+        mode: 'prompt',
+        prompt: target,
+        threshold: 0.28
+      });
+
+      if (resultUrl) {
+        // Draw the extracted mask onto mask canvas
+        const maskImg = new Image();
+        maskImg.crossOrigin = 'anonymous';
+        maskImg.onload = async () => {
+          const mCanvas = maskCanvasRef.current!;
+          const mCtx = mCanvas.getContext('2d')!;
+          mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+
+          // Render neon mask
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = mCanvas.width;
+          tempCanvas.height = mCanvas.height;
+          const tempCtx = tempCanvas.getContext('2d')!;
+          tempCtx.drawImage(maskImg, 0, 0, tempCanvas.width, tempCanvas.height);
+          const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+          for (let i = 0; i < imgData.data.length; i += 4) {
+            if (imgData.data[i + 3] > 25) {
+              imgData.data[i] = 244;
+              imgData.data[i + 1] = 63;
+              imgData.data[i + 2] = 94;
+              imgData.data[i + 3] = 190;
+            } else {
+              imgData.data[i + 3] = 0;
+            }
+          }
+
+          mCtx.putImageData(imgData, 0, 0);
+          setHasMask(true);
+
+          toast.success(`Found "${target}"! Inpainting with LaMa...`);
+          const activeSource = (inpaintedResult ? imageCanvasRef.current : sourceImage) as any;
+          const inpaintedUrl = await inpaint(activeSource, mCanvas);
+          setInpaintedResult(inpaintedUrl);
+          clearMask();
+          toast.success(`Successfully removed "${target}"!`);
+        };
+        maskImg.src = resultUrl;
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Could not automatically locate "${target}". You can brush over it manually.`);
+    } finally {
+      setIsPromptDetecting(false);
     }
   };
 
@@ -259,68 +356,136 @@ export function MagicEraserStudio({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/90 backdrop-blur-2xl text-white select-none animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95 backdrop-blur-2xl text-white select-none animate-in fade-in duration-300">
       {/* Top Header Bar */}
-      <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 bg-slate-900/60 shrink-0">
+      <header className="flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-white/10 bg-slate-900/70 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-pink-500/25">
-            <Wand2 className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-pink-500/25">
+            <Wand2 className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-pink-200">
-                Magic Eraser Studio
+              <h2 className="text-sm sm:text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-pink-200">
+                LaMa Neural Magic Eraser
               </h2>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                <Sparkles className="w-3 h-3" /> Neural Inpaint
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                <Sparkles className="w-2.5 h-2.5" /> LaMa ONNX
               </span>
             </div>
-            <p className="text-xs text-slate-400 hidden sm:block">
-              Brush over photobombers, wires, or watermarks to seamlessly restore the background
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              Type what to erase or brush manually to restore background with Fast Fourier Convolutions
             </p>
           </div>
         </div>
 
         {/* Hardware & Actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
             <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{deviceType === 'webgpu' ? 'WebGPU Accelerated' : 'WASM SIMD Engine'}</span>
+            <span>{deviceType === 'webgpu' ? 'WebGPU Accelerated' : 'WASM Engine'}</span>
           </div>
 
           <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 border border-white/10">
             <button 
               onClick={() => setZoom(z => Math.max(0.2, z - 0.2))} 
-              className="p-1.5 hover:bg-white/10 rounded-lg text-slate-300"
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-300"
               title="Zoom Out"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-xs font-mono px-1 text-slate-300">{Math.round(zoom * 100)}%</span>
+            <span className="text-[11px] font-mono px-1 text-slate-300">{Math.round(zoom * 100)}%</span>
             <button 
               onClick={() => setZoom(z => Math.min(3, z + 0.2))} 
-              className="p-1.5 hover:bg-white/10 rounded-lg text-slate-300"
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-300"
               title="Zoom In"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button 
               onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} 
-              className="p-1.5 hover:bg-white/10 rounded-lg text-slate-300"
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-300"
               title="Reset View"
             >
-              <Maximize2 className="w-4 h-4" />
+              <Maximize2 className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       </header>
+
+      {/* Model Download Progress Bar Banner (Shown during first-time download) */}
+      {isLoading && (
+        <div className="bg-gradient-to-r from-pink-950/80 via-slate-900 to-indigo-950/80 border-b border-pink-500/30 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-pink-300">
+            <Download className="w-4 h-4 animate-bounce text-pink-400" />
+            <span className="font-semibold">{progressMessage || 'Downloading LaMa Neural Model (208 MB)...'}</span>
+          </div>
+          <div className="flex items-center gap-3 sm:w-64">
+            <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-pink-500 to-amber-400 transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <span className="font-mono text-pink-300 font-bold">{progressPercent}%</span>
+          </div>
+        </div>
+      )}
+
+      {/* Prompt-Guided Removal Bar (Freedom of removing by prompt box as requested) */}
+      <div className="bg-slate-900/90 border-b border-white/10 px-4 py-2 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-[260px] bg-white/5 rounded-2xl px-3 py-1.5 border border-white/10 focus-within:border-pink-500/50 transition">
+          <Search className="w-4 h-4 text-pink-400 shrink-0" />
+          <input
+            type="text"
+            value={promptText}
+            onChange={(e) => setPromptText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handlePromptErase(promptText);
+            }}
+            placeholder="Type what to erase (e.g. tie, glasses, coffee cup, watermark)..."
+            className="w-full bg-transparent text-xs text-white placeholder-slate-400 outline-none"
+          />
+          <button
+            onClick={() => handlePromptErase(promptText)}
+            disabled={!promptText.trim() || isPromptDetecting || isProcessing}
+            className="flex items-center gap-1 px-3 py-1 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-md shadow-pink-500/25 disabled:opacity-40 transition"
+          >
+            {isPromptDetecting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <span>Erase</span>
+                <ArrowRight className="w-3 h-3" />
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Quick Prompt Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <span className="text-[10px] text-slate-400 uppercase font-bold mr-1 hidden sm:inline">Quick:</span>
+          {QUICK_PROMPTS.map((item) => (
+            <button
+              key={item.prompt}
+              onClick={() => {
+                setPromptText(item.prompt);
+                handlePromptErase(item.prompt);
+              }}
+              disabled={isPromptDetecting || isProcessing}
+              className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-pink-500/20 text-slate-300 hover:text-pink-300 text-xs border border-white/10 hover:border-pink-500/30 transition shrink-0 active:scale-95"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Main Viewport & Canvas Area */}
       <main 
@@ -336,13 +501,13 @@ export function MagicEraserStudio({
           style={{
             transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
             maxWidth: '90vw',
-            maxHeight: '75vh'
+            maxHeight: '70vh'
           }}
         >
           {/* Base Image Canvas */}
           <canvas 
             ref={imageCanvasRef} 
-            className="block max-w-full max-h-[72vh] object-contain pointer-events-none" 
+            className="block max-w-full max-h-[68vh] object-contain pointer-events-none" 
           />
 
           {/* Mask Drawing Overlay Canvas */}
@@ -366,18 +531,22 @@ export function MagicEraserStudio({
         )}
 
         {/* Processing Indicator Badge */}
-        {isProcessing && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-2xl bg-slate-900/90 border border-pink-500/40 shadow-2xl backdrop-blur-xl flex items-center gap-3 text-pink-300 animate-pulse">
+        {(isProcessing || isPromptDetecting) && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-2xl bg-slate-900/90 border border-pink-500/40 shadow-2xl backdrop-blur-xl flex items-center gap-3 text-pink-300 animate-pulse z-50">
             <Loader2 className="w-5 h-5 animate-spin text-pink-400" />
-            <span className="text-sm font-semibold">{progressMessage || 'Synthesizing neural inpaint...'}</span>
+            <span className="text-sm font-semibold">
+              {isPromptDetecting 
+                ? 'Locating object with Neural Vision...' 
+                : progressMessage || 'LaMa is reconstructing background...'}
+            </span>
           </div>
         )}
       </main>
 
       {/* Bottom Floating Control Bar */}
-      <footer className="p-4 sm:p-5 border-t border-white/10 bg-slate-900/80 backdrop-blur-xl shrink-0 flex flex-wrap items-center justify-between gap-4">
+      <footer className="p-3 sm:p-4 border-t border-white/10 bg-slate-900/80 backdrop-blur-xl shrink-0 flex flex-wrap items-center justify-between gap-3">
         {/* Left: Brush Tools */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Brush / Unmask Mode */}
           <div className="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
             <button
@@ -414,9 +583,9 @@ export function MagicEraserStudio({
               max="100"
               value={brushSize}
               onChange={(e) => setBrushSize(Number(e.target.value))}
-              className="w-24 sm:w-32 accent-pink-500 cursor-pointer"
+              className="w-20 sm:w-28 accent-pink-500 cursor-pointer"
             />
-            <span className="text-xs font-mono text-pink-300 w-7">{brushSize}px</span>
+            <span className="text-xs font-mono text-pink-300 w-6">{brushSize}px</span>
           </div>
 
           {/* Undo Mask Stroke */}
@@ -459,13 +628,13 @@ export function MagicEraserStudio({
           {/* Erase Object Button */}
           <button
             onClick={handleInpaint}
-            disabled={!hasMask || isProcessing}
+            disabled={!hasMask || isProcessing || isLoading}
             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-600 hover:to-amber-600 text-white font-bold text-xs sm:text-sm shadow-xl shadow-pink-500/25 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all"
           >
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Erasing...</span>
+                <span>LaMa Inpainting...</span>
               </>
             ) : (
               <>

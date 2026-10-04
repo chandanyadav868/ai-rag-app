@@ -1,9 +1,11 @@
 // @ts-nocheck
-import { env, RawImage } from '@huggingface/transformers';
+import * as ort from 'onnxruntime-web';
 
-// Browser cache for ONNX models
-env.allowLocalModels = false;
-env.useBrowserCache = true;
+// Global cache and session
+let session: ort.InferenceSession | null = null;
+let isInitializing = false;
+const MODEL_URL = 'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx';
+const MODEL_TOTAL_BYTES = 208044816; // ~208 MB
 
 function getOptimalDevice(): 'webgpu' | 'wasm' {
     if (typeof self !== 'undefined' && self.navigator && (self.navigator as any).gpu) {
@@ -13,146 +15,184 @@ function getOptimalDevice(): 'webgpu' | 'wasm' {
 }
 
 /**
- * Adaptive Multi-Scale Neural Patch Synthesis
- * Synthesizes boundary textures into masked regions using Poisson-Laplacian gradient diffusion
- * with contextual neighborhood matching.
+ * Downloads and caches the 208MB LaMa ONNX model weights in the browser Cache API
  */
-function fastNeuralInpaint(
-    imagePixels: Uint8ClampedArray,
-    maskPixels: Uint8ClampedArray,
-    width: number,
-    height: number,
-    iterations = 35
+async function getModelArrayBuffer(): Promise<ArrayBuffer> {
+    const cacheName = 'lama-onnx-model-cache-v1';
+
+    let cache: Cache | null = null;
+    try {
+        if (typeof caches !== 'undefined') {
+            cache = await caches.open(cacheName);
+            const cachedRes = await cache.match(MODEL_URL);
+            if (cachedRes) {
+                self.postMessage({
+                    status: 'loading',
+                    message: 'Loading LaMa Neural Model from local cache...',
+                    progress: 95
+                });
+                return await cachedRes.arrayBuffer();
+            }
+        }
+    } catch (e) {
+        console.warn('[LaMa Worker] Cache API not accessible, downloading directly:', e);
+    }
+
+    self.postMessage({
+        status: 'loading',
+        message: 'Downloading LaMa Neural Weights (208 MB)...',
+        progress: 5
+    });
+
+    const response = await fetch(MODEL_URL);
+    if (!response.ok) {
+        throw new Error(`Failed to download LaMa model: ${response.status} ${response.statusText}`);
+    }
+
+    const contentLength = Number(response.headers.get('content-length')) || MODEL_TOTAL_BYTES;
+    let received = 0;
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+        const buf = await response.arrayBuffer();
+        if (cache) {
+            try { await cache.put(MODEL_URL, new Response(buf.slice(0))); } catch (err) {}
+        }
+        return buf;
+    }
+
+    const chunks: Uint8Array[] = [];
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+            chunks.push(value);
+            received += value.length;
+            const percent = Math.min(95, Math.round((received / contentLength) * 100));
+            const mb = (received / (1024 * 1024)).toFixed(1);
+            const totalMb = (contentLength / (1024 * 1024)).toFixed(1);
+
+            self.postMessage({
+                status: 'loading',
+                message: `Downloading LaMa Neural Model: ${percent}% (${mb} MB / ${totalMb} MB)`,
+                progress: percent
+            });
+        }
+    }
+
+    const allChunks = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+        allChunks.set(chunk, offset);
+        offset += chunk.length;
+    }
+
+    const arrayBuffer = allChunks.buffer;
+    if (cache) {
+        try {
+            await cache.put(MODEL_URL, new Response(arrayBuffer.slice(0)));
+        } catch (err) {
+            console.warn('[LaMa Worker] Could not store in cache:', err);
+        }
+    }
+
+    return arrayBuffer;
+}
+
+/**
+ * Initializes the ONNX Runtime Web session for LaMa
+ */
+async function getInferenceSession(): Promise<ort.InferenceSession> {
+    if (session) return session;
+    if (isInitializing) {
+        while (isInitializing) {
+            await new Promise(r => setTimeout(r, 100));
+        }
+        if (session) return session;
+    }
+
+    isInitializing = true;
+    try {
+        ort.env.wasm.numThreads = 1;
+        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+
+        const buffer = await getModelArrayBuffer();
+        const device = getOptimalDevice();
+
+        self.postMessage({
+            status: 'loading',
+            message: `Compiling LaMa Neural Graph (${device === 'webgpu' ? 'WebGPU' : 'WASM'})...`,
+            progress: 98
+        });
+
+        try {
+            session = await ort.InferenceSession.create(buffer, {
+                executionProviders: [device, 'wasm'],
+                graphOptimizationLevel: 'all'
+            });
+        } catch (gpuErr) {
+            console.warn('[LaMa Worker] Primary execution provider failed, falling back to WASM:', gpuErr);
+            session = await ort.InferenceSession.create(buffer, {
+                executionProviders: ['wasm'],
+                graphOptimizationLevel: 'all'
+            });
+        }
+
+        self.postMessage({
+            status: 'ready',
+            message: 'LaMa Neural Inpainting Engine Ready',
+            device,
+            progress: 100
+        });
+
+        return session;
+    } finally {
+        isInitializing = false;
+    }
+}
+
+/**
+ * Bilinear pixel resize helper
+ */
+function resizePixels(
+    src: Uint8ClampedArray,
+    sw: number,
+    sh: number,
+    dw: number,
+    dh: number
 ): Uint8ClampedArray {
-    const out = new Uint8ClampedArray(imagePixels);
-    const isMasked = new Uint8Array(width * height);
-    
-    // Identify masked pixels (any non-zero alpha or red channel in mask)
-    let totalMasked = 0;
-    for (let i = 0; i < width * height; i++) {
-        const maskIdx = i * 4;
-        // Check if user painted this pixel
-        if (maskPixels[maskIdx] > 20 || maskPixels[maskIdx + 3] > 20) {
-            isMasked[i] = 1;
-            totalMasked++;
+    const dst = new Uint8ClampedArray(dw * dh * 4);
+    const xRatio = sw / dw;
+    const yRatio = sh / dh;
+
+    for (let dy = 0; dy < dh; dy++) {
+        const sy = Math.min(sh - 1, Math.floor(dy * yRatio));
+        for (let dx = 0; dx < dw; dx++) {
+            const sx = Math.min(sw - 1, Math.floor(dx * xRatio));
+            const srcIdx = (sy * sw + sx) * 4;
+            const dstIdx = (dy * dw + dx) * 4;
+            dst[dstIdx] = src[srcIdx];
+            dst[dstIdx + 1] = src[srcIdx + 1];
+            dst[dstIdx + 2] = src[srcIdx + 2];
+            dst[dstIdx + 3] = src[srcIdx + 3];
         }
     }
-
-    if (totalMasked === 0) {
-        return out;
-    }
-
-    // Step 1: Pre-fill masked region with distance-weighted average of neighboring unmasked pixels
-    const knownSamples: { x: number; y: number; r: number; g: number; b: number }[] = [];
-    const step = Math.max(1, Math.floor(Math.sqrt(width * height) / 80));
-
-    for (let y = 0; y < height; y += step) {
-        for (let x = 0; x < width; x += step) {
-            const idx = y * width + x;
-            if (!isMasked[idx]) {
-                const p = idx * 4;
-                knownSamples.push({ x, y, r: out[p], g: out[p + 1], b: out[p + 2] });
-            }
-        }
-    }
-
-    if (knownSamples.length > 0) {
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const idx = y * width + x;
-                if (isMasked[idx]) {
-                    let totalWeight = 0;
-                    let r = 0, g = 0, b = 0;
-
-                    // Nearest 8 samples
-                    let found = 0;
-                    for (let s = 0; s < knownSamples.length && found < 12; s++) {
-                        const smp = knownSamples[s];
-                        const dx = x - smp.x;
-                        const dy = y - smp.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < 1) continue;
-                        
-                        const w = 1 / Math.pow(distSq, 1.2);
-                        totalWeight += w;
-                        r += smp.r * w;
-                        g += smp.g * w;
-                        b += smp.b * w;
-                        found++;
-                    }
-
-                    if (totalWeight > 0) {
-                        const p = idx * 4;
-                        out[p] = Math.round(r / totalWeight);
-                        out[p + 1] = Math.round(g / totalWeight);
-                        out[p + 2] = Math.round(b / totalWeight);
-                    }
-                }
-            }
-        }
-    }
-
-    // Step 2: Multi-pass Laplacian Relaxation with texture grain preservation
-    const buffer = new Uint8ClampedArray(out);
-    for (let iter = 0; iter < iterations; iter++) {
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const idx = y * width + x;
-                if (!isMasked[idx]) continue;
-
-                const p = idx * 4;
-                const pUp = ((y - 1) * width + x) * 4;
-                const pDown = ((y + 1) * width + x) * 4;
-                const pLeft = (y * width + (x - 1)) * 4;
-                const pRight = (y * width + (x + 1)) * 4;
-
-                // 4-neighbor average
-                buffer[p] = (out[pUp] + out[pDown] + out[pLeft] + out[pRight]) >> 2;
-                buffer[p + 1] = (out[pUp + 1] + out[pDown + 1] + out[pLeft + 1] + out[pRight + 1]) >> 2;
-                buffer[p + 2] = (out[pUp + 2] + out[pDown + 2] + out[pLeft + 2] + out[pRight + 2]) >> 2;
-            }
-        }
-
-        // Copy buffer back to out for masked pixels
-        for (let i = 0; i < width * height; i++) {
-            if (isMasked[i]) {
-                const p = i * 4;
-                out[p] = buffer[p];
-                out[p + 1] = buffer[p + 1];
-                out[p + 2] = buffer[p + 2];
-            }
-        }
-    }
-
-    // Step 3: Subtle micro-texture grain synthesis to eliminate plastic/blur look
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const idx = y * width + x;
-            if (isMasked[idx]) {
-                const p = idx * 4;
-                // Pseudo-random deterministic noise based on coordinates
-                const noise = ((Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1) * 6 - 3;
-                out[p] = Math.min(255, Math.max(0, Math.round(out[p] + noise)));
-                out[p + 1] = Math.min(255, Math.max(0, Math.round(out[p + 1] + noise)));
-                out[p + 2] = Math.min(255, Math.max(0, Math.round(out[p + 2] + noise)));
-                out[p + 3] = 255;
-            }
-        }
-    }
-
-    return out;
+    return dst;
 }
 
 self.onmessage = async (event: MessageEvent) => {
     const { action, payload } = event.data;
 
     if (action === 'init') {
-        const device = getOptimalDevice();
-        self.postMessage({
-            status: 'ready',
-            message: `Magic Eraser Neural Engine Ready (${device === 'webgpu' ? 'WebGPU' : 'WASM'})`,
-            device
-        });
+        try {
+            await getInferenceSession();
+        } catch (err: any) {
+            console.error('[LaMa Worker] Init error:', err);
+            self.postMessage({
+                status: 'error',
+                message: err?.message || 'Failed to initialize LaMa model'
+            });
+        }
     } else if (action === 'inpaint') {
         const startTime = performance.now();
         try {
@@ -160,18 +200,68 @@ self.onmessage = async (event: MessageEvent) => {
 
             self.postMessage({
                 status: 'processing',
-                message: 'Synthesizing background texture with Neural Inpainting...'
+                message: 'Synthesizing with LaMa Neural Network...'
             });
 
-            // Perform inpainting
-            const inpaintedData = fastNeuralInpaint(
-                imagePixels,
-                maskPixels,
-                width,
-                height,
-                40
-            );
+            const sess = await getInferenceSession();
 
+            // Resize patch to 512x512 expected by LaMa
+            const image512 = resizePixels(imagePixels, width, height, 512, 512);
+            const mask512 = resizePixels(maskPixels, width, height, 512, 512);
+
+            const numPixels = 512 * 512;
+            const imgFloat32 = new Float32Array(3 * numPixels);
+            const maskFloat32 = new Float32Array(1 * numPixels);
+
+            for (let i = 0; i < numPixels; i++) {
+                const idx = i * 4;
+                // Channel 0 (R), Channel 1 (G), Channel 2 (B) normalized [0.0, 1.0]
+                imgFloat32[i] = image512[idx] / 255.0;
+                imgFloat32[numPixels + i] = image512[idx + 1] / 255.0;
+                imgFloat32[numPixels * 2 + i] = image512[idx + 2] / 255.0;
+
+                // Mask: 1.0 where masked (painted), 0.0 for preserved background
+                const isMask = (mask512[idx] > 20 || mask512[idx + 3] > 20) ? 1.0 : 0.0;
+                maskFloat32[i] = isMask;
+            }
+
+            const imageTensor = new ort.Tensor('float32', imgFloat32, [1, 3, 512, 512]);
+            const maskTensor = new ort.Tensor('float32', maskFloat32, [1, 1, 512, 512]);
+
+            const inputNames = sess.inputNames;
+            const feeds: Record<string, ort.Tensor> = {};
+            feeds[inputNames[0] || 'image'] = imageTensor;
+            feeds[inputNames[1] || 'mask'] = maskTensor;
+
+            // Run neural inpainting inference
+            const results = await sess.run(feeds);
+            const outputNames = sess.outputNames;
+            const outputTensor = results[outputNames[0] || 'output'];
+            const outData = outputTensor.data as Float32Array;
+
+            // Detect output range [0, 1] vs [0, 255]
+            let maxVal = 0;
+            for (let i = 0; i < Math.min(1000, outData.length); i++) {
+                if (outData[i] > maxVal) maxVal = outData[i];
+            }
+            const multiplier = maxVal > 1.5 ? 1 : 255;
+
+            // Convert planar [1, 3, 512, 512] back to interleaved RGBA
+            const out512RGBA = new Uint8ClampedArray(numPixels * 4);
+            for (let i = 0; i < numPixels; i++) {
+                const r = Math.min(255, Math.max(0, Math.round(outData[i] * multiplier)));
+                const g = Math.min(255, Math.max(0, Math.round(outData[numPixels + i] * multiplier)));
+                const b = Math.min(255, Math.max(0, Math.round(outData[numPixels * 2 + i] * multiplier)));
+
+                const idx = i * 4;
+                out512RGBA[idx] = r;
+                out512RGBA[idx + 1] = g;
+                out512RGBA[idx + 2] = b;
+                out512RGBA[idx + 3] = 255;
+            }
+
+            // Resize back to original patch resolution
+            const finalPatchRGBA = resizePixels(out512RGBA, 512, 512, width, height);
             const durationMs = Math.round(performance.now() - startTime);
 
             self.postMessage(
@@ -180,18 +270,18 @@ self.onmessage = async (event: MessageEvent) => {
                     action: 'inpaint',
                     durationMs,
                     payload: {
-                        image: inpaintedData,
+                        image: finalPatchRGBA,
                         width,
                         height
                     }
                 },
-                [inpaintedData.buffer] as any
+                [finalPatchRGBA.buffer] as any
             );
         } catch (error: any) {
-            console.error('[Inpaint Worker] Error:', error);
+            console.error('[LaMa Worker] Processing error:', error);
             self.postMessage({
                 status: 'error',
-                message: error?.message || 'Inpainting failed'
+                message: error?.message || 'Neural inpainting failed'
             });
         }
     }

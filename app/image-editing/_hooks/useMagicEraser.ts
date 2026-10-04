@@ -8,6 +8,7 @@ export type InpaintStatus = 'idle' | 'loading' | 'ready' | 'processing' | 'compl
 export function useMagicEraser() {
     const [status, setStatus] = useState<InpaintStatus>('idle');
     const [progressMessage, setProgressMessage] = useState<string>('');
+    const [progressPercent, setProgressPercent] = useState<number>(0);
     const [deviceType, setDeviceType] = useState<'webgpu' | 'wasm'>('wasm');
     const workerRef = useRef<Worker | null>(null);
     const pendingPromiseRef = useRef<{
@@ -32,14 +33,16 @@ export function useMagicEraser() {
         workerRef.current = worker;
 
         worker.onmessage = (event: MessageEvent) => {
-            const { status: msgStatus, message, payload, action } = event.data;
+            const { status: msgStatus, message, payload, action, progress } = event.data;
 
             if (msgStatus === 'loading') {
                 setStatus('loading');
                 setProgressMessage(message || 'Initializing Neural Engine...');
+                if (typeof progress === 'number') setProgressPercent(progress);
             } else if (msgStatus === 'ready') {
                 setStatus('ready');
-                setProgressMessage(message || 'Ready');
+                setProgressMessage(message || 'LaMa Ready');
+                setProgressPercent(100);
             } else if (msgStatus === 'processing') {
                 setStatus('processing');
                 setProgressMessage(message || 'Inpainting...');
@@ -203,7 +206,9 @@ export function useMagicEraser() {
     return {
         status,
         isProcessing: status === 'processing',
+        isLoading: status === 'loading',
         progressMessage,
+        progressPercent,
         deviceType,
         inpaint
     };
