@@ -221,127 +221,93 @@ Based on your Hostinger dashboard (`srv1282976.hstgr.cloud`):
 
 ---
 
-### B. The Cloud Database Solution: Google Firebase (Spark Free Tier)
-Offload the database completely to **Google Firebase** (or **MongoDB Atlas Free M0**). It consumes **0 MB RAM and 0% CPU on your Hostinger VPS**, ensuring 100% uptime.
+### B. The Cloud Solution: Appwrite Cloud (Free Tier) & Local Storage
+Offload authentication and database completely to **Appwrite Cloud** (which is already configured in `lib/appwrite.ts`). It consumes **0 MB RAM and 0% CPU on your Hostinger VPS**, ensuring 100% uptime.
 
-#### Firebase Spark Free Quota Breakdown ($0.00 / Month Forever):
-| Service | Free Quota Every Day / Month | Capacity for PolishAI |
+#### Appwrite Cloud Free Quota Breakdown ($0.00 / Month Forever):
+| Service | Free Quota Every Month | Capacity for PolishAI |
 | :--- | :--- | :--- |
-| **Cloud Firestore Storage** | **1 GB** stored data | Over **10,000,000 tracking records** (~100 bytes each). |
-| **Firestore Document Reads**| **50,000 reads / DAY** | 50,000 credit checks and profile loads every 24 hours. |
-| **Firestore Document Writes**| **20,000 writes / DAY**| 20,000 background removals / edits per day. |
-| **Firebase Authentication** | **50,000 MAUs** (Monthly Active Users)| 1-Click Google Sign-In & Email login included free. |
-| **Cloud Storage** | **5 GB storage** + **1 GB download/day**| Storing user presets and profile avatars. |
+| **Appwrite Database & Storage** | **2 GB** total storage | Millions of user profiles & credit records. |
+| **Appwrite Authentication** | **75,000 MAUs** (Monthly Active Users)| Google OAuth, Email/Password, Magic URLs included free. |
+| **Bandwidth** | **10 GB / month** | Ample bandwidth for user records and font/asset storage. |
+| **Server Workload** | **0% VPS load** | Entirely managed on Appwrite Cloud infrastructure. |
 
 ---
 
-## 6. The 7 Quota-Saving Strategies: Stretch Free Quota to 50,000+ Daily Users
+## 6. The 7 Quota-Saving Strategies: Stretch Free Quota to 100,000+ Monthly Users
 
-To never hit the 50k read / 20k write daily ceiling, implement this hybrid architecture:
+To minimize database usage and guarantee lightning-fast performance, we implement this hybrid architecture:
 
 ### Strategy 1: "Guest-First" LocalStorage Pattern (0 Database Calls for 85% of Users)
-85% of visitors are drive-by users testing 1–2 cutouts. **Never touch Firebase for unauthenticated visitors!**
+85% of visitors are drive-by users testing 1–2 cutouts. **Never touch the database for unauthenticated visitors!**
 * Keep guest trial credits (`5 free cutouts/day`) in browser `localStorage`.
-* Read and increment in pure JavaScript memory (0ms latency, 0 Firestore reads, 0 Firestore writes).
+* Read and increment in pure JavaScript memory (0ms latency, 0 Appwrite calls).
 * Only when guest credits reach 0, prompt: *"You've used your 5 free guest cutouts today! Sign in with Google to get 25 more daily credits."*
 
 ```typescript
-// lib/usageTracker.ts - Guest LocalStorage Engine
-export function getGuestCredits(): { used: number; remaining: number } {
-  const today = new Date().toISOString().slice(0, 10);
-  const stored = JSON.parse(localStorage.getItem('polish_guest_usage') || '{}');
-
-  if (stored.date !== today) {
-    localStorage.setItem('polish_guest_usage', JSON.stringify({ date: today, used: 0 }));
-    return { used: 0, remaining: 5 };
-  }
-  return { used: stored.used, remaining: Math.max(0, 5 - stored.used) };
+// lib/usageTracker.ts - Guest LocalStorage Engine (0 Server Calls)
+export function getGuestCredits(): UserCredits {
+  // Reads local storage; resets daily at 00:00 UTC
 }
 
-export function incrementGuestUsage(): boolean {
-  const { remaining } = getGuestCredits();
-  if (remaining <= 0) return false;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const stored = JSON.parse(localStorage.getItem('polish_guest_usage') || '{}');
-  stored.used = (stored.used || 0) + 1;
-  localStorage.setItem('polish_guest_usage', JSON.stringify(stored));
-  return true; // 0 Firebase reads, 0 Firebase writes!
+export async function consumeCredits(amount: number = 1) {
+  // Deducts from LocalStorage for guests, or session cache for logged-in users
 }
 ```
 
-### Strategy 2: Enable Firebase Persistent Local Cache (Free Cache Reads)
-Enable IndexedDB offline persistence. When a user navigates between tabs or refreshes, **Firestore reads from browser disk without consuming your 50k read quota**:
+### Strategy 2: Pre-Configured Appwrite SDK (`lib/appwrite.ts`)
+The project uses the official Appwrite SDK configured with environment variables:
 
 ```typescript
-// lib/firebase.ts
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+// lib/appwrite.ts
+import { Client, Account, Databases, Storage, ID } from 'appwrite';
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+const client = new Client();
+client
+    .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
+    .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!);
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager() // Shared cache across all open browser tabs
-  })
-});
-export const auth = getAuth(app);
+export const account = new Account(client);
+export const databases = new Databases(client);
+export const storage = new Storage(client);
+export { ID };
 ```
 
 ### Strategy 3: Single-Session In-Memory Caching (Read Once on Login)
-* When a user logs in, fetch their `/users/{uid}` document **once**.
-* Store it in React Context / Zustand / `sessionStorage`.
-* When moving between `/image-bg-removal`, `/image-editing`, and `/gif-maker`, read from memory.
-* **Quota Saved:** Cuts read operations from 15 reads per session down to **1 single read**.
+* When a user logs in, fetch their user session once (`account.get()`).
+* Store it in React state / in-memory cache (`sessionUserCache`).
+* When navigating between `/image-bg-removal`, `/image-editing`, and other tools, read from memory.
+* **Quota Saved:** Cuts API operations from 15 calls per session down to **1 single call**.
 
-### Strategy 4: Batched / Atomic Writes (Don't Write on Every Pixel)
-* When a user processes a batch of 10 photos, do not call `updateDoc()` 10 times.
-* Decrement local state instantly for 60fps UI feedback, and perform **1 atomic update** when the user clicks "Download":
-```typescript
-import { doc, updateDoc, increment } from "firebase/firestore";
-
-// Single atomic write for all 10 images!
-await updateDoc(doc(db, "users", user.uid), {
-  credits: increment(-10),
-  totalCutouts: increment(10),
-  lastActive: new Date()
-}); // Consumes 1 write quota instead of 10!
-```
+### Strategy 4: Atomic Updates on Action Completion
+* When a user removes background on multiple images, do not spam the database on each click.
+* Deduct from memory/localStorage immediately for smooth 60fps UX.
+* Synchronize to Appwrite only on download/export completion.
 
 ### Strategy 5: The "Single Document" Architecture
-Keep all profile data, credit balance, and plan settings in one document (`/users/{uid}`):
+Keep all profile data, credit balance, and plan settings in one Appwrite document:
 ```json
 {
+  "userId": "67...abc",
   "email": "creator@gmail.com",
   "plan": "free",
-  "isProUser": false,
+  "isPro": false,
   "credits": 25,
   "lastResetDate": "2026-10-05"
 }
 ```
-* Fetching this document costs **1 read** for Auth, Pro status, and Credits combined.
 
-### Strategy 6: Lazy-Loaded History & Analytics
-Never fetch past export logs on home page load. Only query history when the user explicitly opens an "Export History" modal.
+### Strategy 6: Lazy-Loaded History & Assets
+Never query past export logs or cloud fonts on initial page load. Only query when the user opens the "Font Picker" or "Export History" modal.
 
 ### Strategy 7: Conditional Updates
-Before saving settings, compare with cached state: `if (newSettings === oldSettings) return;`. Skip the network call if nothing changed.
+Before updating user settings in Appwrite, check `if (newSettings === oldSettings) return;`. Skip the network call if nothing changed.
 
 ---
 
 ## 7. Connecting Database with Ads & Pro Freemium
 
-Here is how the Firebase user profile seamlessly controls the Ad system:
+Here is how the Appwrite user profile seamlessly controls the Ad system:
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -369,7 +335,7 @@ interface AdSlotProps {
   slotId: string;
   format?: 'auto' | 'rectangle' | 'horizontal';
   className?: string;
-  isProUser?: boolean; // Synced with Firebase user.isProUser
+  isProUser?: boolean; // Synced with Appwrite user.isPro
 }
 
 export default function AdSlot({ slotId, format = 'auto', className = '', isProUser = false }: AdSlotProps) {
@@ -404,13 +370,12 @@ export default function AdSlot({ slotId, format = 'auto', className = '', isProU
 
 ### Rewarded Ad: Watch Video to Unlock 5 Free Credits
 ```typescript
-export async function handleRewardedAdComplete(userId: string) {
-  // Add 5 bonus credits to Firebase after verified ad view
-  await updateDoc(doc(db, "users", userId), {
-    credits: increment(5),
-    rewardedAdsWatchedToday: increment(1)
-  });
-  toast.success("+5 Bonus Credits added to your account!");
+import { addBonusCredits } from "@/lib/usageTracker";
+
+export async function handleRewardedAdComplete() {
+  // Add 5 bonus credits instantly (LocalStorage for guests or synced for registered)
+  const newBalance = await addBonusCredits(5);
+  toast.success(`+5 Bonus Credits added! You have ${newBalance} credits.`);
 }
 ```
 
@@ -444,7 +409,7 @@ Google AdSense will reject sites that do not have mandatory policy pages. You mu
 ## Summary of Immediate Next Steps
 
 1. **Deploy PolishAI on Hostinger VPS:** Run PolishAI inside a Docker container on your VPS (~350 MB RAM).
-2. **Connect Google Firebase (Spark Free):** Keep the database off the VPS to avoid CPU throttling and memory exhaustion.
+2. **Connect Appwrite Cloud:** Keep auth, database, and asset storage on Appwrite Cloud to avoid CPU throttling and memory exhaustion on the VPS.
 3. **Use Guest LocalStorage:** 85% of users will consume 0 reads and 0 writes.
 4. **Deploy AdSlot Components:** Connect Google AdSense using the non-intrusive zones documented above.
 

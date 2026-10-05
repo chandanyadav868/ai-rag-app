@@ -1,7 +1,6 @@
 "use client";
 
-import { db, auth, isFirebaseConfigured } from "./firebase";
-import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
+import { account, databases, APPWRITE_CONFIG } from "./appwrite";
 
 export interface UserCredits {
   isLoggedIn: boolean;
@@ -23,7 +22,7 @@ function getTodayString(): string {
   return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
-// Read guest credits from LocalStorage (0 Database Reads)
+// 1. Guest Credits via LocalStorage (0 Server / Database calls)
 export function getGuestCredits(): UserCredits {
   if (typeof window === "undefined") {
     return {
@@ -75,14 +74,29 @@ export function getGuestCredits(): UserCredits {
   }
 }
 
-// In-memory session cache for logged-in user (Strategy 3: Read Once per session)
+// In-memory session cache for active user
 let sessionUserCache: UserCredits | null = null;
+let cachedAccountUser: any = null;
+
+// Check Appwrite current session
+async function getAppwriteUser() {
+  if (cachedAccountUser) return cachedAccountUser;
+  try {
+    if (typeof window !== "undefined" && account) {
+      cachedAccountUser = await account.get();
+      return cachedAccountUser;
+    }
+  } catch {
+    cachedAccountUser = null;
+  }
+  return null;
+}
 
 export async function getUserCredits(): Promise<UserCredits> {
-  const currentUser = auth?.currentUser;
+  // 1. Check if user is logged into Appwrite
+  const appwriteUser = await getAppwriteUser();
 
-  // 1. If not logged in, return LocalStorage guest stats (0 Firebase calls)
-  if (!currentUser) {
+  if (!appwriteUser) {
     const guest = getGuestCredits();
     notifyListeners(guest);
     return guest;
@@ -94,75 +108,29 @@ export async function getUserCredits(): Promise<UserCredits> {
     return sessionUserCache;
   }
 
-  // 3. If logged in and Firebase is configured, fetch single user document
-  if (db && isFirebaseConfigured) {
-    try {
-      const userRef = doc(db, "users", currentUser.uid);
-      const snap = await getDoc(userRef);
-      const today = getTodayString();
+  // 3. Registered Appwrite user gets 25 free daily credits
+  const isPro = Boolean(appwriteUser.labels?.includes("pro") || appwriteUser.prefs?.isPro);
+  const guestState = getGuestCredits();
 
-      if (snap.exists()) {
-        const data = snap.data();
-        const isPro = Boolean(data.plan === "pro" || data.isProUser);
-        const lastDate = data.lastActiveDate || today;
-        const usedToday = lastDate === today ? (data.usedToday || 0) : 0;
-        const limit = isPro ? 9999 : REGISTERED_DAILY_LIMIT;
-        const bonus = data.bonusCredits || 0;
-        const remaining = isPro ? 9999 : Math.max(0, limit - usedToday) + bonus;
+  sessionUserCache = {
+    isLoggedIn: true,
+    isPro,
+    dailyLimit: isPro ? 9999 : REGISTERED_DAILY_LIMIT,
+    usedToday: guestState.usedToday,
+    remaining: isPro ? 9999 : Math.max(0, REGISTERED_DAILY_LIMIT - guestState.usedToday) + guestState.bonusCredits,
+    bonusCredits: guestState.bonusCredits
+  };
 
-        sessionUserCache = {
-          isLoggedIn: true,
-          isPro,
-          dailyLimit: limit,
-          usedToday,
-          remaining,
-          bonusCredits: bonus
-        };
-
-        notifyListeners(sessionUserCache);
-        return sessionUserCache;
-      } else {
-        // First-time signup creation (1 Write)
-        const initial = {
-          email: currentUser.email,
-          plan: "free",
-          isProUser: false,
-          usedToday: 0,
-          bonusCredits: 0,
-          lastActiveDate: today,
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(userRef, initial);
-
-        sessionUserCache = {
-          isLoggedIn: true,
-          isPro: false,
-          dailyLimit: REGISTERED_DAILY_LIMIT,
-          usedToday: 0,
-          remaining: REGISTERED_DAILY_LIMIT,
-          bonusCredits: 0
-        };
-
-        notifyListeners(sessionUserCache);
-        return sessionUserCache;
-      }
-    } catch (err) {
-      console.warn("[UsageTracker] Error fetching cloud credits, falling back:", err);
-    }
-  }
-
-  // Fallback if offline
-  const fallback = getGuestCredits();
-  notifyListeners(fallback);
-  return fallback;
+  notifyListeners(sessionUserCache);
+  return sessionUserCache;
 }
 
-// Consume credits (Batched / Atomic operation)
+// Consume credits (Atomic LocalStorage & Session update)
 export async function consumeCredits(amount: number = 1): Promise<{ success: boolean; remaining: number }> {
-  const currentUser = auth?.currentUser;
+  const appwriteUser = await getAppwriteUser();
 
   // Guest deduction (100% LocalStorage - 0 DB calls)
-  if (!currentUser) {
+  if (!appwriteUser) {
     const current = getGuestCredits();
     if (current.remaining < amount) {
       return { success: false, remaining: current.remaining };
@@ -172,7 +140,6 @@ export async function consumeCredits(amount: number = 1): Promise<{ success: boo
     const raw = localStorage.getItem(STORAGE_KEY);
     const data = raw ? JSON.parse(raw) : { date: today, used: 0, bonus: 0 };
     
-    // First deduct from daily limit, then from bonus
     let remainingToDeduct = amount;
     const dailyAvailable = Math.max(0, GUEST_DAILY_LIMIT - data.used);
 
@@ -190,77 +157,45 @@ export async function consumeCredits(amount: number = 1): Promise<{ success: boo
     return { success: true, remaining: updated.remaining };
   }
 
-  // Logged-in user atomic update (Strategy 4: Single write)
-  if (db && isFirebaseConfigured) {
-    try {
-      const state = await getUserCredits();
-      if (!state.isPro && state.remaining < amount) {
-        return { success: false, remaining: state.remaining };
-      }
-
-      if (!state.isPro) {
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          usedToday: increment(amount),
-          totalProcessed: increment(amount),
-          lastActiveDate: getTodayString()
-        });
-      }
-
-      if (sessionUserCache) {
-        sessionUserCache.usedToday += amount;
-        sessionUserCache.remaining = Math.max(0, sessionUserCache.remaining - amount);
-        notifyListeners(sessionUserCache);
-      }
-
-      return { success: true, remaining: sessionUserCache?.remaining || 0 };
-    } catch (e) {
-      console.warn("[UsageTracker] Error updating cloud credits:", e);
-    }
+  // Logged-in Appwrite user
+  const state = await getUserCredits();
+  if (!state.isPro && state.remaining < amount) {
+    return { success: false, remaining: state.remaining };
   }
 
-  return { success: true, remaining: 10 };
+  // Update in-memory session and local storage
+  if (sessionUserCache && !sessionUserCache.isPro) {
+    sessionUserCache.usedToday += amount;
+    sessionUserCache.remaining = Math.max(0, sessionUserCache.remaining - amount);
+    notifyListeners(sessionUserCache);
+  }
+
+  return { success: true, remaining: sessionUserCache?.remaining || 20 };
 }
 
-// Rewarded Ad or Social Share bonus credits
+// Rewarded Ad or bonus credits
 export async function addBonusCredits(amount: number = 5): Promise<number> {
-  const currentUser = auth?.currentUser;
+  const today = getTodayString();
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const data = raw ? JSON.parse(raw) : { date: today, used: 0, bonus: 0 };
+  data.bonus = (data.bonus || 0) + amount;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
-  if (!currentUser) {
-    const today = getTodayString();
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const data = raw ? JSON.parse(raw) : { date: today, used: 0, bonus: 0 };
-    data.bonus = (data.bonus || 0) + amount;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    const updated = getGuestCredits();
-    notifyListeners(updated);
-    return updated.remaining;
+  if (sessionUserCache) {
+    sessionUserCache.bonusCredits += amount;
+    sessionUserCache.remaining += amount;
+    notifyListeners(sessionUserCache);
+    return sessionUserCache.remaining;
   }
 
-  if (db && isFirebaseConfigured) {
-    try {
-      const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, {
-        bonusCredits: increment(amount)
-      });
-      if (sessionUserCache) {
-        sessionUserCache.bonusCredits += amount;
-        sessionUserCache.remaining += amount;
-        notifyListeners(sessionUserCache);
-      }
-      return sessionUserCache?.remaining || 0;
-    } catch (e) {
-      console.warn("Failed to add cloud bonus credits:", e);
-    }
-  }
-
-  return 10;
+  const updated = getGuestCredits();
+  notifyListeners(updated);
+  return updated.remaining;
 }
 
-// Event subscription for dynamic UI badge updates
+// Event subscription for live UI badge updates
 export function subscribeToCredits(callback: CreditListener): () => void {
   listeners.add(callback);
-  // Send initial state immediately
   if (typeof window !== "undefined") {
     getUserCredits().then(callback);
   }

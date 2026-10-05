@@ -257,7 +257,7 @@ export default function ImageBgRemovalPage() {
       return;
     }
 
-    // Check & consume 1 credit (using LocalStorage for guests, Firebase for logged-in)
+    // Check & consume 1 credit (using LocalStorage for guests, Appwrite for logged-in)
     const creditCheck = await consumeCredits(1);
     if (!creditCheck.success) {
       toast.error('Daily credit limit reached! Click the credit badge in the top right to get more credits or watch a sponsor clip.');

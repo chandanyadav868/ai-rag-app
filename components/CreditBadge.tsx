@@ -121,7 +121,7 @@ export default function CreditBadge() {
               {!credits.isLoggedIn && (
                 <button
                   onClick={() => {
-                    toast.info("Google Sign-In ready to link with Firebase Auth");
+                    toast.info("Google Sign-In ready to link with Appwrite Auth");
                   }}
                   className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center justify-between transition-all active:scale-98"
                 >
