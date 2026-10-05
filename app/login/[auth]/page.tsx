@@ -200,8 +200,8 @@ export default function AuthPage() {
               </h1>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                 {isSignUp
-                  ? "Join PolishAI and get 25 free neural AI credits every day."
-                  : "Sign in to access your projects, presets, and daily free credits."}
+                  ? "Join PolishAI for 100% free, unlimited client-side neural AI studio tools."
+                  : "Sign in to access your projects, saved presets, and cloud sync."}
               </p>
             </div>
 
@@ -398,8 +398,8 @@ export default function AuthPage() {
                   <Zap size={16} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">25 Daily Free Credits</h4>
-                  <p className="text-[11px] text-slate-400">Automatic daily refill for registered accounts forever.</p>
+                  <h4 className="text-xs font-bold text-white">100% Free &amp; Unlimited</h4>
+                  <p className="text-[11px] text-slate-400">No credit limits or paywalls. Unlimited background cutouts and exports.</p>
                 </div>
               </div>
             </div>

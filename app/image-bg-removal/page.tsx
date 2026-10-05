@@ -36,7 +36,6 @@ import Footer from '@/components/Footer';
 import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { consumeCredits } from '@/lib/usageTracker';
 import AdSlot from '@/components/ads/AdSlot';
 import ExportSuccessAdModal from '@/components/ads/ExportSuccessAdModal';
 import { AD_CONFIG } from '@/constant/ads';
@@ -254,13 +253,6 @@ export default function ImageBgRemovalPage() {
 
     if (modeToUse === 'prompt' && !promptToUse.trim()) {
       toast.error('Please enter the object you want to isolate (e.g. "dog", "person")');
-      return;
-    }
-
-    // Check & consume 1 credit (using LocalStorage for guests, Appwrite for logged-in)
-    const creditCheck = await consumeCredits(1);
-    if (!creditCheck.success) {
-      toast.error('Daily credit limit reached! Click the credit badge in the top right to get more credits or watch a sponsor clip.');
       return;
     }
 

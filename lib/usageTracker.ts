@@ -125,52 +125,9 @@ export async function getUserCredits(): Promise<UserCredits> {
   return sessionUserCache;
 }
 
-// Consume credits (Atomic LocalStorage & Session update)
+// Unlimited Free Usage (No quota restrictions imposed on users)
 export async function consumeCredits(amount: number = 1): Promise<{ success: boolean; remaining: number }> {
-  const appwriteUser = await getAppwriteUser();
-
-  // Guest deduction (100% LocalStorage - 0 DB calls)
-  if (!appwriteUser) {
-    const current = getGuestCredits();
-    if (current.remaining < amount) {
-      return { success: false, remaining: current.remaining };
-    }
-
-    const today = getTodayString();
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const data = raw ? JSON.parse(raw) : { date: today, used: 0, bonus: 0 };
-    
-    let remainingToDeduct = amount;
-    const dailyAvailable = Math.max(0, GUEST_DAILY_LIMIT - data.used);
-
-    if (dailyAvailable >= remainingToDeduct) {
-      data.used += remainingToDeduct;
-    } else {
-      data.used = GUEST_DAILY_LIMIT;
-      remainingToDeduct -= dailyAvailable;
-      data.bonus = Math.max(0, (data.bonus || 0) - remainingToDeduct);
-    }
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    const updated = getGuestCredits();
-    notifyListeners(updated);
-    return { success: true, remaining: updated.remaining };
-  }
-
-  // Logged-in Appwrite user
-  const state = await getUserCredits();
-  if (!state.isPro && state.remaining < amount) {
-    return { success: false, remaining: state.remaining };
-  }
-
-  // Update in-memory session and local storage
-  if (sessionUserCache && !sessionUserCache.isPro) {
-    sessionUserCache.usedToday += amount;
-    sessionUserCache.remaining = Math.max(0, sessionUserCache.remaining - amount);
-    notifyListeners(sessionUserCache);
-  }
-
-  return { success: true, remaining: sessionUserCache?.remaining || 20 };
+  return { success: true, remaining: 999999 };
 }
 
 // Rewarded Ad or bonus credits
