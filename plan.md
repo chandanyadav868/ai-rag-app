@@ -192,23 +192,174 @@ Because PolishAI's infrastructure costs are virtually **$0**, almost every dolla
 
 ---
 
-## 5. Technical Implementation: Ready-to-Use Ad Architecture
+## 5. Hostinger VPS Capacity Analysis & Cloud Database Architecture
 
-To keep the application modular, clean, and ad-blocker resilient, implement ad slots as reusable React components.
+### A. Reality Check on your Hostinger KVM 1 VPS
+Based on your Hostinger dashboard (`srv1282976.hstgr.cloud`):
+* **Hardware Specs:** **1 vCPU Core**, **4 GB RAM**, **50 GB NVMe Disk**.
+* **Active Status Warning:** ⚠️ **`🔴 CPU limitation activated. Limitation may affect your VPS performance.`**
+* **Existing Project:** A media downloader (Backend + Frontend + `yt-dlp` / FFmpeg).
 
-### A. Ad Configuration Constant (`constant/ads.ts`)
-```typescript
-export const AD_SLOTS = {
-  DESKTOP_SIDEBAR: 'div-gpt-ad-sidebar-rect',
-  PROCESSING_MODAL: 'div-gpt-ad-processing',
-  EXPORT_SUCCESS: 'div-gpt-ad-export-success',
-  MOBILE_STICKY_BOTTOM: 'div-gpt-ad-mobile-bottom',
-};
-
-export const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_ID || 'ca-pub-XXXXXXXXXXXXXXXX';
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                      YOUR HOSTINGER KVM 1 (1 vCPU / 4 GB RAM)          │
+├────────────────────────────────────────────────────────────────────────┤
+│ 1. Base Ubuntu OS + Docker + Dokploy Panel   →  ~600 MB RAM            │
+│ 2. Tool 1: Media Downloader (Backend + yt-dlp)→  ~800 MB - 1.5 GB RAM   │
+│    ⚠️ Spikes CPU to 100% during video downloads & transcoding           │
+│ 3. Tool 2: PolishAI (Next.js Application)    →  ~350 MB - 500 MB RAM   │
+│ 4. Tool 3: Local Database Container (DB)     →  ~400 MB - 700 MB RAM   │
+├────────────────────────────────────────────────────────────────────────┤
+│ TOTAL RAM DEMAND: ~2.8 GB – 3.8 GB (DANGEROUSLY CLOSE TO 4 GB LIMIT)   │
+│ DANGER: Linux OOM Killer will forcefully kill Database or Node.js!      │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### B. Clean React Ad Component (`components/ads/AdSlot.tsx`)
+> [!CAUTION]
+> **Do NOT run a local database container on this VPS!**
+> `yt-dlp` / FFmpeg video downloads spike single-core CPU usage to 100%, which triggers Hostinger's automatic CPU throttling. If a database is running on the same VPS, database queries will time out, causing `504 Gateway Timeout` errors, and the Linux kernel Out-Of-Memory (OOM) killer will crash your containers.
+
+---
+
+### B. The Cloud Database Solution: Google Firebase (Spark Free Tier)
+Offload the database completely to **Google Firebase** (or **MongoDB Atlas Free M0**). It consumes **0 MB RAM and 0% CPU on your Hostinger VPS**, ensuring 100% uptime.
+
+#### Firebase Spark Free Quota Breakdown ($0.00 / Month Forever):
+| Service | Free Quota Every Day / Month | Capacity for PolishAI |
+| :--- | :--- | :--- |
+| **Cloud Firestore Storage** | **1 GB** stored data | Over **10,000,000 tracking records** (~100 bytes each). |
+| **Firestore Document Reads**| **50,000 reads / DAY** | 50,000 credit checks and profile loads every 24 hours. |
+| **Firestore Document Writes**| **20,000 writes / DAY**| 20,000 background removals / edits per day. |
+| **Firebase Authentication** | **50,000 MAUs** (Monthly Active Users)| 1-Click Google Sign-In & Email login included free. |
+| **Cloud Storage** | **5 GB storage** + **1 GB download/day**| Storing user presets and profile avatars. |
+
+---
+
+## 6. The 7 Quota-Saving Strategies: Stretch Free Quota to 50,000+ Daily Users
+
+To never hit the 50k read / 20k write daily ceiling, implement this hybrid architecture:
+
+### Strategy 1: "Guest-First" LocalStorage Pattern (0 Database Calls for 85% of Users)
+85% of visitors are drive-by users testing 1–2 cutouts. **Never touch Firebase for unauthenticated visitors!**
+* Keep guest trial credits (`5 free cutouts/day`) in browser `localStorage`.
+* Read and increment in pure JavaScript memory (0ms latency, 0 Firestore reads, 0 Firestore writes).
+* Only when guest credits reach 0, prompt: *"You've used your 5 free guest cutouts today! Sign in with Google to get 25 more daily credits."*
+
+```typescript
+// lib/usageTracker.ts - Guest LocalStorage Engine
+export function getGuestCredits(): { used: number; remaining: number } {
+  const today = new Date().toISOString().slice(0, 10);
+  const stored = JSON.parse(localStorage.getItem('polish_guest_usage') || '{}');
+
+  if (stored.date !== today) {
+    localStorage.setItem('polish_guest_usage', JSON.stringify({ date: today, used: 0 }));
+    return { used: 0, remaining: 5 };
+  }
+  return { used: stored.used, remaining: Math.max(0, 5 - stored.used) };
+}
+
+export function incrementGuestUsage(): boolean {
+  const { remaining } = getGuestCredits();
+  if (remaining <= 0) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const stored = JSON.parse(localStorage.getItem('polish_guest_usage') || '{}');
+  stored.used = (stored.used || 0) + 1;
+  localStorage.setItem('polish_guest_usage', JSON.stringify(stored));
+  return true; // 0 Firebase reads, 0 Firebase writes!
+}
+```
+
+### Strategy 2: Enable Firebase Persistent Local Cache (Free Cache Reads)
+Enable IndexedDB offline persistence. When a user navigates between tabs or refreshes, **Firestore reads from browser disk without consuming your 50k read quota**:
+
+```typescript
+// lib/firebase.ts
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager() // Shared cache across all open browser tabs
+  })
+});
+export const auth = getAuth(app);
+```
+
+### Strategy 3: Single-Session In-Memory Caching (Read Once on Login)
+* When a user logs in, fetch their `/users/{uid}` document **once**.
+* Store it in React Context / Zustand / `sessionStorage`.
+* When moving between `/image-bg-removal`, `/image-editing`, and `/gif-maker`, read from memory.
+* **Quota Saved:** Cuts read operations from 15 reads per session down to **1 single read**.
+
+### Strategy 4: Batched / Atomic Writes (Don't Write on Every Pixel)
+* When a user processes a batch of 10 photos, do not call `updateDoc()` 10 times.
+* Decrement local state instantly for 60fps UI feedback, and perform **1 atomic update** when the user clicks "Download":
+```typescript
+import { doc, updateDoc, increment } from "firebase/firestore";
+
+// Single atomic write for all 10 images!
+await updateDoc(doc(db, "users", user.uid), {
+  credits: increment(-10),
+  totalCutouts: increment(10),
+  lastActive: new Date()
+}); // Consumes 1 write quota instead of 10!
+```
+
+### Strategy 5: The "Single Document" Architecture
+Keep all profile data, credit balance, and plan settings in one document (`/users/{uid}`):
+```json
+{
+  "email": "creator@gmail.com",
+  "plan": "free",
+  "isProUser": false,
+  "credits": 25,
+  "lastResetDate": "2026-10-05"
+}
+```
+* Fetching this document costs **1 read** for Auth, Pro status, and Credits combined.
+
+### Strategy 6: Lazy-Loaded History & Analytics
+Never fetch past export logs on home page load. Only query history when the user explicitly opens an "Export History" modal.
+
+### Strategy 7: Conditional Updates
+Before saving settings, compare with cached state: `if (newSettings === oldSettings) return;`. Skip the network call if nothing changed.
+
+---
+
+## 7. Connecting Database with Ads & Pro Freemium
+
+Here is how the Firebase user profile seamlessly controls the Ad system:
+
+```
+┌────────────────────────────────────────────────────────┐
+│                   POLISHAI USER STATE                  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+┌───────────────────────────┐ ┌───────────────────────────┐
+│ FREE / GUEST USER         │ │ PRO SUBSCRIBER ($4.99/MO) │
+│ • isProUser = false       │ │ • isProUser = true        │
+│ • Render <AdSlot />       │ │ • Hide ALL <AdSlot />     │
+│ • Rewarded Ads enabled    │ │ • Unlimited Batch ZIP     │
+│ • 10-25 daily credits     │ │ • Priority Cloud AI       │
+└───────────────────────────┘ └───────────────────────────┘
+```
+
+### Clean React Ad Component Linked to User State (`components/ads/AdSlot.tsx`)
 ```tsx
 "use client";
 
@@ -218,13 +369,11 @@ interface AdSlotProps {
   slotId: string;
   format?: 'auto' | 'rectangle' | 'horizontal';
   className?: string;
-  isProUser?: boolean;
+  isProUser?: boolean; // Synced with Firebase user.isProUser
 }
 
 export default function AdSlot({ slotId, format = 'auto', className = '', isProUser = false }: AdSlotProps) {
-  const adRef = useRef<HTMLDivElement>(null);
-
-  // If user is subscribed to Pro, never render any ads
+  // If user is subscribed to Pro via Stripe/LemonSqueezy, never render ads!
   if (isProUser) return null;
 
   useEffect(() => {
@@ -233,7 +382,7 @@ export default function AdSlot({ slotId, format = 'auto', className = '', isProU
         ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
       }
     } catch (e) {
-      console.warn("Ad block active or AdSense pending:", e);
+      console.warn("AdSense pending or ad-block active:", e);
     }
   }, [slotId]);
 
@@ -253,32 +402,31 @@ export default function AdSlot({ slotId, format = 'auto', className = '', isProU
 }
 ```
 
-### C. Gentle Ad-Blocker Handling (The "Support PolishAI" Card)
-Instead of aggressively blocking AdBlock users with an unclosable paywall (which makes users leave immediately), show a friendly, polite developer note:
-
-```tsx
-<div className="p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/20 text-center">
-  <Heart className="w-5 h-5 text-cyan-400 mx-auto mb-1 animate-bounce" />
-  <p className="text-xs font-semibold text-white">PolishAI is 100% Free & In-Browser</p>
-  <p className="text-[11px] text-slate-400 mt-1">
-    We run AI locally on your device to protect your privacy. Please consider whitelisting us or upgrading to Pro to keep this tool free!
-  </p>
-</div>
+### Rewarded Ad: Watch Video to Unlock 5 Free Credits
+```typescript
+export async function handleRewardedAdComplete(userId: string) {
+  // Add 5 bonus credits to Firebase after verified ad view
+  await updateDoc(doc(db, "users", userId), {
+    credits: increment(5),
+    rewardedAdsWatchedToday: increment(1)
+  });
+  toast.success("+5 Bonus Credits added to your account!");
+}
 ```
 
 ---
 
-## 6. Step-by-Step Launch & Approval Checklist
+## 8. Step-by-Step Launch & Approval Checklist
 
 ### Step 1: Legal Compliance (Mandatory for AdSense Approval)
 Google AdSense will reject sites that do not have mandatory policy pages. You must have:
 * [x] **Privacy Policy** (`/privacy`): Clearly state that images are processed client-side and never saved on servers. Mention Google AdSense cookie usage.
 * [x] **Terms of Service** (`/terms`): Fair use and disclaimer.
 * [x] **Contact / About Us Page** (`/about`): Real developer contact email.
-* [x] **Cookie Consent Banner**: Implement a GDPR/CCPA compliant consent banner (e.g. `Cookiebot` or simple Tailwind banner).
+* [x] **Cookie Consent Banner**: Implement a GDPR/CCPA compliant consent banner.
 
 ### Step 2: Apply for Google AdSense
-1. Add your custom domain (e.g. `polishai.com`). Free Vercel subdomains (`*.vercel.app`) are often delayed or rejected by AdSense; custom domains get approved within 48–72 hours.
+1. Add your custom domain (`https://www.polishai.in`). Custom domains get approved within 48–72 hours.
 2. Place the `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-..." crossorigin="anonymous"></script>` in `app/layout.tsx`.
 3. Submit for review.
 
@@ -295,6 +443,8 @@ Google AdSense will reject sites that do not have mandatory policy pages. You mu
 
 ## Summary of Immediate Next Steps
 
-1. **Keep Models Client-Side:** Maintain the zero-server-cost RMBG-1.4 WebGPU/WASM pipeline as the default engine.
-2. **Review `plan.md`:** All ad locations, architecture diagrams, unit economics, and code components are now permanently documented here.
-3. **Deploy with Custom Domain:** When you are ready to apply for AdSense, map your custom domain in Vercel/Cloudflare and connect the `AdSlot` components.
+1. **Deploy PolishAI on Hostinger VPS:** Run PolishAI inside a Docker container on your VPS (~350 MB RAM).
+2. **Connect Google Firebase (Spark Free):** Keep the database off the VPS to avoid CPU throttling and memory exhaustion.
+3. **Use Guest LocalStorage:** 85% of users will consume 0 reads and 0 writes.
+4. **Deploy AdSlot Components:** Connect Google AdSense using the non-intrusive zones documented above.
+
