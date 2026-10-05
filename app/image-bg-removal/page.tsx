@@ -36,6 +36,10 @@ import Footer from '@/components/Footer';
 import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { consumeCredits } from '@/lib/usageTracker';
+import AdSlot from '@/components/ads/AdSlot';
+import ExportSuccessAdModal from '@/components/ads/ExportSuccessAdModal';
+import { AD_CONFIG } from '@/constant/ads';
 
 interface ProcessedImage {
   id: string;
@@ -123,6 +127,7 @@ export default function ImageBgRemovalPage() {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
@@ -249,6 +254,13 @@ export default function ImageBgRemovalPage() {
 
     if (modeToUse === 'prompt' && !promptToUse.trim()) {
       toast.error('Please enter the object you want to isolate (e.g. "dog", "person")');
+      return;
+    }
+
+    // Check & consume 1 credit (using LocalStorage for guests, Firebase for logged-in)
+    const creditCheck = await consumeCredits(1);
+    if (!creditCheck.success) {
+      toast.error('Daily credit limit reached! Click the credit badge in the top right to get more credits or watch a sponsor clip.');
       return;
     }
 
@@ -411,6 +423,7 @@ export default function ImageBgRemovalPage() {
       : `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout-shadow.png`;
     a.click();
     toast.success(withBackdrop ? 'Downloaded with studio backdrop!' : 'Downloaded cutout with shadow!');
+    setTimeout(() => setIsExportModalOpen(true), 400);
   };
 
   // Download all completed as ZIP
@@ -433,6 +446,7 @@ export default function ImageBgRemovalPage() {
     const content = await zip.generateAsync({ type: 'blob' });
     saveAs(content, 'polish-ai-cutouts.zip');
     toast.success(`Exported ${completed.length} cutouts into ZIP!`);
+    setTimeout(() => setIsExportModalOpen(true), 400);
   };
 
   // Copy cutout to clipboard
@@ -964,6 +978,11 @@ export default function ImageBgRemovalPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Placement 3: Desktop Sidebar Sponsored Unit */}
+              <div className="hidden lg:block">
+                <AdSlot slotId={AD_CONFIG.SLOTS.SIDEBAR_RECTANGLE} label="Recommended Partner" />
+              </div>
             </div>
 
             {/* Right Main Stage: Visual Split-Screen Workspace (order-1 on mobile so image is at the top!) */}
@@ -1374,6 +1393,15 @@ export default function ImageBgRemovalPage() {
           </section>
         )}
       </main>
+
+      {/* Placement 2: High-Intent Post-Download Export Success Ad Modal */}
+      <ExportSuccessAdModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        imageUrl={activeImage?.processedUrl}
+        onCopy={copyToClipboard}
+        onOpenCanvas={openInEditor}
+      />
 
       <Footer />
     </div>

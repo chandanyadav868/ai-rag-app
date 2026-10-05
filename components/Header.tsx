@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
 import { useContextStore } from './CreateContext'
+import CreditBadge from './CreditBadge'
 
 type NavLinkItem = {
   label: string;
@@ -177,6 +178,7 @@ function Headers() {
         </header>
 
         <div className='flex items-center gap-2'>
+          <CreditBadge />
           <div ref={profileBoxRef} className='relative hidden sm:block'>
             {!data && <Link href={"/login/signin"} className='rounded-full bg-white px-4 py-2 font-black text-black'>Login</Link>}
             {data &&
