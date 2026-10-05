@@ -246,7 +246,7 @@ self.onmessage = async (event) => {
             }
 
             // Downsample safely if image is enormous to prevent browser out-of-memory crash
-            const processImg = await downsampleIfNeeded(img, 1536);
+            const processImg = await downsampleIfNeeded(img, 1024);
 
             let maskData: Uint8ClampedArray;
             let outWidth = processImg.width;

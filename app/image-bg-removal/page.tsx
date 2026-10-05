@@ -970,65 +970,65 @@ export default function ImageBgRemovalPage() {
             <div className="flex-1 w-full flex flex-col gap-4 order-1 lg:order-2">
               
               {/* Studio Stage Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#091528]/80 border border-white/10 rounded-2xl px-4 py-3 backdrop-blur-xl">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-[#091528]/80 border border-white/10 rounded-2xl px-3 py-2 sm:px-4 sm:py-3 backdrop-blur-xl">
                 {/* View Mode Switcher */}
-                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
+                <div className="flex items-center gap-1 bg-black/40 p-0.5 sm:p-1 rounded-xl border border-white/5">
                   <button
                     onClick={() => setViewMode('split')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
                       viewMode === 'split' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <SplitSquareVertical size={14} />
-                    Split Slider
+                    <SplitSquareVertical size={13} />
+                    <span>Split</span>
                   </button>
                   <button
                     onClick={() => setViewMode('cutout')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
                       viewMode === 'cutout' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <Eye size={14} />
-                    Cutout Only
+                    <Eye size={13} />
+                    <span>Cutout</span>
                   </button>
                   <button
                     onClick={() => setViewMode('original')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
                       viewMode === 'original' ? 'bg-white/10 text-cyan-400' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <ImageIcon size={14} />
-                    Original
+                    <ImageIcon size={13} />
+                    <span>Original</span>
                   </button>
                 </div>
 
                 {/* Zoom & Reset Controls */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <div className="flex items-center bg-black/40 rounded-xl border border-white/5 p-0.5">
                     <button
                       onClick={() => setZoomLevel(prev => Math.max(0.6, prev - 0.2))}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                      className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
                       title="Zoom Out"
                     >
-                      <ZoomOut size={14} />
+                      <ZoomOut size={13} />
                     </button>
-                    <span className="px-2 text-xs font-mono text-slate-300">
+                    <span className="px-1.5 sm:px-2 text-[11px] sm:text-xs font-mono text-slate-300">
                       {Math.round(zoomLevel * 100)}%
                     </span>
                     <button
                       onClick={() => setZoomLevel(prev => Math.min(2.5, prev + 0.2))}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                      className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
                       title="Zoom In"
                     >
-                      <ZoomIn size={14} />
+                      <ZoomIn size={13} />
                     </button>
                   </div>
                   <button
                     onClick={() => setZoomLevel(1)}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                     title="Fit to Screen"
                   >
-                    <Maximize2 size={14} />
+                    <Maximize2 size={13} />
                   </button>
                 </div>
               </div>
@@ -1186,22 +1186,23 @@ export default function ImageBgRemovalPage() {
                         </div>
 
                         {/* Before / After Badges */}
-                        <div className="absolute top-4 left-4 z-10 px-2.5 py-1 rounded-full text-[11px] font-bold bg-black/60 backdrop-blur-md text-white border border-white/10 pointer-events-none">
-                          Before (Original)
+                        <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-full text-[10px] sm:text-xs font-semibold bg-black/70 backdrop-blur-md text-slate-200 border border-white/10 pointer-events-none shadow-md flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          Before
                         </div>
-                        <div className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-500/80 backdrop-blur-md text-white border border-cyan-400/30 pointer-events-none shadow-lg">
-                          After (AI Cutout)
+                        <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-10 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-full text-[10px] sm:text-xs font-semibold bg-cyan-500/90 backdrop-blur-md text-white border border-cyan-400/30 pointer-events-none shadow-md flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                          After
                         </div>
                       </div>
                     )
                   )}
 
-
                   {/* In-Progress Overlay */}
                   {isProcessing && (
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-30">
-                      <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
-                        <Loader2 size={28} className="animate-spin" />
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
+                        <Loader2 size={24} className="animate-spin" />
                       </div>
                       <p className="text-sm font-semibold text-white">
                         {progress || 'Neural Network Processing...'}
@@ -1214,38 +1215,57 @@ export default function ImageBgRemovalPage() {
                 </div>
               </div>
 
-              {/* Mobile Primary Action Bar: Extract Button right under the preview image on mobile */}
-              <div className="lg:hidden flex flex-col gap-2.5 bg-[#091528]/90 border border-white/10 rounded-2xl p-4 backdrop-blur-xl shadow-xl">
-                <button
-                  onClick={() => processImage(activeImage.id)}
-                  disabled={isProcessing}
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-98 ${
-                    removalMode === 'prompt'
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-violet-500/25'
-                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      {progress || 'Processing Image...'}
-                    </>
-                  ) : activeImage.processedUrl ? (
-                    <>
-                      <RefreshCw size={15} />
-                      Re-run AI Cutout
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      {removalMode === 'prompt' ? 'Isolate Selected Object' : 'Remove Background Now'}
-                    </>
-                  )}
-                </button>
+              {/* Mobile Primary Action Bar: Compact, clean actions right under preview image */}
+              <div className="lg:hidden flex flex-col gap-2 bg-[#091528]/90 border border-white/10 rounded-2xl p-2.5 sm:p-3 backdrop-blur-xl shadow-xl">
+                {activeImage.processedUrl ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => downloadImage(activeImage, false)}
+                      className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <Download size={13} />
+                      Download PNG
+                    </button>
+                    <button
+                      onClick={() => processImage(activeImage.id)}
+                      disabled={isProcessing}
+                      className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                    >
+                      {isProcessing ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={13} className="text-cyan-400" />
+                      )}
+                      Re-run AI
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => processImage(activeImage.id)}
+                    disabled={isProcessing}
+                    className={`w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 ${
+                      removalMode === 'prompt'
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-violet-500/25'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        <span>{progress || 'Processing Image...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={15} />
+                        <span>{removalMode === 'prompt' ? 'Isolate Selected Object' : 'Remove Background Now'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
 
                 {/* Progress bar during processing on mobile */}
                 {isProcessing && progressPercent > 0 && (
-                  <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden mt-1">
+                  <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
                     <div
                       className="bg-cyan-400 h-full transition-all duration-300"
                       style={{ width: `${progressPercent}%` }}
@@ -1255,50 +1275,50 @@ export default function ImageBgRemovalPage() {
               </div>
 
               {/* Bottom Thumbnail Queue Bar */}
-              <div className="bg-[#091528]/80 border border-white/10 rounded-2xl p-4 backdrop-blur-xl flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Batch Queue ({images.length})
+              <div className="bg-[#091528]/80 border border-white/10 rounded-2xl p-3 sm:p-4 backdrop-blur-xl flex flex-col gap-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Queue ({images.length})
                     </span>
                     {images.filter(i => i.status === 'completed').length > 0 && (
-                      <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        {images.filter(i => i.status === 'completed').length} Cutouts Ready
+                      <span className="text-[10px] sm:text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 whitespace-nowrap">
+                        {images.filter(i => i.status === 'completed').length} Ready
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {images.length > 1 && (
                       <button
                         onClick={processAll}
                         disabled={isProcessingAll}
-                        className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-xs font-semibold transition-all flex items-center gap-1.5"
+                        className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 whitespace-nowrap active:scale-95"
                       >
-                        {isProcessingAll ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                        {isProcessingAll ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                         Process All
                       </button>
                     )}
                     {images.some(i => i.processedUrl) && (
                       <button
                         onClick={downloadAllZip}
-                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 whitespace-nowrap active:scale-95"
                       >
-                        <Archive size={13} className="text-emerald-400" />
-                        Download ZIP
+                        <Archive size={12} className="text-emerald-400" />
+                        ZIP
                       </button>
                     )}
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-medium transition-all"
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] sm:text-xs font-medium transition-all whitespace-nowrap active:scale-95"
                     >
-                      + Add More
+                      + Add
                     </button>
                   </div>
                 </div>
 
                 {/* Queue Cards */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
                   {images.map((item) => (
                     <div
                       key={item.id}
@@ -1311,9 +1331,9 @@ export default function ImageBgRemovalPage() {
                           setViewMode('original');
                         }
                       }}
-                      className={`group relative shrink-0 w-24 h-24 rounded-xl border overflow-hidden cursor-pointer transition-all ${
+                      className={`group relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl border overflow-hidden cursor-pointer transition-all ${
                         activeImageId === item.id
-                          ? 'border-cyan-400 ring-2 ring-cyan-500/30 scale-105 shadow-lg'
+                          ? 'border-cyan-400 ring-2 ring-cyan-500/30 scale-102 shadow-lg'
                           : 'border-white/10 hover:border-white/30 bg-black/40'
                       }`}
                     >
@@ -1323,13 +1343,13 @@ export default function ImageBgRemovalPage() {
                         className="w-full h-full object-cover"
                       />
                       {item.status === 'completed' && (
-                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
-                          <Check size={11} />
+                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
+                          <Check size={10} />
                         </div>
                       )}
                       {item.status === 'processing' && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-cyan-400">
-                          <Loader2 size={16} className="animate-spin" />
+                          <Loader2 size={14} className="animate-spin" />
                         </div>
                       )}
                       <button
@@ -1344,7 +1364,7 @@ export default function ImageBgRemovalPage() {
                         className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove image"
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   ))}
