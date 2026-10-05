@@ -5,13 +5,15 @@ import mongodbConnection from "@/mongodb/connection";
 import Order from "@/mongodb/schema/Order.Schema";
 import PriceSchema, { PriceSchemaProps } from "@/mongodb/schema/Price.Schema";
 
-const initiate = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!
-});
+function getRazorpayInstance() {
+    const key_id = process.env.RAZORPAY_KEY_ID || "rzp_build_placeholder";
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || "rzp_secret_placeholder";
+    return new Razorpay({ key_id, key_secret });
+}
 
 export async function POST(req: NextRequest) {
     try {
+        const initiate = getRazorpayInstance();
         const { id, amount } = await req.json();
 
         console.log(id, typeof amount);

@@ -6,14 +6,15 @@ import Order from "@/mongodb/schema/Order.Schema";
 import Razorpay from "razorpay";
 import UserSchema from "@/mongodb/schema/User.Schema";
 
-const initiate = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!
-});
-
+function getRazorpayInstance() {
+    const key_id = process.env.RAZORPAY_KEY_ID || "rzp_build_placeholder";
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || "rzp_secret_placeholder";
+    return new Razorpay({ key_id, key_secret });
+}
 
 export async function POST(req: NextRequest) {
     try {
+        const initiate = getRazorpayInstance();
         // const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = await req.json();
         // const payment = await initiate.payments.fetch(razorpay_payment_id);
         // console.log("Payment details:", payment);

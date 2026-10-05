@@ -1,41 +1,30 @@
 "use client";
 
-// Lightweight wrapper around WebFont Loader (webfontloader)
-// Ensures a requested Google font family is loaded before applying it.
+// Clean, native Google Font Loader
+// Injects stylesheet and checks font loading with document.fonts without any external dependencies
 
 export async function loadGoogleFont(family: string, variants: string[] = ["400", "700"]): Promise<void> {
+  if (typeof window === "undefined" || !family) return;
+
   try {
-    // @ts-ignore
-    const WebFont = (await import('webfontloader')).default;
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      const families = [`${family}:${variants.join(',')}`];
+    const formattedFamily = family.trim().replace(/ /g, "+");
+    const linkId = `google-font-${formattedFamily.toLowerCase()}`;
 
-      WebFont.load({
-        google: { families },
-        timeout: 5000,
-        active: () => {
-          if (finished) return;
-          finished = true;
-          resolve();
-        },
-        inactive: () => {
-          if (finished) return;
-          finished = true;
-          // still resolve so the UI falls back gracefully
-          resolve();
-        },
-      });
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement("link");
+      link.id = linkId;
+      link.rel = "stylesheet";
+      link.href = `https://fonts.googleapis.com/css2?family=${formattedFamily}:wght@${variants.join(";")}&display=swap`;
+      document.head.appendChild(link);
+    }
 
-      // Safety timeout in case loader hangs
-      setTimeout(() => {
-        if (finished) return;
-        finished = true;
-        resolve();
-      }, 6000);
-    });
+    if ("fonts" in document) {
+      await Promise.race([
+        (document as any).fonts.load(`16px "${family}"`),
+        new Promise((resolve) => setTimeout(resolve, 3000)), // timeout fallback
+      ]);
+    }
   } catch (err) {
-    // If webfontloader isn't available or fails, just resolve so caller can continue
-    return Promise.resolve();
+    // Graceful fallback to system font
   }
 }
