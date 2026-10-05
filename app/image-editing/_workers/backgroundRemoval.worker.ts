@@ -202,9 +202,10 @@ async function getPipeline(task: string, modelId: string) {
 }
 
 /**
- * Downsample image if larger than maxDim to ensure low memory usage and avoid tab crash.
+ * Downsample image if larger than maxDim (1024px matching RMBG-1.4 native tensor shape)
+ * to ensure fast inference and prevent mobile CPU thread starvation and tab crashes.
  */
-async function downsampleIfNeeded(raw: any, maxDim = 1536) {
+async function downsampleIfNeeded(raw: any, maxDim = 1024) {
     if (raw.width > maxDim || raw.height > maxDim) {
         const scale = Math.min(maxDim / raw.width, maxDim / raw.height);
         const targetW = Math.round(raw.width * scale);

@@ -129,6 +129,7 @@ export default function ImageBgRemovalPage() {
   const sliderContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingSlider = useRef<boolean>(false);
   const rafId = useRef<number | null>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
 
   const activeImage = images.find(img => img.id === activeImageId) || images[0] || null;
 
@@ -157,6 +158,9 @@ export default function ImageBgRemovalPage() {
       setSliderPosition(50);
       setViewMode('original');
       toast.success(`Loaded ${newItems.length} image${newItems.length > 1 ? 's' : ''}`);
+      setTimeout(() => {
+        workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     }
   }, [removalMode]);
 
@@ -181,6 +185,9 @@ export default function ImageBgRemovalPage() {
       setObjectPrompt(sample.prompt);
     }
     toast.success(`Loaded ${sample.name}`);
+    setTimeout(() => {
+      workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   }, [removalMode]);
 
   // Drag and drop handlers
@@ -636,10 +643,10 @@ export default function ImageBgRemovalPage() {
 
         {/* Active Studio Workspace */}
         {images.length > 0 && activeImage && (
-          <section className="flex flex-col lg:flex-row gap-6 items-start">
+          <section ref={workspaceRef} className="flex flex-col lg:flex-row gap-6 items-start">
             
-            {/* Left Control Column: AI Mode & Settings */}
-            <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-4">
+            {/* Left Control Column: AI Mode & Settings (order-2 on mobile, order-1 on desktop) */}
+            <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-4 order-2 lg:order-1">
               
               {/* Mode Selection Card */}
               <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-4">
@@ -959,8 +966,8 @@ export default function ImageBgRemovalPage() {
               </div>
             </div>
 
-            {/* Right Main Stage: Visual Split-Screen Workspace */}
-            <div className="flex-1 w-full flex flex-col gap-4">
+            {/* Right Main Stage: Visual Split-Screen Workspace (order-1 on mobile so image is at the top!) */}
+            <div className="flex-1 w-full flex flex-col gap-4 order-1 lg:order-2">
               
               {/* Studio Stage Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-[#091528]/80 border border-white/10 rounded-2xl px-4 py-3 backdrop-blur-xl">
@@ -1205,6 +1212,46 @@ export default function ImageBgRemovalPage() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Mobile Primary Action Bar: Extract Button right under the preview image on mobile */}
+              <div className="lg:hidden flex flex-col gap-2.5 bg-[#091528]/90 border border-white/10 rounded-2xl p-4 backdrop-blur-xl shadow-xl">
+                <button
+                  onClick={() => processImage(activeImage.id)}
+                  disabled={isProcessing}
+                  className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-98 ${
+                    removalMode === 'prompt'
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-violet-500/25'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {progress || 'Processing Image...'}
+                    </>
+                  ) : activeImage.processedUrl ? (
+                    <>
+                      <RefreshCw size={15} />
+                      Re-run AI Cutout
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      {removalMode === 'prompt' ? 'Isolate Selected Object' : 'Remove Background Now'}
+                    </>
+                  )}
+                </button>
+
+                {/* Progress bar during processing on mobile */}
+                {isProcessing && progressPercent > 0 && (
+                  <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden mt-1">
+                    <div
+                      className="bg-cyan-400 h-full transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Bottom Thumbnail Queue Bar */}

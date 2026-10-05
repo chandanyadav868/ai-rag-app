@@ -225,7 +225,16 @@ async function applyMaskToImage(
         // Direct 4-channel RGBA cutout produced with neural putAlpha
         const imgData = new ImageData(new Uint8ClampedArray(mask.data), maskWidth, maskHeight);
         ctx.putImageData(imgData, 0, 0);
-        return canvas.toDataURL('image/png');
+
+        return new Promise<string>((resolve) => {
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    resolve(URL.createObjectURL(blob));
+                } else {
+                    resolve(canvas.toDataURL('image/png'));
+                }
+            }, 'image/png');
+        });
     }
 
     // Fallback if 1-channel mask: apply alpha directly to image pixels
@@ -245,5 +254,13 @@ async function applyMaskToImage(
     }
     ctx.putImageData(imgData, 0, 0);
 
-    return canvas.toDataURL('image/png');
+    return new Promise<string>((resolve) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(URL.createObjectURL(blob));
+            } else {
+                resolve(canvas.toDataURL('image/png'));
+            }
+        }, 'image/png');
+    });
 }
