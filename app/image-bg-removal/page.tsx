@@ -319,8 +319,11 @@ export default function ImageBgRemovalPage() {
       const a = document.createElement('a');
       a.href = item.processedUrl;
       a.download = `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout.png`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       toast.success('Downloaded transparent cutout!');
+      setTimeout(() => setIsExportModalOpen(true), 400);
       return;
     }
 
@@ -413,7 +416,9 @@ export default function ImageBgRemovalPage() {
     a.download = withBackdrop 
       ? `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-backdrop.png`
       : `polish-ai-${item.name.replace(/\.[^/.]+$/, '')}-cutout-shadow.png`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     toast.success(withBackdrop ? 'Downloaded with studio backdrop!' : 'Downloaded cutout with shadow!');
     setTimeout(() => setIsExportModalOpen(true), 400);
   };
@@ -1229,26 +1234,64 @@ export default function ImageBgRemovalPage() {
               {/* Mobile Primary Action Bar: Compact, clean actions right under preview image */}
               <div className="lg:hidden flex flex-col gap-2 bg-[#091528]/90 border border-white/10 rounded-2xl p-2.5 sm:p-3 backdrop-blur-xl shadow-xl">
                 {activeImage.processedUrl ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => downloadImage(activeImage, false)}
-                      className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5 active:scale-95"
-                    >
-                      <Download size={13} />
-                      Download PNG
-                    </button>
+                  <div className="flex flex-col gap-2.5">
+                    {/* Re-run AI Button */}
                     <button
                       onClick={() => processImage(activeImage.id)}
                       disabled={isProcessing}
-                      className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                      className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all"
                     >
                       {isProcessing ? (
-                        <Loader2 size={13} className="animate-spin" />
+                        <Loader2 size={13} className="animate-spin text-cyan-400" />
                       ) : (
                         <RefreshCw size={13} className="text-cyan-400" />
                       )}
                       Re-run AI
                     </button>
+
+                    {/* Export & Actions 2x2 Grid (matching desktop panel) */}
+                    <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Export & Actions
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => downloadImage(activeImage, false)}
+                          disabled={!activeImage.processedUrl}
+                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                        >
+                          <Download size={14} className="text-cyan-400" />
+                          Cutout PNG
+                        </button>
+                        <button
+                          onClick={() => downloadImage(activeImage, true)}
+                          disabled={!activeImage.processedUrl || activeBackdrop === 'transparent'}
+                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                        >
+                          <Download size={14} className="text-emerald-400" />
+                          With Backdrop
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={copyToClipboard}
+                          disabled={!activeImage.processedUrl}
+                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                        >
+                          {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                          {copied ? 'Copied!' : 'Copy to Clipboard'}
+                        </button>
+                        <button
+                          onClick={openInEditor}
+                          disabled={!activeImage.processedUrl}
+                          className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                        >
+                          <ExternalLink size={14} />
+                          Open in Canvas
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <button
@@ -1394,6 +1437,40 @@ export default function ImageBgRemovalPage() {
         onCopy={copyToClipboard}
         onOpenCanvas={openInEditor}
       />
+
+      {/* Fullscreen Neural Processing Lock Screen: Locks scrolling & screen jitter during intensive model calculation */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-[#060D1A]/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200 select-none">
+          <div className="bg-[#091528] border border-cyan-500/30 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl shadow-cyan-950/50 flex flex-col items-center text-center gap-4 animate-in zoom-in-95 duration-200">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-lg shadow-cyan-500/20">
+                <Loader2 size={32} className="animate-spin text-cyan-400" />
+              </div>
+              <Sparkles size={16} className="absolute -top-1 -right-1 text-cyan-300 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                AI Neural Engine Working
+              </h3>
+              <p className="text-xs text-slate-300 mt-1">
+                {progress || 'Calculating high-precision matting edges...'}
+              </p>
+            </div>
+            {progressPercent > 0 && (
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-cyan-400 to-blue-500 h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+              <ShieldCheck size={13} className="text-emerald-400" />
+              100% In-Browser &bull; Zero Server Upload
+            </p>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

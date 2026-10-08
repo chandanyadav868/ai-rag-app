@@ -84,6 +84,24 @@ export function useBackgroundRemoval() {
         };
     }, [initWorker]);
 
+    // Lock page scrolling and touch actions during intensive AI calculation to prevent UI freeze and jitter
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+
+        if (status === 'processing') {
+            const originalOverflow = document.body.style.overflow;
+            const originalTouchAction = document.body.style.touchAction;
+
+            document.body.style.overflow = 'hidden';
+            document.body.style.touchAction = 'none';
+
+            return () => {
+                document.body.style.overflow = originalOverflow;
+                document.body.style.touchAction = originalTouchAction;
+            };
+        }
+    }, [status]);
+
     const loadModel = useCallback((modelId: string = 'briaai/RMBG-1.4') => {
         if (!globalWorker) {
             initWorker();
@@ -197,6 +215,7 @@ export function useBackgroundRemoval() {
         lastDurationMs,
         deviceType,
         error,
+        isProcessing: status === 'processing',
         loadModel,
         removeBackground,
         removeBackgroundFromFrame

@@ -4,6 +4,29 @@ import { env, pipeline, RawImage, AutoModel, AutoProcessor, AutoTokenizer } from
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
+// Optimization: Reserve CPU cores for browser UI and compositor to prevent UI freeze and jitter
+const hardwareConcurrency = typeof self !== 'undefined' && self.navigator ? (self.navigator.hardwareConcurrency || 4) : 4;
+// Allocate at most half the cores (capped at 4) to leave cores free for browser UI thread
+const optimalThreads = Math.max(1, Math.min(4, Math.floor(hardwareConcurrency / 2)));
+
+if (env.backends?.onnx?.wasm) {
+    (env.backends.onnx.wasm as any).numThreads = optimalThreads;
+    (env.backends.onnx.wasm as any).proxy = false;
+}
+if ((env as any).wasm) {
+    (env as any).wasm.numThreads = optimalThreads;
+}
+
+// Throttle progress updates to avoid flooding main thread React state
+let lastProgressTime = 0;
+function postThrottledProgress(msg: { status: string; message: string; progress: number }, force = false) {
+    const now = performance.now();
+    if (force || now - lastProgressTime >= 80) {
+        lastProgressTime = now;
+        self.postMessage(msg);
+    }
+}
+
 // Active pipelines and model caches
 const pipelineCache: Record<string, any> = {};
 let rmbgModel: any = null;
@@ -43,7 +66,7 @@ async function getRMBG() {
             device: device,
             progress_callback: (p: any) => {
                 if (p.status === 'progress' && typeof p.progress === 'number') {
-                    self.postMessage({
+                    postThrottledProgress({
                         status: 'loading',
                         message: `Downloading RMBG-1.4 weights: ${Math.round(p.progress)}%`,
                         progress: Math.min(95, Math.round(p.progress))
@@ -119,7 +142,7 @@ async function getCLIPSeg(modelId: string = 'Xenova/clipseg-rd64-refined') {
 
     const progress_callback = (p: any) => {
         if (p.status === 'progress' && typeof p.progress === 'number') {
-            self.postMessage({
+            postThrottledProgress({
                 status: 'loading',
                 message: `Downloading CLIPSeg weights: ${Math.round(p.progress)}%`,
                 progress: Math.min(95, Math.round(p.progress))
@@ -175,7 +198,7 @@ async function getPipeline(task: string, modelId: string) {
             device: device,
             progress_callback: (p: any) => {
                 if (p.status === 'progress' && typeof p.progress === 'number') {
-                    self.postMessage({
+                    postThrottledProgress({
                         status: 'loading',
                         message: `Downloading ${modelId.split('/')[1] || 'model'}: ${Math.round(p.progress)}%`,
                         progress: Math.min(95, Math.round(p.progress))
