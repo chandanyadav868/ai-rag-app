@@ -1,101 +1,74 @@
-# Architecture & Implementation Plan: AI Background Removal Optimization & Action Panel Upgrade
+# Implementation Plan: Queue Deletion Bug Fix, Dual Download System & Duplicate Removal
 
-**Target Modules:**  
-1. `app/image-bg-removal/page.tsx` (Studio Preview & Action Controls)  
-2. `app/image-editing/_hooks/useBackgroundRemoval.ts` (Shared Background Removal Hook)  
-3. `app/image-editing/_workers/backgroundRemoval.worker.ts` (Web Worker & ONNX Neural Engine)  
-4. `app/image-editing/_components/` & `app/gif-maker/_components/` (Shared Consumers)  
+**Target File:** `app/image-bg-removal/page.tsx`  
+**Status:** Completed & Verified  
 
 ---
 
-## 1. Root Cause Analysis: Why Does the UI Freeze & Jitter?
+## 1. Problem Breakdown & Root Cause Analysis
 
-When clicking "Remove Background" or loading the AI model, the webpage experiences stuttering, frozen scrolling, and a noticeable "jitter effect." Here is the exact technical reason:
-
-### Root Cause 1: 100% CPU Core Saturation by ONNX Runtime Web
-- The application executes deep neural networks (**briaai/RMBG-1.4** ~170MB weights, and **Xenova/clipseg**) directly client-side inside the user's browser using `@huggingface/transformers` backed by ONNX Runtime Web (WASM).
-- By default, ONNX Runtime Web's WebAssembly backend spawns multi-threaded worker threads matching `navigator.hardwareConcurrency` (e.g., 8, 12, or 16 threads).
-- During model compilation, tensor transformation, and matrix multiplication, **all CPU cores are pegged at 100% capacity**.
-- This starves the browser's **Compositor Thread** and **Main Event Loop** of CPU time, resulting in dropped frames (from 60fps down to 5-10fps), unresponsive cursor input, and violent scroll jank ("jitter effect").
-
-### Root Cause 2: Unlocked Scrolling During Intensive Execution
-- In `image-bg-removal/page.tsx`, the loading overlay is confined only to `absolute inset-0` within the preview container.
-- The document body (`window`) is never locked. If the user moves a finger or scrolls the mouse wheel while the CPU is saturated, touch and scroll events queue up and trigger delayed, jerky scroll jumps.
-
-### Root Cause 3: High-Frequency React State Updates
-- During model downloading and inference, worker `progress_callback` messages fire dozens of times per second.
-- In `useBackgroundRemoval.ts`, every message directly triggers `setProgress` and `setProgressPercent`, causing rapid top-level React re-renders while the CPU is already under peak stress.
-
----
-
-## 2. Solution: How We Will Fix the Freezing & Jitter
-
-### A. ONNX Thread Pool Optimization (Worker Level)
-- In `backgroundRemoval.worker.ts`, configure `env.backends.onnx.wasm.numThreads`:
-  ```ts
-  const totalCores = self.navigator?.hardwareConcurrency || 4;
-  env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(4, Math.floor(totalCores / 2)));
+### Issue A: Images in the Queue Auto-Deleting When Tapped (Images 1, 2, 3)
+* **What happened:** In Image 1 there were 6 images; in Image 2 only 3 images remained; in Image 3 only 1 image remained.
+* **Root cause:** 
+  Inside the thumbnail queue card (`lines 1409–1422`):
+  ```tsx
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setImages(prev => prev.filter(i => i.id !== item.id));
+      ...
+    }}
+    className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+  >
+    <Trash2 size={11} />
+  </button>
   ```
-- **Why this works:** Leaving 1 to 2 cores completely free for the browser's UI thread and compositor ensures the browser stays responsive at 60 FPS, maintaining fluid animations and smooth interactions without freezing the operating system or browser tab.
+  On mobile touchscreen devices, `opacity-0` only hides the button visually—**`pointer-events` remain fully active**. Because each thumbnail is only 64×64px (`w-16 h-16`), when a user taps the thumbnail with their thumb to select/preview it, their touch hits the invisible trash button at the bottom-right. The click event is intercepted by `e.stopPropagation()` and immediately deletes the image from the queue!
 
-### B. Global Screen & Scroll Lock During Processing
-- In `useBackgroundRemoval.ts`, implement an automatic body scroll-lock effect:
-  - When `status === 'processing'` or `status === 'loading'`, apply `document.body.style.overflow = 'hidden'` (and `touch-action: none`) to prevent scroll jank and touch jitter.
-  - When execution completes (`'ready'`, `'complete'`, or `'error'`), cleanly restore scrolling.
-- In `image-bg-removal/page.tsx`, ensure the processing overlay displays a unified, smooth glassmorphic lock screen with clear progress feedback so the user understands the AI is computing without seeing any page jitter.
+### Issue B: Missing Clear Two-Button Download Controls
+* **Requirement:**
+  1. **Download Selected Image:** One-click instant download of the currently active image cutout.
+  2. **Download All Images:** One-click batch download of all completed cutouts in the queue (ZIP).
+* **Current state:** The download actions were spread across secondary panels and a small "ZIP" chip. Users need two clear, prominent buttons: one for single selected download and one for batch download of all images.
 
-### C. Worker Message Throttling
-- Throttle progress updates sent from the worker to the main thread (minimum 80ms interval) to avoid React re-render thrashing.
-
-### D. Unified Across All Tools
-- Because `app/image-editing` (`MaskStudio.tsx`, `AIFeatures.tsx`) and `app/gif-maker` (`MaskStudio.tsx`, `AIFeatures.tsx`) both consume `useBackgroundRemoval.ts` and `backgroundRemoval.worker.ts`, all these performance enhancements and scroll-locking protections will automatically apply to **Image Editing** and **GIF Maker** as well.
-
----
-
-## 3. UI Redesign: Replacing "Download PNG" with the 4 Action Buttons
-
-### Current State (Image 1)
-- In the mobile / primary action bar under the preview image:
-  - `[ Download PNG ]` (Gradient button)
-  - `[ Re-run AI ]` (Secondary button)
-- Clicking "Download PNG" only offers a single download option.
-
-### Desired State (Image 2 Alignment)
-- Remove the single `[ Download PNG ]` button.
-- Render `[ Re-run AI ]` alongside/above the full **Export & Actions** suite:
-  1. **Cutout PNG** (`<Download />`): Downloads the transparent cutout PNG.
-  2. **With Backdrop** (`<Download />`): Downloads the cutout composited with the selected background (color, gradient, blur, or shadow).
-  3. **Copy to Clipboard** (`<Copy />` / `<Check />`): Copies the transparent cutout directly to the OS clipboard.
-  4. **Open in Canvas** (`<ExternalLink />`): Direct bridge to `/image-editing` canvas studio with the cutout preloaded.
-- Layout:
-  - A clean, modern panel directly under the preview image:
-    - **Header / Re-run Row:** `[ Re-run AI ]` button with loader state.
-    - **Actions Grid (2x2):** The four buttons styled with subtle borders, hover glow, and active scale animations matching the design in Image 2.
+### Issue C: Duplicate "Export & Actions" Component at the Bottom (Image 4)
+* **What happened:** In Image 4, right above the footer ("P" logo / Services), a duplicate "EXPORT & ACTIONS" panel appears.
+* **Root cause:**
+  The desktop sidebar has `order-2 lg:order-1`, which moves it to the bottom of the page on mobile viewports. Inside this sidebar (`lines 934–977`), the "Quick Actions Panel" renders "EXPORT & ACTIONS". Because we already render the action buttons under the preview image, it appears twice on mobile.
 
 ---
 
-## 4. Implementation Steps
+## 2. Proposed Implementation Steps
 
-1. **Update `app/image-editing/_workers/backgroundRemoval.worker.ts`**:
-   - Set thread allocation limits for WASM/ONNX to preserve UI compositor responsiveness.
-   - Add throttling to model download and inference progress notifications.
+### Step 1: Fix the Queue Auto-Deletion Bug
+1. Change the delete button on thumbnail cards to `pointer-events-none group-hover:pointer-events-auto` so it can **never** capture accidental taps while hidden.
+2. Separate the click handling:
+   - Tapping anywhere on the thumbnail card strictly calls `setActiveImageId(item.id)` to preview the image.
+   - For mobile, add a clean, safe removal mechanism that cannot be triggered by accident.
 
-2. **Update `app/image-editing/_hooks/useBackgroundRemoval.ts`**:
-   - Add automatic scroll-lock management (`document.body.style.overflow = 'hidden'`) during active background removal.
-   - Ensure clean cleanup on unmount or processing completion.
+### Step 2: Implement the Two Dedicated Download Buttons
+Directly in the primary action bar under the preview image (and in the queue toolbar), provide two prominent, high-visibility download buttons:
+1. **Button 1: `Download Cutout (Selected)`** (or `Download PNG`):
+   - One-click download of the currently previewed image cutout.
+   - Styled with a vibrant cyan/blue gradient and clear download icon.
+2. **Button 2: `Download All Cutouts (ZIP)`**:
+   - One-click batch download bundling all completed cutouts from the queue into a ZIP archive.
+   - Displays the ready count badge (e.g., `Download All (6 Ready)`).
+   - Styled with an emerald badge/button for clear distinction.
+3. Keep the secondary options (`With Backdrop`, `Copy to Clipboard`, `Open in Canvas`, `Re-run AI`) neatly organized beneath these two primary download buttons.
 
-3. **Update `app/image-bg-removal/page.tsx`**:
-   - Replace the single `Download PNG` button under the image preview with the 4-button Export & Actions grid from Image 2:
-     - `Cutout PNG`
-     - `With Backdrop`
-     - `Copy to Clipboard`
-     - `Open in Canvas`
-   - Position `Re-run AI` neatly above/alongside this action grid.
-   - Ensure buttons are responsive across mobile and desktop viewports.
-   - Enhance the processing overlay to provide smooth, locked UI feedback while the AI model executes.
+### Step 3: Remove the Duplicate "Export & Actions" Panel from the Bottom
+1. In the sidebar (`lines 934–977`), add `hidden lg:flex` to the Quick Actions Panel.
+2. This ensures:
+   - On **desktop**: The panel appears in its correct sidebar location.
+   - On **mobile**: The panel is completely removed from the bottom of the page (Image 4 issue resolved), leaving only the primary action panel directly under the preview image.
 
-4. **Verify `app/image-editing` and `app/gif-maker`**:
-   - Verify that background removal in both tools inherits the scroll-lock and thread-optimization improvements without regressions.
+---
 
-5. **Build & Lint Verification**:
-   - Run type checks and project build to ensure zero errors.
+## 3. Verification Plan
+- Verify on mobile viewport:
+  - Tapping thumbnails in the queue switches active image without deleting anything.
+  - Clicking "Download Cutout" downloads the active image cutout.
+  - Clicking "Download All (ZIP)" downloads all images in one click.
+  - Scrolling to the bottom confirms no duplicate "Export & Actions" panel exists above the footer.
+- Run `npx tsc --noEmit` to ensure zero compilation or type errors.

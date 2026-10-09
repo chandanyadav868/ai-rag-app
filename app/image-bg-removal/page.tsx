@@ -931,8 +931,8 @@ export default function ImageBgRemovalPage() {
                 )}
               </div>
 
-              {/* Quick Actions Panel */}
-              <div className="rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex flex-col gap-3">
+              {/* Quick Actions Panel - Visible ONLY on Desktop Sidebar to avoid duplication on mobile */}
+              <div className="hidden lg:flex rounded-2xl border border-white/10 bg-[#091528]/80 backdrop-blur-xl p-5 shadow-xl flex-col gap-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 pb-2">
                   Export & Actions
                 </span>
@@ -1231,66 +1231,72 @@ export default function ImageBgRemovalPage() {
                 </div>
               </div>
 
-              {/* Mobile Primary Action Bar: Compact, clean actions right under preview image */}
-              <div className="lg:hidden flex flex-col gap-2 bg-[#091528]/90 border border-white/10 rounded-2xl p-2.5 sm:p-3 backdrop-blur-xl shadow-xl">
+              {/* Primary Action Bar: Direct 1-click downloads & actions right under preview image */}
+              <div className="flex flex-col gap-2.5 bg-[#091528]/90 border border-white/10 rounded-2xl p-2.5 sm:p-3.5 backdrop-blur-xl shadow-xl">
                 {activeImage.processedUrl ? (
                   <div className="flex flex-col gap-2.5">
-                    {/* Re-run AI Button */}
-                    <button
-                      onClick={() => processImage(activeImage.id)}
-                      disabled={isProcessing}
-                      className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all"
-                    >
-                      {isProcessing ? (
-                        <Loader2 size={13} className="animate-spin text-cyan-400" />
-                      ) : (
-                        <RefreshCw size={13} className="text-cyan-400" />
-                      )}
-                      Re-run AI
-                    </button>
+                    {/* Primary Dual Download Buttons: 1-click single download vs 1-click whole batch download */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        onClick={() => downloadImage(activeImage, false)}
+                        disabled={!activeImage.processedUrl}
+                        className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 transition-all"
+                      >
+                        <Download size={14} />
+                        <span>Download Cutout (PNG)</span>
+                      </button>
 
-                    {/* Export & Actions 2x2 Grid (matching desktop panel) */}
-                    <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Export & Actions
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => downloadImage(activeImage, false)}
-                          disabled={!activeImage.processedUrl}
-                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                        >
-                          <Download size={14} className="text-cyan-400" />
-                          Cutout PNG
-                        </button>
-                        <button
-                          onClick={() => downloadImage(activeImage, true)}
-                          disabled={!activeImage.processedUrl || activeBackdrop === 'transparent'}
-                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                        >
-                          <Download size={14} className="text-emerald-400" />
-                          With Backdrop
-                        </button>
-                      </div>
+                      <button
+                        onClick={downloadAllZip}
+                        disabled={images.filter(i => i.status === 'completed').length === 0}
+                        className="py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-semibold text-xs shadow-md shadow-emerald-500/10 flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 transition-all"
+                      >
+                        <Archive size={14} className="text-emerald-400" />
+                        <span>Download All ({images.filter(i => i.status === 'completed').length} Ready)</span>
+                      </button>
+                    </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={copyToClipboard}
-                          disabled={!activeImage.processedUrl}
-                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                        >
-                          {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                          {copied ? 'Copied!' : 'Copy to Clipboard'}
-                        </button>
-                        <button
-                          onClick={openInEditor}
-                          disabled={!activeImage.processedUrl}
-                          className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                        >
-                          <ExternalLink size={14} />
-                          Open in Canvas
-                        </button>
-                      </div>
+                    {/* Secondary Actions Row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-white/10">
+                      <button
+                        onClick={() => processImage(activeImage.id)}
+                        disabled={isProcessing}
+                        className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 transition-all"
+                      >
+                        {isProcessing ? (
+                          <Loader2 size={13} className="animate-spin text-cyan-400" />
+                        ) : (
+                          <RefreshCw size={13} className="text-cyan-400" />
+                        )}
+                        <span>Re-run AI</span>
+                      </button>
+
+                      <button
+                        onClick={() => downloadImage(activeImage, true)}
+                        disabled={!activeImage.processedUrl || activeBackdrop === 'transparent'}
+                        className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                      >
+                        <Download size={13} className="text-emerald-400" />
+                        <span>With Backdrop</span>
+                      </button>
+
+                      <button
+                        onClick={copyToClipboard}
+                        disabled={!activeImage.processedUrl}
+                        className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                      >
+                        {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                        <span>{copied ? 'Copied!' : 'Copy'}</span>
+                      </button>
+
+                      <button
+                        onClick={openInEditor}
+                        disabled={!activeImage.processedUrl}
+                        className="py-2 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                      >
+                        <ExternalLink size={13} />
+                        <span>Open Canvas</span>
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1356,10 +1362,25 @@ export default function ImageBgRemovalPage() {
                     {images.some(i => i.processedUrl) && (
                       <button
                         onClick={downloadAllZip}
-                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 whitespace-nowrap active:scale-95"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] sm:text-xs font-semibold transition-all flex items-center gap-1 whitespace-nowrap active:scale-95"
+                        title="Download all completed images in ZIP"
                       >
                         <Archive size={12} className="text-emerald-400" />
-                        ZIP
+                        Download All (ZIP)
+                      </button>
+                    )}
+                    {activeImage && images.length > 1 && (
+                      <button
+                        onClick={() => {
+                          setImages(prev => prev.filter(i => i.id !== activeImage.id));
+                          const remaining = images.filter(i => i.id !== activeImage.id);
+                          setActiveImageId(remaining[0]?.id || null);
+                        }}
+                        className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[11px] sm:text-xs font-medium transition-all flex items-center gap-1 whitespace-nowrap active:scale-95"
+                        title="Remove active image from queue"
+                      >
+                        <Trash2 size={11} />
+                        <span>Remove</span>
                       </button>
                     )}
                     <button
@@ -1406,6 +1427,7 @@ export default function ImageBgRemovalPage() {
                           <Loader2 size={14} className="animate-spin" />
                         </div>
                       )}
+                      {/* Desktop-only delete button on hover, pointer-events disabled when invisible so mobile taps NEVER delete the image */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1415,7 +1437,7 @@ export default function ImageBgRemovalPage() {
                             setActiveImageId(remaining[0]?.id || null);
                           }
                         }}
-                        className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="hidden sm:group-hover:flex absolute bottom-1 right-1 p-1 rounded-md bg-black/80 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
                         title="Remove image"
                       >
                         <Trash2 size={11} />
