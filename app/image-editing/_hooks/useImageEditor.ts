@@ -1209,6 +1209,12 @@ export function useImageEditor() {
       setSomethingDrop(true);
     };
 
+    const dragLeaveImage = (event: DragEvent) => {
+      if (!event.relatedTarget || (event as any).clientX <= 0 || (event as any).clientY <= 0) {
+        setSomethingDrop(false);
+      }
+    };
+
     const dropImage = (event: DragEvent) => {
       event.preventDefault();
       if (!event.dataTransfer) return;
@@ -1365,6 +1371,7 @@ export function useImageEditor() {
     canvasElement.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvasElement.addEventListener("touchend", handleTouchEnd);
     window.addEventListener("dragover", dropOverImage);
+    window.addEventListener("dragleave", dragLeaveImage);
     window.addEventListener("drop", dropImage);
     window.addEventListener("keydown", deletingObj);
 
@@ -1389,6 +1396,7 @@ export function useImageEditor() {
 
     return () => {
       window.removeEventListener("dragover", dropOverImage);
+      window.removeEventListener("dragleave", dragLeaveImage);
       window.removeEventListener("drop", dropImage);
       window.removeEventListener("keydown", deletingObj);
       window.removeEventListener("paste", handlePaste);

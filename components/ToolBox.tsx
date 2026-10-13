@@ -942,10 +942,17 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     </button>
   );
 
-  const handleApplySticker = async (customWidth?: number, customColor?: string, customGlow?: number) => {
+  const stickerDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleApplySticker = async (
+    customWidth?: number, 
+    customColor?: string, 
+    customGlow?: number, 
+    showToast: boolean = true
+  ) => {
     const object = getSelectedObject();
     if (!object || !(object instanceof FabricImage)) {
-      toast.error("Please select an image cutout first");
+      if (showToast) toast.error("Please select an image cutout first");
       return;
     }
 
@@ -957,7 +964,7 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     try {
       const el = (object as any).getElement?.() || (object as any)._element;
       if (!el) {
-        toast.error("Image element not ready");
+        if (showToast) toast.error("Image element not ready");
         setStickerApplying(false);
         return;
       }
@@ -990,18 +997,32 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
 
         applyChanges({ strokeWidth: 0, stroke: "" });
         fabricJs.current?.requestRenderAll();
-        toast.success(targetWidth > 0 ? "Subject cutout outline applied!" : "Outline removed!");
+        if (showToast) {
+          toast.success(targetWidth > 0 ? "Subject cutout outline applied!" : "Outline removed!");
+        }
         setStickerApplying(false);
       };
       img.src = newUrl;
     } catch (err) {
       console.error(err);
-      toast.error("Failed to generate subject outline");
+      if (showToast) toast.error("Failed to generate subject outline");
       setStickerApplying(false);
     }
   };
 
+  const triggerLiveSticker = (width: number, color: string, glow: number) => {
+    if (stickerDebounceTimerRef.current) {
+      clearTimeout(stickerDebounceTimerRef.current);
+    }
+    stickerDebounceTimerRef.current = setTimeout(() => {
+      handleApplySticker(width, color, glow, false);
+    }, 100);
+  };
+
   const handleResetSticker = () => {
+    if (stickerDebounceTimerRef.current) {
+      clearTimeout(stickerDebounceTimerRef.current);
+    }
     const object = getSelectedObject();
     if (!object || !(object instanceof FabricImage)) return;
     const baseEl = (object as any)._cleanCutoutElement;
@@ -1144,14 +1165,16 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
           {isImage ? (
             <div className='space-y-3 rounded-2xl border border-violet-500/30 bg-violet-600/10 p-3.5'>
               <div className='flex items-center justify-between'>
-                <div>
-                  <h4 className='text-[10px] font-black uppercase tracking-widest text-violet-300'>
-                    ✨ Subject Cutout Outline
+                <div className='flex items-center gap-1.5'>
+                  <Sparkles size={13} className='text-violet-400' />
+                  <h4 className='text-[10px] font-black uppercase tracking-wider text-violet-300'>
+                    Subject Cutout Outline
                   </h4>
-                  <p className='text-[9px] text-white/50 mt-0.5 leading-tight'>
-                    Hugs the removed-background subject (Sticker Stroke)
-                  </p>
                 </div>
+                <span className='flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/20 shrink-0'>
+                  <span className={`h-1.5 w-1.5 rounded-full ${stickerApplying ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                  {stickerApplying ? 'Updating...' : 'Live'}
+                </span>
               </div>
 
               {/* Alert if rectangular box border is currently enabled on image */}
@@ -1186,27 +1209,58 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                 min={0}
                 max={30}
                 step={1}
-                onChange={(v) => setStickerWidth(v)}
+                onChange={(v) => {
+                  setStickerWidth(v);
+                  triggerLiveSticker(v, stickerColor, stickerGlow);
+                }}
               />
 
               <div className='space-y-1.5'>
-                <div className='text-[9px] font-black uppercase tracking-widest text-white/40'>Outline Color</div>
+                <div className='flex items-center justify-between'>
+                  <label className='text-[9px] font-black uppercase tracking-widest text-white/40'>Outline Color</label>
+                  <span className='text-[9px] font-mono text-violet-300 font-bold'>{stickerColor.toUpperCase()}</span>
+                </div>
                 <div className='flex items-center gap-2'>
-                  <input
-                    type="color"
-                    value={stickerColor}
-                    onChange={(e) => setStickerColor(e.target.value)}
-                    className='h-8 w-12 rounded-lg bg-transparent cursor-pointer border border-white/10 shrink-0'
-                  />
-                  <div className='flex gap-1.5 flex-wrap'>
-                    {["#ffffff", "#ffd700", "#00f0ff", "#2563eb", "#ef4444", "#22c55e", "#a855f7"].map((c) => (
+                  <div 
+                    className='relative h-6 w-9 shrink-0 overflow-hidden rounded-lg border border-white/20 shadow-sm cursor-pointer hover:border-violet-400 transition'
+                    style={{ backgroundColor: stickerColor }}
+                    title="Click for custom color picker"
+                  >
+                    <input
+                      type="color"
+                      value={stickerColor}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setStickerColor(val);
+                        triggerLiveSticker(stickerWidth, val, stickerGlow);
+                      }}
+                      className='absolute -inset-2 h-10 w-12 cursor-pointer opacity-0'
+                    />
+                  </div>
+                  <div className='flex items-center gap-1 flex-1 justify-between'>
+                    {[
+                      { name: "White", color: "#ffffff" },
+                      { name: "Yellow", color: "#ffd700" },
+                      { name: "Cyan", color: "#00f0ff" },
+                      { name: "Blue", color: "#2563eb" },
+                      { name: "Red", color: "#ef4444" },
+                      { name: "Lime", color: "#22c55e" },
+                      { name: "Purple", color: "#a855f7" },
+                    ].map(({ color, name }) => (
                       <button
-                        key={c}
+                        key={color}
                         type="button"
-                        onClick={() => setStickerColor(c)}
-                        className={`h-7 w-7 rounded-lg border transition hover:scale-110 ${stickerColor === c ? 'border-white scale-105 shadow-md shadow-white/20' : 'border-white/20'}`}
-                        style={{ backgroundColor: c }}
-                        title={c}
+                        onClick={() => {
+                          setStickerColor(color);
+                          handleApplySticker(stickerWidth, color, stickerGlow, false);
+                        }}
+                        className={`h-5 w-5 rounded-full border transition-all hover:scale-125 ${
+                          stickerColor.toLowerCase() === color.toLowerCase() 
+                            ? 'border-white scale-115 ring-2 ring-violet-500 ring-offset-1 ring-offset-[#0c1017]' 
+                            : 'border-white/20 hover:border-white/60'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={name}
                       />
                     ))}
                   </div>
@@ -1219,34 +1273,38 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                 min={0}
                 max={50}
                 step={1}
-                onChange={(v) => setStickerGlow(v)}
+                onChange={(v) => {
+                  setStickerGlow(v);
+                  triggerLiveSticker(stickerWidth, stickerColor, v);
+                }}
               />
 
               <div className='grid grid-cols-2 gap-2 pt-1'>
                 <button
                   type="button"
                   disabled={stickerApplying}
-                  onClick={() => handleApplySticker()}
-                  className='w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50'
+                  onClick={() => handleApplySticker(stickerWidth, stickerColor, stickerGlow, true)}
+                  className='flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 px-2 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50 truncate'
                 >
                   {stickerApplying ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                  <span>{stickerApplying ? "Applying..." : "Apply Subject Stroke"}</span>
+                  <span className='truncate'>{stickerApplying ? "Rendering..." : "Apply Outline"}</span>
                 </button>
                 <button
                   type="button"
                   disabled={stickerApplying}
                   onClick={handleResetSticker}
-                  className='w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition'
+                  className='flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 px-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition truncate'
                 >
                   <RotateCcw size={13} />
-                  <span>Remove Stroke</span>
+                  <span className='truncate'>Remove</span>
                 </button>
               </div>
 
               {/* Advanced: Outer Box Frame */}
-              <details className='mt-2 rounded-xl border border-white/5 bg-black/20 p-2 text-white/40'>
-                <summary className='text-[9px] font-bold uppercase tracking-wider cursor-pointer hover:text-white/70 select-none'>
-                  Outer Box Frame (Rectangular Border)
+              <details className='mt-1 rounded-xl border border-white/5 bg-black/20 p-2 text-white/40 group'>
+                <summary className='text-[9px] font-bold uppercase tracking-wider cursor-pointer hover:text-white/70 select-none list-none flex items-center justify-between'>
+                  <span>Outer Box Frame (Rectangle)</span>
+                  <span className='text-[8px] text-white/30 group-open:rotate-180 transition-transform'>▼</span>
                 </summary>
                 <div className='mt-2 space-y-3 pt-2 border-t border-white/5'>
                   <ColorField label="Frame Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
@@ -1587,10 +1645,16 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
               {/* Subject Sticker Outline & Glow */}
               <div className="space-y-3 rounded-2xl border border-violet-500/30 bg-violet-600/10 p-3.5">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-violet-300">
-                    ✨ Subject Sticker Outline & Glow
-                  </h4>
-                  <span className="text-[9px] text-white/40">YouTube Cutout Look</span>
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-violet-400" />
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-violet-300">
+                      Subject Cutout Outline
+                    </h4>
+                  </div>
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/20 shrink-0">
+                    <span className={`h-1.5 w-1.5 rounded-full ${stickerApplying ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                    {stickerApplying ? 'Updating...' : 'Live'}
+                  </span>
                 </div>
                 <RangeField 
                   label="Outline Width" 
@@ -1598,25 +1662,57 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                   min={0} 
                   max={30} 
                   step={1} 
-                  onChange={(v) => setStickerWidth(v)} 
+                  onChange={(v) => {
+                    setStickerWidth(v);
+                    triggerLiveSticker(v, stickerColor, stickerGlow);
+                  }} 
                 />
-                <div className="space-y-1">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-white/40">Outline Color</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Outline Color</label>
+                    <span className="text-[9px] font-mono text-violet-300 font-bold">{stickerColor.toUpperCase()}</span>
+                  </div>
                   <div className="flex items-center gap-2">
-                    <input 
-                      type="color" 
-                      value={stickerColor} 
-                      onChange={(e) => setStickerColor(e.target.value)}
-                      className="h-8 w-12 rounded-lg bg-transparent cursor-pointer border border-white/10"
-                    />
-                    <div className="flex gap-1">
-                      {["#ffffff", "#ffd700", "#00f0ff", "#ef4444", "#22c55e"].map((c) => (
+                    <div 
+                      className="relative h-6 w-9 shrink-0 overflow-hidden rounded-lg border border-white/20 shadow-sm cursor-pointer hover:border-violet-400 transition"
+                      style={{ backgroundColor: stickerColor }}
+                      title="Click for custom color picker"
+                    >
+                      <input 
+                        type="color" 
+                        value={stickerColor} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setStickerColor(val);
+                          triggerLiveSticker(stickerWidth, val, stickerGlow);
+                        }}
+                        className="absolute -inset-2 h-10 w-12 cursor-pointer opacity-0"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 flex-1 justify-between">
+                      {[
+                        { name: "White", color: "#ffffff" },
+                        { name: "Yellow", color: "#ffd700" },
+                        { name: "Cyan", color: "#00f0ff" },
+                        { name: "Blue", color: "#2563eb" },
+                        { name: "Red", color: "#ef4444" },
+                        { name: "Lime", color: "#22c55e" },
+                        { name: "Purple", color: "#a855f7" },
+                      ].map(({ color, name }) => (
                         <button
-                          key={c}
+                          key={color}
                           type="button"
-                          onClick={() => setStickerColor(c)}
-                          className="h-7 w-7 rounded-lg border border-white/20 transition hover:scale-110"
-                          style={{ backgroundColor: c }}
+                          onClick={() => {
+                            setStickerColor(color);
+                            handleApplySticker(stickerWidth, color, stickerGlow, false);
+                          }}
+                          className={`h-5 w-5 rounded-full border transition-all hover:scale-125 ${
+                            stickerColor.toLowerCase() === color.toLowerCase() 
+                              ? 'border-white scale-115 ring-2 ring-violet-500 ring-offset-1 ring-offset-[#0c1017]' 
+                              : 'border-white/20 hover:border-white/60'
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={name}
                         />
                       ))}
                     </div>
@@ -1628,7 +1724,10 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                   min={0} 
                   max={50} 
                   step={1} 
-                  onChange={(v) => setStickerGlow(v)} 
+                  onChange={(v) => {
+                    setStickerGlow(v);
+                    triggerLiveSticker(stickerWidth, stickerColor, v);
+                  }} 
                 />
                 {/* Alert if rectangular box border is currently enabled on image */}
                 {activeItem.strokeWidth > 0 && (
@@ -1660,20 +1759,20 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                   <button
                     type="button"
                     disabled={stickerApplying}
-                    onClick={() => handleApplySticker()}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50"
+                    onClick={() => handleApplySticker(stickerWidth, stickerColor, stickerGlow, true)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 px-2 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50 truncate"
                   >
                     {stickerApplying ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                    <span>{stickerApplying ? "Applying..." : "Apply Subject Stroke"}</span>
+                    <span className="truncate">{stickerApplying ? "Rendering..." : "Apply Outline"}</span>
                   </button>
                   <button
                     type="button"
                     disabled={stickerApplying}
                     onClick={handleResetSticker}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition"
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 px-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition truncate"
                   >
                     <RotateCcw size={13} />
-                    <span>Remove Stroke</span>
+                    <span className="truncate">Remove</span>
                   </button>
                 </div>
               </div>

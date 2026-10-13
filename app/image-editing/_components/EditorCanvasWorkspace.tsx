@@ -14,7 +14,8 @@ import {
   ArrowDown, 
   Lock, 
   Unlock,
-  Wand2 
+  Wand2,
+  CloudUpload,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
@@ -373,17 +374,20 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
             </div>
           </div>
         </div>
-
-        {/* Drag & Drop Overlay */}
-        {editor.somethingDrop && (
-          <div className="absolute inset-6 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-violet-400 bg-violet-950/60 backdrop-blur-md">
-            <div className="rounded-2xl border border-white/10 bg-[#0d121d] px-6 py-5 text-center shadow-2xl">
-              <div className="text-base font-bold text-white">Drop image to add to canvas</div>
-              <div className="mt-1 text-xs text-white/60">Will be saved permanently as an editable layer.</div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Modern High-End Drag & Drop Studio Overlay */}
+      {editor.somethingDrop && (
+        <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-in fade-in duration-200">
+          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-cyan-400/80 bg-[#0d1322]/95 px-8 py-7 shadow-[0_25px_80px_rgba(0,0,0,0.8)] backdrop-blur-2xl ring-1 ring-white/10 max-w-sm text-center">
+            <div className="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-violet-500/20 border border-cyan-400/40 text-cyan-400 animate-bounce">
+              <CloudUpload size={28} />
+            </div>
+            <div className="text-base font-black tracking-wide text-white">Drop Image to Add to Canvas</div>
+            <div className="mt-1 text-xs text-white/60">Release to import as a new editable layer</div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Bottom Studio HUD */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-[#0c1017]/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl">
