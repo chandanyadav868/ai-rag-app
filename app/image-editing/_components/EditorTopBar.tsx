@@ -80,7 +80,15 @@ export function EditorTopBar({ editor, onOpenExport, onOpenResize }: EditorTopBa
       {/* Left: Brand, Back, Title, Save Status */}
       <div className="flex items-center gap-3 min-w-0">
         <button
-          onClick={() => router.push('/image-home-screen')}
+          onClick={async () => {
+            try {
+              await editor.saveProject(undefined, true);
+            } catch (err) {
+              console.warn("Auto save before exit:", err);
+            }
+            editor.clearHistory?.();
+            router.push('/image-home-screen');
+          }}
           className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/70 transition-all hover:bg-white/[0.08] hover:text-white active:scale-95"
           title="Back to Studio Launchpad"
         >

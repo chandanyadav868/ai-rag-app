@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useBackgroundRemoval } from '../_hooks/useBackgroundRemoval';
 import { FabricImage } from 'fabric';
 import { fitFabricImageToContent } from '@/lib/image-effects';
+import { storeElementAsAsset } from '@/lib/persistent-storage';
 
 interface AIFeaturesProps {
   editor: any;
@@ -52,11 +53,22 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
             if (!didFit) {
                 const imgElement = new Image();
                 imgElement.crossOrigin = "anonymous";
-                imgElement.onload = () => {
+                imgElement.onload = async () => {
                     const imgObj = selectedObject as FabricImage;
                     imgObj.setElement(imgElement);
+                    imgObj.set('src', result);
                     (imgObj as any)._cleanCutoutElement = imgElement;
                     (imgObj as any)._cleanCutoutSrc = result;
+                    (imgObj as any)._isDirtyAsset = true;
+                    try {
+                        const newAssetId = await storeElementAsAsset(imgElement, 'image/png');
+                        if (newAssetId) {
+                            imgObj.set('assetId', newAssetId);
+                            (imgObj as any).assetId = newAssetId;
+                        }
+                    } catch (e) {
+                        console.error('Failed to store cutout asset:', e);
+                    }
                     imgObj.set("strokeWidth", 0);
                     imgObj.set("stroke", null);
                     editor.fabricJs.current?.requestRenderAll();
@@ -119,11 +131,22 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
             if (!didFit) {
                 const imgElement = new Image();
                 imgElement.crossOrigin = "anonymous";
-                imgElement.onload = () => {
+                imgElement.onload = async () => {
                     const imgObj = selectedObject as FabricImage;
                     imgObj.setElement(imgElement);
+                    imgObj.set('src', result);
                     (imgObj as any)._cleanCutoutElement = imgElement;
                     (imgObj as any)._cleanCutoutSrc = result;
+                    (imgObj as any)._isDirtyAsset = true;
+                    try {
+                        const newAssetId = await storeElementAsAsset(imgElement, 'image/png');
+                        if (newAssetId) {
+                            imgObj.set('assetId', newAssetId);
+                            (imgObj as any).assetId = newAssetId;
+                        }
+                    } catch (e) {
+                        console.error('Failed to store cutout asset:', e);
+                    }
                     imgObj.set("strokeWidth", 0);
                     imgObj.set("stroke", null);
                     editor.fabricJs.current?.requestRenderAll();

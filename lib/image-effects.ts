@@ -3,6 +3,8 @@
  * Generates Subject Sticker Outlines, Neon Rim Lighting, and Color Grading
  */
 
+import { storeElementAsAsset } from './persistent-storage';
+
 export interface StickerOutlineOptions {
   strokeWidth: number; // 0 to 30px
   strokeColor: string; // e.g. '#ffffff'
@@ -304,12 +306,25 @@ export async function fitFabricImageToContent(
   fabricImg.set({
     width: cropWidth,
     height: cropHeight,
+    src: trimmedSrc,
   });
   fabricImg.setPositionByOrigin(newTopLeft, 'left', 'top');
   fabricImg.setCoords();
 
   fabricImg._cleanCutoutElement = trimmedElement;
   fabricImg._cleanCutoutSrc = trimmedSrc;
+  fabricImg._isDirtyAsset = true;
+
+  try {
+    const newAssetId = await storeElementAsAsset(trimmedElement, `cutout_${Date.now()}`);
+    if (newAssetId) {
+      fabricImg.set('assetId', newAssetId);
+      fabricImg.assetId = newAssetId;
+      fabricImg._isDirtyAsset = false;
+    }
+  } catch (err) {
+    console.warn("Could not immediately persist cutout asset:", err);
+  }
 
   fabricCanvas?.requestRenderAll();
   return true;

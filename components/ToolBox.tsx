@@ -52,6 +52,7 @@ import { loadGoogleFont } from '@/lib/googleFonts';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { generateStickerCutout, THUMBNAIL_COLOR_PRESETS, fitFabricImageToContent } from '@/lib/image-effects';
+import { storeElementAsAsset } from '@/lib/persistent-storage';
 
 // Enhance FabricObject._renderBackground to natively support rounded corners (rx / rxTL/TR/BL/BR)
 if (typeof window !== "undefined" && FabricObject && FabricObject.prototype) {
@@ -987,10 +988,19 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
 
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => {
+      img.onload = async () => {
         const center = object.getCenterPoint();
         object.setElement(img);
+        object.set('src', newUrl);
         object.setPositionByOrigin(center, 'center', 'center');
+
+        try {
+          const newAssetId = await storeElementAsAsset(img, `sticker_${Date.now()}`);
+          if (newAssetId) {
+            object.set('assetId', newAssetId);
+            (object as any).assetId = newAssetId;
+          }
+        } catch {}
 
         // Clear unwanted rectangular box border so it doesn't collide with the subject outline
         object.set("strokeWidth", 0);

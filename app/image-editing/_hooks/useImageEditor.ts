@@ -107,11 +107,43 @@ export function useImageEditor() {
   const pagesRef = useRef(pages);
   const activePageIndexRef = useRef(activePageIndex);
 
+  const persistCanvasImageAssets = async () => {
+    if (!fabricJs.current) return;
+    const canvas = fabricJs.current;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if (obj.type === 'image') {
+        const isDirtyOrCutout = Boolean(
+          (obj as any)._cleanCutoutElement || 
+          (obj as any)._isDirtyAsset || 
+          (obj as any)._cleanCutoutSrc
+        );
+        let currentAssetId = (obj as any).assetId;
+        let hasAsset = (!isDirtyOrCutout && currentAssetId) ? await getLocalAsset(currentAssetId) : null;
+        if (!hasAsset) {
+          const el = (obj as any).getElement?.() || (obj as any)._element;
+          if (el) {
+            const assetName = isDirtyOrCutout ? `cutout_${Date.now()}` : ((obj as any).name || `img_${Date.now()}`);
+            const newAssetId = await storeElementAsAsset(el, assetName);
+            if (newAssetId) {
+              (obj as any).assetId = newAssetId;
+              obj.set('assetId', newAssetId);
+            }
+            if ((obj as any)._cleanCutoutSrc) {
+              obj.set('src', (obj as any)._cleanCutoutSrc);
+            }
+            (obj as any)._isDirtyAsset = false;
+          }
+        }
+      }
+    }
+  };
+
   const syncCurrentPageToData = () => {
     if (!fabricJs.current) return pagesRef.current;
     
     // toObject handles custom properties array correctly in Fabric v6
-    const currentData = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src', 'clipPath', 'filters', 'radius', 'rx', 'ry', 'assetId']);
+    const currentData = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const latestPages = [...pagesRef.current];
     const currentIndex = activePageIndexRef.current;
     
@@ -409,10 +441,25 @@ export function useImageEditor() {
     }
   }, []);
 
+  // Clear undo/redo history and timers when closing or leaving project
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      setHistory([]);
+      setRedoStack([]);
+      currentStateRef.current = null;
+    };
+  }, []);
+
   const addPage = async (blankOrEvent?: boolean | unknown) => {
     if (!fabricJs.current || isHistoryAction.current) return;
     const blank = typeof blankOrEvent === 'boolean' ? blankOrEvent : true;
     
+    // Persist current canvas images/cutouts before page changes
+    await persistCanvasImageAssets();
+
     // 1. Sync current page first
     const updatedPages = syncCurrentPageToData();
     const currentData = updatedPages[activePageIndexRef.current]?.data;
@@ -471,6 +518,9 @@ export function useImageEditor() {
   const switchPage = async (index: number) => {
     if (!fabricJs.current || index === activePageIndexRef.current || isHistoryAction.current) return;
     
+    // Persist current canvas images/cutouts before switching away
+    await persistCanvasImageAssets();
+
     // 1. Save current page state
     const updatedPages = syncCurrentPageToData();
 
@@ -587,25 +637,8 @@ export function useImageEditor() {
     if (!fabricJs.current) return;
     if (!silent) setSaveStatus('saving');
 
-    // Persist all images on canvas to IndexedDB before saving!
-    const canvas = fabricJs.current;
-    const objects = canvas.getObjects();
-    for (const obj of objects) {
-      if (obj.type === 'image') {
-        let currentAssetId = (obj as any).assetId;
-        let hasAsset = currentAssetId ? await getLocalAsset(currentAssetId) : null;
-        if (!hasAsset) {
-          const el = (obj as any).getElement?.() || (obj as any)._element;
-          if (el) {
-            const newAssetId = await storeElementAsAsset(el, (obj as any).name || `img_${Date.now()}`);
-            if (newAssetId) {
-              (obj as any).assetId = newAssetId;
-              obj.set('assetId', newAssetId);
-            }
-          }
-        }
-      }
-    }
+    // 1. Persist all canvas images and cutouts to IndexedDB before saving!
+    await persistCanvasImageAssets();
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const urlPid = urlParams?.get('projectId');
@@ -616,9 +649,29 @@ export function useImageEditor() {
       multiplier: Math.min(1, 200 / canvasDimensions.width)
     });
 
-    // 1. Sync current page state before global save
+    // 2. Sync current page state before global save
     const latestPages = syncCurrentPageToData();
     const currentIndex = activePageIndexRef.current;
+
+    // 3. Double-check all pages for data URLs without stored assets
+    for (const page of latestPages) {
+      if (page.data?.objects) {
+        for (const obj of page.data.objects) {
+          if (obj.type === 'image' && obj.src && typeof obj.src === 'string' && obj.src.startsWith('data:image')) {
+            if (!obj.assetId) {
+              try {
+                const storedId = await storeDataUrlAsAsset(obj.src, `asset_${Date.now()}`);
+                if (storedId) {
+                  obj.assetId = storedId;
+                }
+              } catch (e) {
+                console.warn("Failed to store data URL asset for page object:", e);
+              }
+            }
+          }
+        }
+      }
+    }
 
     const projectData = {
       pages: latestPages,
@@ -1017,6 +1070,12 @@ export function useImageEditor() {
 
     isHistoryAction.current = false;
     scheduleAutoSave();
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    setRedoStack([]);
+    currentStateRef.current = null;
   };
 
   const addAsset = (src: string, name: string) => {
@@ -2629,6 +2688,7 @@ export function useImageEditor() {
     currentProjectId,
     attachTransformListeners,
     saveHistory,
+    clearHistory,
     selectedIds,
     setSelectedIds,
     assetSaveOpen,
