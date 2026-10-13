@@ -1659,6 +1659,10 @@ export function useImageEditor() {
       feather?: number;
       isRasterized?: boolean;
       rasterizedDataUrl?: string;
+      cropCenterDx?: number;
+      cropCenterDy?: number;
+      fitScale?: number;
+      exportMultiplier?: number;
     }
   ) => {
     if (!fabricJs.current) return;
@@ -1674,20 +1678,57 @@ export function useImageEditor() {
       if (options.isRasterized && options.rasterizedDataUrl) {
         const rasterizedImg = await FabricImage.fromURL(options.rasterizedDataUrl, { crossOrigin: "anonymous" });
         const center = activeObject.getCenterPoint();
-        const baseScale = (activeObject.scaleX || 1) / 2; // Compensate for multiplier 2
+
+        const fitScale = options.fitScale || 1;
+        const exportMultiplier = options.exportMultiplier || 2;
+        const cropCenterDx = options.cropCenterDx ?? 0;
+        const cropCenterDy = options.cropCenterDy ?? 0;
+
+        // Calculate offset rotated by activeObject angle
+        const rad = ((activeObject.angle || 0) * Math.PI) / 180;
+        const offsetDx = cropCenterDx / fitScale;
+        const offsetDy = cropCenterDy / fitScale;
+        const rotatedDx = offsetDx * Math.cos(rad) - offsetDy * Math.sin(rad);
+        const rotatedDy = offsetDx * Math.sin(rad) + offsetDy * Math.cos(rad);
+
+        const newLeft = center.x + rotatedDx;
+        const newTop = center.y + rotatedDy;
+
+        // Correct scale on main canvas to preserve 100% native resolution
+        const finalScaleX = (activeObject.scaleX || 1) / (fitScale * exportMultiplier);
+        const finalScaleY = (activeObject.scaleY || 1) / (fitScale * exportMultiplier);
+
+        const layerId = (activeObject as any).id || (activeObject as any).get?.('id');
+        const layerName = (activeObject as any).name || (activeObject as any).get?.('name') || 'Masked Layer';
 
         rasterizedImg.set({
-          id: (activeObject as any).id,
-          name: (activeObject as any).name,
+          id: layerId,
+          name: layerName,
           originX: 'center',
           originY: 'center',
-          left: center.x,
-          top: center.y,
+          left: newLeft,
+          top: newTop,
           angle: activeObject.angle || 0,
-          scaleX: baseScale,
-          scaleY: baseScale,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY,
           objectCaching: false,
+          opacity: activeObject.opacity !== undefined ? activeObject.opacity : 1,
         });
+
+        // Store new asset in IndexedDB so saving and reloading preserves it
+        try {
+          const newAssetId = await storeDataUrlAsAsset(options.rasterizedDataUrl, `masked_${Date.now()}`);
+          if (newAssetId) {
+            rasterizedImg.set('assetId', newAssetId);
+            (rasterizedImg as any).assetId = newAssetId;
+          }
+        } catch (err) {
+          console.warn("Failed to store masked asset in IndexedDB:", err);
+        }
+
+        (rasterizedImg as any)._cleanCutoutElement = (rasterizedImg as any).getElement?.() || (rasterizedImg as any)._element;
+        (rasterizedImg as any)._cleanCutoutSrc = options.rasterizedDataUrl;
+        (rasterizedImg as any)._isDirtyAsset = true;
 
         const idx = canvas.getObjects().indexOf(activeObject);
         canvas.remove(activeObject);
@@ -1697,7 +1738,7 @@ export function useImageEditor() {
         canvas.setActiveObject(rasterizedImg);
         canvas.requestRenderAll();
 
-        setState(prev => prev.map(l => l.id === (activeObject as any).id ? {
+        setState(prev => prev.map(l => l.id === layerId ? {
           ...l,
           src: options.rasterizedDataUrl!,
           width: Math.round(rasterizedImg.getScaledWidth()),

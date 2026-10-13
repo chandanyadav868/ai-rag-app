@@ -47,6 +47,10 @@ interface MaskStudioProps {
     feather?: number;
     isRasterized?: boolean;
     rasterizedDataUrl?: string;
+    cropCenterDx?: number;
+    cropCenterDy?: number;
+    fitScale?: number;
+    exportMultiplier?: number;
   }) => void;
   assets?: { id: string, src: string, name: string }[];
 }
@@ -113,6 +117,9 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
         (stageHeight * 0.8) / cloned.getScaledHeight(),
         1
       );
+
+      (cloned as any)._fitScale = fitScale;
+      (cloned as any)._originalOpacity = targetObject.opacity ?? 1;
 
       cloned.set({
         selectable: false,
@@ -653,6 +660,7 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
 
     const maskObject = studioCanvas.getObjects().find(obj => (obj as any).isMaskSource) as FabricImage;
     const targetObject = (studioCanvas as any).targetLayer as FabricObject;
+    const workspaceBounds = (studioCanvas as any).workspaceBounds as FabricObject;
 
     if (!maskObject || !targetObject) {
       toast.error("Please add a mask image first.");
@@ -661,6 +669,8 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
 
     setLoading(true);
     try {
+      const fitScale = (targetObject as any)._fitScale || 1;
+
       // Calculate relative coordinates for vector clipPath fallback
       const relativeLeft = (maskObject.left! - targetObject.left!) / (targetObject.scaleX || 1);
       const relativeTop = (maskObject.top! - targetObject.top!) / (targetObject.scaleY || 1);
@@ -682,10 +692,23 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
 
       // 2. Hide mask overlay object so only the clipped target is visible
       maskObject.set('visible', false);
+
+      // CRITICAL FIX 1: Hide workspace bounds so the green/cyan dashed line is NOT rendered or exported!
+      if (workspaceBounds) workspaceBounds.set('visible', false);
+
+      // CRITICAL FIX 2: Restore targetObject opacity to 100% (or its original full opacity) for crystal clear visibility
+      const oldTargetOpacity = targetObject.opacity ?? 0.5;
+      const fullOpacity = (targetObject as any)._originalOpacity ?? 1;
+      targetObject.set('opacity', fullOpacity);
+
       targetObject.clipPath = maskClone;
       const oldBg = studioCanvas.backgroundColor;
       studioCanvas.backgroundColor = 'transparent';
       studioCanvas.discardActiveObject();
+
+      // Temporarily reset viewport transform to identity so export coordinates are pristine
+      const oldViewportTransform = studioCanvas.viewportTransform ? [...studioCanvas.viewportTransform] : [1, 0, 0, 1, 0, 0];
+      studioCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
       studioCanvas.renderAll();
 
       // 3. Compute tightly cropped bounds around the visible mask
@@ -699,10 +722,13 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
       const cropWidth = Math.max(1, cropRight - cropLeft);
       const cropHeight = Math.max(1, cropBottom - cropTop);
 
+      // Export multiplier to ensure native crisp resolution without quality loss
+      const exportMultiplier = Math.min(4, Math.max(1, 1 / (fitScale || 1)));
+
       // 4. Export transparent PNG of the tightly clipped region
       const rasterizedDataUrl = studioCanvas.toDataURL({
         format: 'png',
-        multiplier: 2,
+        multiplier: exportMultiplier,
         left: cropLeft,
         top: cropTop,
         width: cropWidth,
@@ -711,11 +737,20 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
 
       // 5. Restore studioCanvas state
       targetObject.clipPath = undefined;
+      targetObject.set('opacity', oldTargetOpacity);
       maskObject.set('visible', true);
+      if (workspaceBounds) workspaceBounds.set('visible', true);
       studioCanvas.backgroundColor = oldBg;
+      studioCanvas.setViewportTransform(oldViewportTransform as any);
       studioCanvas.renderAll();
 
-      // 6. Deliver to main editor with rasterized output
+      // 6. Calculate center offset in studio space
+      const cropCenterCanvasX = cropLeft + cropWidth / 2;
+      const cropCenterCanvasY = cropTop + cropHeight / 2;
+      const cropCenterDx = cropCenterCanvasX - targetObject.left!;
+      const cropCenterDy = cropCenterCanvasY - targetObject.top!;
+
+      // 7. Deliver to main editor with positioning metadata
       onApply(maskDataUrl, {
         left: relativeLeft,
         top: relativeTop,
@@ -725,6 +760,10 @@ export function MaskStudio({ isOpen, onClose, selectedId, mainFabricCanvas, onAp
         feather,
         isRasterized: true,
         rasterizedDataUrl,
+        cropCenterDx,
+        cropCenterDy,
+        fitScale,
+        exportMultiplier,
       });
     } catch (err) {
       console.error("Mask apply error:", err);
