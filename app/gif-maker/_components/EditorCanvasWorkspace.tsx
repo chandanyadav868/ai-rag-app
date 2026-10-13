@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GifTimeline } from './GifTimeline';
 import { useGifEditor } from '../_hooks/useGifEditor';
-import { Eye, Edit3, Save, Sparkles, Play, Square, CloudUpload } from 'lucide-react';
+import { Eye, Edit3, Save, Sparkles, Play, Square, CloudUpload, Plus, Camera } from 'lucide-react';
 
 interface EditorCanvasWorkspaceProps {
   editor: ReturnType<typeof useGifEditor>;
@@ -182,7 +182,11 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   const currentFrameSrc = editor.frames[currentFrameIdx];
 
   return (
-    <section className="relative flex-1 h-full min-w-0 overflow-hidden bg-[#07111f] flex flex-col justify-between canvas-touch-guard">
+    <section className={`relative flex-1 h-full min-w-0 overflow-hidden bg-[#07111f] flex flex-col justify-between canvas-touch-guard transition-all duration-300 ${
+      editor.leftPanelOpen ? 'md:ml-[min(90vw,340px)]' : ''
+    } ${
+      editor.rightPanelOpen ? 'md:mr-[420px]' : ''
+    }`}>
       {/* Subtle Dot Grid Background */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -227,6 +231,28 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
           <div className="flex items-center gap-2 text-xs font-bold text-white/70">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>Interactive Canvas Mode</span>
+
+            <div className="w-px h-3.5 bg-white/20 mx-0.5" />
+
+            {/* Quick Add Frame buttons directly on Canvas */}
+            <button
+              onClick={editor.addFrame}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30 active:scale-95"
+              title="Capture current canvas artwork as a frame"
+            >
+              <Camera size={11} />
+              <span>Capture Frame</span>
+            </button>
+
+            <button
+              onClick={() => editor.addEmptyFrame?.()}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold tracking-wider transition border border-white/10 active:scale-95"
+              title="Add an empty/blank frame to timeline"
+            >
+              <Plus size={11} />
+              <span>+ Empty Frame</span>
+            </button>
+
             {editor.frames.length > 0 && (
               <button
                 onClick={() => {
@@ -235,7 +261,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
                 }}
                 className="ml-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition"
               >
-                (View Frames)
+                ({editor.frames.length} Frames)
               </button>
             )}
           </div>

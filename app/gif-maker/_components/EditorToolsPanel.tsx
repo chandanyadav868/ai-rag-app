@@ -2,7 +2,7 @@
 
 import { PromptComponencts } from '@/components/PromptComponencts';
 import { aspectRatioImage } from '@/constant';
-import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, Scissors, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eraser, Home, ImageUpIcon, MousePointer2, PenTool, Redo2, Save, Scissors, ShapesIcon, Sparkles, SquarePen, Type, Undo2, X, Camera, PlusSquare } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { createPortal } from 'react-dom';
@@ -343,6 +343,20 @@ export function EditorToolsPanel({ editor }: EditorToolsPanelProps) {
                   label='Export'
                   description='Open export settings and download the current canvas in a supported image format.'
                   onClick={() => setExportDialogOpen(true)}
+                />
+
+                <InfoActionButton
+                  icon={Camera}
+                  label='Capture Frame'
+                  description='Capture the current canvas artwork as a new frame in your animation timeline.'
+                  onClick={editor.addFrame}
+                />
+
+                <InfoActionButton
+                  icon={PlusSquare}
+                  label='+ Empty Frame'
+                  description='Add a new blank/empty canvas frame to your animation timeline.'
+                  onClick={() => editor.addEmptyFrame?.()}
                 />
               </div>
 

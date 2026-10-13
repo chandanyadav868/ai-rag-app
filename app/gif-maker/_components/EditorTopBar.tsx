@@ -18,6 +18,7 @@ import {
   Sliders,
   Square,
   Undo2,
+  Camera,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useGifEditor } from '../_hooks/useGifEditor';
@@ -128,10 +129,28 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
             <span>{editor.canvasDimensions.width}×{editor.canvasDimensions.height}</span>
           </div>
 
-          {/* Frames Count Badge */}
-          <span className="hidden md:inline-flex items-center gap-1 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-300">
-            {editor.frames.length} {editor.frames.length === 1 ? 'Frame' : 'Frames'}
-          </span>
+          {/* Frames Count Badge & Quick Add Action Buttons */}
+          <div className="hidden md:inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+              {editor.frames.length} {editor.frames.length === 1 ? 'Frame' : 'Frames'}
+            </span>
+            <button
+              onClick={editor.addFrame}
+              className="flex items-center gap-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300 transition active:scale-95"
+              title="Capture canvas as new frame"
+            >
+              <Camera size={10} />
+              <span>Capture</span>
+            </button>
+            <button
+              onClick={() => editor.addEmptyFrame?.()}
+              className="flex items-center gap-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/70 hover:text-white transition active:scale-95"
+              title="Add a new blank/empty frame"
+            >
+              <Plus size={10} />
+              <span>+ Empty</span>
+            </button>
+          </div>
         </div>
       </div>
 

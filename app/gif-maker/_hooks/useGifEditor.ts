@@ -1675,6 +1675,31 @@ export function useGifEditor() {
     toast.success("Frame added!");
   };
 
+  const addEmptyFrame = (bgColor: string = "#ffffff") => {
+    const width = canvasDimensions.width;
+    const height = canvasDimensions.height;
+    
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const ctx = offscreen.getContext('2d');
+    if (ctx) {
+      if (bgColor && bgColor !== 'transparent') {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, width, height);
+      }
+    }
+    const dataUrl = offscreen.toDataURL('image/png');
+    
+    setFrames((prev) => {
+      const next = [...prev, dataUrl];
+      setActiveFrameIndex(next.length - 1);
+      return next;
+    });
+    scheduleAutoSave();
+    toast.success(`Empty Frame #${frames.length + 1} added!`);
+  };
+
   const removeFrame = (index: number) => {
     setFrames((prev) => prev.filter((_, i) => i !== index));
     if (frames.length <= 1) setIsPlaying(false);
@@ -2742,6 +2767,7 @@ export function useGifEditor() {
     frames,
     setFrames,
     addFrame,
+    addEmptyFrame,
     removeFrame,
     clearFrames,
     duplicateFrame,

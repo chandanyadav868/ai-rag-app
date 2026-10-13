@@ -19,6 +19,7 @@ import {
   Film,
   Check,
   Save,
+  Camera,
 } from 'lucide-react';
 import { useGifEditor } from '../_hooks/useGifEditor';
 
@@ -271,14 +272,24 @@ export function GifTimeline({ editor }: GifTimelineProps) {
             </button>
           )}
 
-          {/* New Capture Frame */}
+          {/* Capture Canvas Frame */}
           <button
             onClick={editor.addFrame}
-            className="flex items-center gap-1.5 rounded-xl bg-cyan-500/15 border border-cyan-400/30 px-3.5 py-1.5 text-xs font-bold text-cyan-300 transition-all hover:bg-cyan-500/25 active:scale-95 shadow-sm shadow-cyan-500/10"
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-3.5 py-1.5 text-xs font-black text-black transition-all hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20"
             title="Capture current canvas as a new frame"
           >
-            <Plus size={15} />
+            <Camera size={14} />
             <span>Capture Frame</span>
+          </button>
+
+          {/* New Add Empty Frame */}
+          <button
+            onClick={() => editor.addEmptyFrame?.()}
+            className="flex items-center gap-1.5 rounded-xl bg-white/10 border border-white/15 px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-white/20 active:scale-95 shadow-sm"
+            title="Add a new blank/empty canvas frame"
+          >
+            <Plus size={14} />
+            <span>+ Empty Frame</span>
           </button>
 
           {editor.frames.length > 0 && (
@@ -325,11 +336,29 @@ export function GifTimeline({ editor }: GifTimelineProps) {
           className="flex items-center gap-2 overflow-x-scroll pb-2.5 pt-1 px-8 custom-filmstrip-scrollbar min-h-[88px] w-full min-w-0 outline-none"
         >
           {editor.frames.length === 0 ? (
-            <div className="flex h-16 w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] text-xs font-semibold text-white/40">
-              <span className="flex items-center gap-2">
-                <Sparkles size={14} className="text-cyan-400/60" />
-                No frames captured yet. Click <b className="text-cyan-300 font-bold">Capture Frame</b> or generate element animations.
+            <div className="flex flex-col sm:flex-row h-auto py-3 px-5 w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-cyan-400/30 bg-cyan-500/[0.04]">
+              <span className="flex items-center gap-2 text-xs font-semibold text-white/70">
+                <Sparkles size={14} className="text-cyan-400" />
+                No frames captured yet. Start animating:
               </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={editor.addFrame}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-black text-xs hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20 transition"
+                  title="Capture current canvas artwork as Frame #1"
+                >
+                  <Camera size={13} />
+                  <span>Capture Frame</span>
+                </button>
+                <button
+                  onClick={() => editor.addEmptyFrame?.()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/15 active:scale-95 transition"
+                  title="Add a new blank/empty canvas frame"
+                >
+                  <Plus size={13} />
+                  <span>+ Empty Frame</span>
+                </button>
+              </div>
             </div>
           ) : (
             editor.frames.map((frame, idx) => {
@@ -476,6 +505,28 @@ export function GifTimeline({ editor }: GifTimelineProps) {
                 </React.Fragment>
               );
             })
+          )}
+
+          {/* Quick Add Frame Cards at the end of filmstrip */}
+          {editor.frames.length > 0 && (
+            <div className="flex items-center gap-1.5 shrink-0 pl-1">
+              <button
+                onClick={editor.addFrame}
+                className="group flex flex-col items-center justify-center h-16 w-16 sm:h-18 sm:w-18 rounded-xl border border-dashed border-cyan-400/40 bg-cyan-400/5 hover:bg-cyan-400/15 hover:border-cyan-400 transition text-cyan-300 active:scale-95"
+                title="Capture current canvas as next frame"
+              >
+                <Camera size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] font-bold mt-0.5">Capture</span>
+              </button>
+              <button
+                onClick={() => editor.addEmptyFrame?.()}
+                className="group flex flex-col items-center justify-center h-16 w-16 sm:h-18 sm:w-18 rounded-xl border border-dashed border-white/20 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/40 transition text-white/70 hover:text-white active:scale-95"
+                title="Add a new blank/empty frame"
+              >
+                <Square size={14} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] font-bold mt-0.5">+ Empty</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
