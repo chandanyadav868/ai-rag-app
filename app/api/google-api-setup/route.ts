@@ -1,7 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-import { NextRequest,NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ApiErrorRoutes, ApiSuccessRoutes } from "../register/route";
-import { ai } from "@/constant";
+import { ai } from "@/Gemina_Api/genAi";
 
 export async function POST(request:NextRequest){
     try {

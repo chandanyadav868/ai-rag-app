@@ -11,8 +11,19 @@ export interface GeminaAiFunProps {
 
 console.log("Gen ai:- ", process.env.GOOGLE_GEMINA_API);
 
-// set up googlegenai with api for backend talk
-export const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINA_API });
+// set up googlegenai with api for backend talk (lazy proxy to avoid build/load time crashes)
+export const getGenAi = () => {
+  const apiKey = process.env.GOOGLE_GEMINA_API || process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API || "";
+  return new GoogleGenAI({ apiKey });
+};
+
+export const ai = new Proxy({} as GoogleGenAI, {
+  get(target, prop) {
+    const instance = getGenAi();
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+});
 
 
 async function geminaAiUploadImage({ text }: GeminaAiFunProps) {

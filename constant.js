@@ -1,7 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
 import { BookImage, Bot, Brain, Image, ScanSearch, Search, SendHorizontal } from "lucide-react";
-
-export const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINA_API });
 
 
 export const systemInstruction = `

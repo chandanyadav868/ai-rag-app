@@ -1,4 +1,5 @@
-import { ai, systemInstruction } from "@/constant";
+import { systemInstruction } from "@/constant";
+import { ai } from "@/Gemina_Api/genAi";
 import mongodbConnection from "@/mongodb/connection";
 import UserSchema from "@/mongodb/schema/User.Schema";
 import { Modality, Type } from "@google/genai";

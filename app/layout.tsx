@@ -77,7 +77,7 @@ import { Toaster } from "sonner";
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="shortcut icon" href="favicorn/favicon.ico" type="image/x-icon" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -87,7 +87,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet" 
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {/* header */}
         <SessionProvider>
           <ContextProvider>

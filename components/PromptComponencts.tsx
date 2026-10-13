@@ -159,6 +159,9 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
 
         } else {
             const ai = apiSetup();
+            if (!ai) {
+                throw new Error("Please setup your Google API key from settings first.");
+            }
             imageGeneration = await ai.models.generateContent({
                 model: modelSelected?.value,
                 contents: content,
@@ -327,7 +330,10 @@ export const PromptComponencts = React.memo(function ({ imageSetting, state, can
                 })
 
             } else {
-                const ai = apiSetup()
+                const ai = apiSetup();
+                if (!ai) {
+                    throw new Error("Please setup your Google API key from settings first.");
+                }
                 // make api call, comeback with response or error
                 aiPromptRefine = await ai.models.generateContent({
                     model: "gemini-2.5-flash",

@@ -24,7 +24,7 @@ export interface StoreProps {
   setError: React.Dispatch<React.SetStateAction<ErrorProps | undefined>>
   error: ErrorProps | undefined
   ai: GoogleGenAI | undefined
-  apiSetup: () => GoogleGenAI
+  apiSetup: () => GoogleGenAI | undefined
   // setDemiState: React.Dispatch<React.SetStateAction<StateProps[]>>
   // demiState: StateProps[]
   setInfo: React.Dispatch<React.SetStateAction<InfoProps & domRectProps | null>>
@@ -119,27 +119,31 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
   const [feedback, setFeedback] = useState<FeedBackUseStateProps[] | undefined>()
 
   useEffect(() => {
-    // console.log("apiKeys changes");
-
     localStorage.setItem("apiKeys", JSON.stringify(apiKey));
     apiSetup();
-    setAi(undefined);
   }, [apiKey])
 
   const apiSetup = () => {
     // select from api which user want to give from list of apikeus
     const usingApi = apiKey.find((v, i) => !!v.systemInstructionActive)
 
-    // if user setup then use that 
-    if (ai) return ai
+    if (!usingApi?.text || usingApi.text.trim() === "") {
+      setAi(undefined);
+      return undefined;
+    }
 
-    // extract apikeys from user true list then attach all methods in apiMethods variable
-    let apiMethods = new GoogleGenAI({ apiKey: usingApi?.text ?? "" });
+    try {
+      // extract apikeys from user true list then attach all methods in apiMethods variable
+      let apiMethods = new GoogleGenAI({ apiKey: usingApi.text.trim() });
 
-    // set in useState api methods
-    setAi(apiMethods)
-    // return apiMethods holding class intialided methods
-    return apiMethods;
+      // set in useState api methods
+      setAi(apiMethods);
+      return apiMethods;
+    } catch (err) {
+      console.warn("Could not initialize GoogleGenAI:", err);
+      setAi(undefined);
+      return undefined;
+    }
   }
 
   useEffect(() => {
