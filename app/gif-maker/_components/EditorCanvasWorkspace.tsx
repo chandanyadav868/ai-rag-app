@@ -28,7 +28,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
   useEffect(() => {
     const timer = setTimeout(centerCanvas, 60);
     return () => clearTimeout(timer);
-  }, [editor.canvasDimensions.width, editor.canvasDimensions.height, centerCanvas]);
+  }, [editor.canvasDimensions.width, editor.canvasDimensions.height, editor.viewportScale, centerCanvas]);
 
   // Track Space and Alt keys for 2D interactive canvas panning
   useEffect(() => {
@@ -255,7 +255,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
               title="Add an empty/blank frame to timeline"
             >
               <Plus size={11} className="shrink-0" />
-              <span>+ Empty</span>
+              <span>Empty</span>
               <span className="hidden xs:inline"> Frame</span>
             </button>
 

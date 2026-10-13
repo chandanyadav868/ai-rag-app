@@ -122,42 +122,26 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
           {/* Canvas Dimensions Pill */}
           <div
             onClick={onOpenResize}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/70 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition cursor-default"
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/70 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition cursor-default shrink-0"
             title="GIF Dimensions"
           >
             <Sliders size={11} className="text-cyan-400" />
             <span>{editor.canvasDimensions.width}×{editor.canvasDimensions.height}</span>
           </div>
 
-          {/* Frames Count Badge & Quick Add Action Buttons */}
-          <div className="hidden md:inline-flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+          {/* Frames Count Badge */}
+          {editor.frames.length > 0 && (
+            <span className="hidden xl:inline-flex items-center gap-1 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-300 shrink-0">
               {editor.frames.length} {editor.frames.length === 1 ? 'Frame' : 'Frames'}
             </span>
-            <button
-              onClick={editor.addFrame}
-              className="flex items-center gap-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300 transition active:scale-95"
-              title="Capture canvas as new frame"
-            >
-              <Camera size={10} />
-              <span>Capture</span>
-            </button>
-            <button
-              onClick={() => editor.addEmptyFrame?.()}
-              className="flex items-center gap-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/70 hover:text-white transition active:scale-95"
-              title="Add a new blank/empty frame"
-            >
-              <Plus size={10} />
-              <span>+ Empty</span>
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Center: Zoom controls & Undo/Redo */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Undo / Redo */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1 shrink-0">
           <button
             onClick={editor.undo}
             disabled={!editor.canUndo}
@@ -176,10 +160,10 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
           </button>
         </div>
 
-        <div className="w-px h-5 bg-white/10 mx-0.5 hidden xs:block" />
+        <div className="w-px h-5 bg-white/10 mx-0.5 hidden sm:block" />
 
         {/* Viewport Zoom */}
-        <div className="hidden xs:flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
+        <div className="hidden sm:flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1 shrink-0">
           <button
             onClick={() => editor.setViewportScale((prev) => Math.max(0.1, Number((prev - 0.1).toFixed(2))))}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white transition"
@@ -205,9 +189,9 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
       </div>
 
       {/* Right: Panel toggles, Play Preview, Export GIF */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Tools and Layers Panel Toggles */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1 shrink-0">
           <button
             onClick={() => editor.setLeftPanelOpen((prev) => !prev)}
             className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all ${
@@ -236,7 +220,7 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
         <button
           onClick={() => editor.saveProject()}
           disabled={editor.saveStatus === 'saving'}
-          className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10 hover:border-white/20 active:scale-95"
+          className="hidden md:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10 hover:border-white/20 active:scale-95 shrink-0"
           title="Save project"
         >
           {editor.saveStatus === 'saving' ? (
@@ -251,7 +235,7 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
         <button
           onClick={() => editor.setIsPlaying(!editor.isPlaying)}
           disabled={editor.frames.length === 0}
-          className={`hidden sm:flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-md ${
+          className={`hidden lg:flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-bold transition shadow-md shrink-0 ${
             editor.isPlaying
               ? 'bg-rose-500 text-white shadow-rose-500/20 hover:bg-rose-600'
               : 'bg-white/10 text-white/80 hover:bg-white/15 hover:text-white'

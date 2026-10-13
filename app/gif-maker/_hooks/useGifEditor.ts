@@ -900,22 +900,24 @@ export function useGifEditor() {
   const fitCanvasToViewport = (dims: { width: number, height: number }) => {
     if (!fabricJs.current) return;
 
-    // Use full target resolution for the Fabric canvas internals
-    fabricJs.current.setDimensions({ width: dims.width, height: dims.height });
-    fabricJs.current.setViewportTransform([1, 0, 0, 1, 0, 0]);
-
-    // Calculate fitted scale for initial UI display (so it fits the screen)
+    // Calculate fitted scale for UI display so it fits the screen seamlessly
     const desktop = window.innerWidth >= 1024;
     const availableWidth = desktop
       ? Math.max(320, Math.floor(window.innerWidth * 0.5) - 80)
-      : Math.max(280, window.innerWidth - 32);
+      : Math.max(240, window.innerWidth - 32);
     const availableHeight = desktop
       ? Math.max(260, window.innerHeight - 320)
-      : Math.max(240, window.innerHeight - 380);
+      : Math.max(200, window.innerHeight - 300);
 
     const widthRatio = availableWidth / dims.width;
     const heightRatio = availableHeight / dims.height;
-    const fittedScale = Math.min(widthRatio, heightRatio, 1);
+    const fittedScale = Number(Math.min(widthRatio, heightRatio, 1).toFixed(2));
+
+    fabricJs.current.setZoom(fittedScale);
+    fabricJs.current.setDimensions({
+      width: dims.width * fittedScale,
+      height: dims.height * fittedScale,
+    });
 
     setViewportScale(fittedScale);
     renderCanvas();

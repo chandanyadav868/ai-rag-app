@@ -139,9 +139,9 @@ export function GifTimeline({ editor }: GifTimelineProps) {
   return (
     <div className="relative z-20 mt-auto border-t border-white/10 bg-[#081221]/95 backdrop-blur-2xl px-2 py-2 sm:px-6 sm:py-3.5 shrink-0 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] select-none w-full max-w-full min-w-0 overflow-hidden">
       {/* Top Header: Timeline Transport Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 pb-2 border-b border-white/5 w-full min-w-0">
-        {/* Controls Row on Mobile / Left+Center on Desktop */}
-        <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-3 w-full sm:w-auto min-w-0">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5 lg:gap-3 pb-2 border-b border-white/5 w-full min-w-0">
+        {/* Controls Row on Mobile/Tablet / Left+Center on Desktop */}
+        <div className="flex items-center justify-between lg:justify-start gap-1.5 sm:gap-3 w-full lg:w-auto min-w-0">
           {/* Play / Stop Toggle Button & Desktop Label */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <button
@@ -261,8 +261,8 @@ export function GifTimeline({ editor }: GifTimelineProps) {
           </div>
         </div>
 
-        {/* Action Buttons Row on Mobile / Right Group on Desktop */}
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto shrink-0 min-w-0 pt-0.5 sm:pt-0">
+        {/* Action Buttons Row on Mobile/Tablet / Right Group on Desktop */}
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto shrink-0 min-w-0 pt-0.5 lg:pt-0">
           {/* If inspecting an active frame, allow 1-click update from canvas */}
           {editor.activeFrameIndex !== null && !editor.isPlaying && editor.frames.length > 0 && (
             <button
@@ -278,7 +278,7 @@ export function GifTimeline({ editor }: GifTimelineProps) {
           {/* Capture Canvas Frame */}
           <button
             onClick={editor.addFrame}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-black text-black transition-all hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20 whitespace-nowrap"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-black text-black transition-all hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20 whitespace-nowrap"
             title="Capture current canvas as a new frame"
           >
             <Camera size={13} className="shrink-0" />
@@ -288,11 +288,11 @@ export function GifTimeline({ editor }: GifTimelineProps) {
           {/* New Add Empty Frame */}
           <button
             onClick={() => editor.addEmptyFrame?.()}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-white/10 border border-white/15 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-white transition-all hover:bg-white/20 active:scale-95 shadow-sm whitespace-nowrap"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-white/10 border border-white/15 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-white transition-all hover:bg-white/20 active:scale-95 shadow-sm whitespace-nowrap"
             title="Add a new blank/empty canvas frame"
           >
             <Plus size={13} className="shrink-0" />
-            <span>+ Empty Frame</span>
+            <span>Empty Frame</span>
           </button>
 
           {editor.frames.length > 0 && (
