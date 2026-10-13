@@ -21,7 +21,21 @@ export async function generateStickerCutout(
   const naturalWidth = (imageElement as HTMLImageElement).naturalWidth || imageElement.width;
   const naturalHeight = (imageElement as HTMLImageElement).naturalHeight || imageElement.height;
 
-  const padding = Math.ceil(Math.max(strokeWidth, 0) + Math.max(glowBlur, 0)) + 4;
+  if (naturalWidth <= 0 || naturalHeight <= 0) return '';
+
+  if (strokeWidth <= 0 && glowBlur <= 0) {
+    if ((imageElement as HTMLImageElement).src) {
+      return (imageElement as HTMLImageElement).src;
+    }
+    const rawCanvas = document.createElement('canvas');
+    rawCanvas.width = naturalWidth;
+    rawCanvas.height = naturalHeight;
+    const rawCtx = rawCanvas.getContext('2d');
+    if (rawCtx) rawCtx.drawImage(imageElement, 0, 0);
+    return rawCanvas.toDataURL('image/png');
+  }
+
+  const padding = Math.ceil(Math.max(strokeWidth, 0) + Math.max(glowBlur, 0)) + 6;
   const w = naturalWidth + padding * 2;
   const h = naturalHeight + padding * 2;
 
@@ -30,39 +44,54 @@ export async function generateStickerCutout(
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   const offsetX = padding;
   const offsetY = padding;
 
-  // 1. Neon Glow Halo
+  // 1. Neon Glow Halo (Multi-pass for dense, vivid bloom)
   if (glowBlur > 0) {
     ctx.save();
     ctx.shadowColor = glowColor;
     ctx.shadowBlur = glowBlur;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
-    // Multi-draw for dense glow intensity
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       ctx.drawImage(imageElement, offsetX, offsetY, naturalWidth, naturalHeight);
     }
     ctx.restore();
   }
 
-  // 2. Crisp Solid Sticker Outline (Multi-Directional Alpha Dilation)
+  // 2. Crisp Solid Sticker Outline (Multi-Directional Alpha Dilation with concentric rings)
   if (strokeWidth > 0) {
     const silCanvas = document.createElement('canvas');
     silCanvas.width = naturalWidth;
     silCanvas.height = naturalHeight;
     const silCtx = silCanvas.getContext('2d');
     if (silCtx) {
+      silCtx.imageSmoothingEnabled = true;
       silCtx.drawImage(imageElement, 0, 0, naturalWidth, naturalHeight);
       silCtx.globalCompositeOperation = 'source-in';
       silCtx.fillStyle = strokeColor;
       silCtx.fillRect(0, 0, silCanvas.width, silCanvas.height);
 
-      const steps = Math.min(36, Math.max(16, strokeWidth * 2));
-      for (let i = 0; i < steps; i++) {
-        const angle = (i * 2 * Math.PI) / steps;
+      // Concentric circles from 1 to strokeWidth so thick outlines are 100% solid with no hollow gaps
+      const rStep = Math.max(1, Math.min(2, Math.floor(strokeWidth / 6)));
+      for (let r = rStep; r <= strokeWidth; r += rStep) {
+        const stepCount = Math.min(64, Math.max(16, Math.round(r * 2.5)));
+        for (let i = 0; i < stepCount; i++) {
+          const angle = (i * 2 * Math.PI) / stepCount;
+          const x = offsetX + Math.cos(angle) * r;
+          const y = offsetY + Math.sin(angle) * r;
+          ctx.drawImage(silCanvas, x, y);
+        }
+      }
+
+      // Outer rim stamp at exact strokeWidth
+      const outerSteps = Math.min(64, Math.max(24, Math.round(strokeWidth * 2.5)));
+      for (let i = 0; i < outerSteps; i++) {
+        const angle = (i * 2 * Math.PI) / outerSteps;
         const x = offsetX + Math.cos(angle) * strokeWidth;
         const y = offsetY + Math.sin(angle) * strokeWidth;
         ctx.drawImage(silCanvas, x, y);
@@ -70,7 +99,7 @@ export async function generateStickerCutout(
     }
   }
 
-  // 3. Draw Original Cutout on top
+  // 3. Draw Pristine Subject Cutout cleanly on top
   ctx.drawImage(imageElement, offsetX, offsetY, naturalWidth, naturalHeight);
 
   return canvas.toDataURL('image/png');

@@ -40,10 +40,15 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
             const imgElement = new Image();
             imgElement.crossOrigin = "anonymous";
             imgElement.onload = () => {
-                (selectedObject as FabricImage).setElement(imgElement);
+                const imgObj = selectedObject as FabricImage;
+                imgObj.setElement(imgElement);
+                (imgObj as any)._cleanCutoutElement = imgElement;
+                (imgObj as any)._cleanCutoutSrc = result;
+                imgObj.set("strokeWidth", 0);
+                imgObj.set("stroke", null);
                 editor.fabricJs.current?.requestRenderAll();
                 editor.saveHistory();
-                toast.success("Background removed successfully!");
+                toast.success("Background removed! Use 'Subject Outline' in Styles or Effects to add a contour stroke.");
             };
             imgElement.src = result;
         }

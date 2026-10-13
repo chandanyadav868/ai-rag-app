@@ -24,6 +24,7 @@ import {
   X,
   Check,
   PenTool,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Canvas,
@@ -941,12 +942,16 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
     </button>
   );
 
-  const handleApplySticker = async () => {
+  const handleApplySticker = async (customWidth?: number, customColor?: string, customGlow?: number) => {
     const object = getSelectedObject();
     if (!object || !(object instanceof FabricImage)) {
       toast.error("Please select an image cutout first");
       return;
     }
+
+    const targetWidth = customWidth !== undefined ? customWidth : stickerWidth;
+    const targetColor = customColor !== undefined ? customColor : stickerColor;
+    const targetGlow = customGlow !== undefined ? customGlow : stickerGlow;
 
     setStickerApplying(true);
     try {
@@ -957,28 +962,62 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
         return;
       }
 
-      const newUrl = await generateStickerCutout(el, {
-        strokeWidth: stickerWidth,
-        strokeColor: stickerColor,
-        glowBlur: stickerGlow,
-        glowColor: stickerColor,
+      // Preserve clean cutout element so repeated strokes don't compound padding or distort
+      if (!(object as any)._cleanCutoutElement) {
+        (object as any)._cleanCutoutElement = el;
+        (object as any)._cleanCutoutSrc = (object as any).getSrc?.();
+      }
+      const baseEl = (object as any)._cleanCutoutElement || el;
+
+      const newUrl = await generateStickerCutout(baseEl, {
+        strokeWidth: targetWidth,
+        strokeColor: targetColor,
+        glowBlur: targetGlow,
+        glowColor: targetColor,
       });
 
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
+        const center = object.getCenterPoint();
         object.setElement(img);
+        object.setPositionByOrigin(center, 'center', 'center');
+
+        // Clear unwanted rectangular box border so it doesn't collide with the subject outline
+        object.set("strokeWidth", 0);
+        object.set("stroke", null);
         object.setCoords();
+
+        applyChanges({ strokeWidth: 0, stroke: "" });
         fabricJs.current?.requestRenderAll();
-        toast.success("Sticker outline applied!");
+        toast.success(targetWidth > 0 ? "Subject cutout outline applied!" : "Outline removed!");
         setStickerApplying(false);
       };
       img.src = newUrl;
     } catch (err) {
       console.error(err);
-      toast.error("Failed to generate sticker outline");
+      toast.error("Failed to generate subject outline");
       setStickerApplying(false);
     }
+  };
+
+  const handleResetSticker = () => {
+    const object = getSelectedObject();
+    if (!object || !(object instanceof FabricImage)) return;
+    const baseEl = (object as any)._cleanCutoutElement;
+    if (baseEl) {
+      const center = object.getCenterPoint();
+      object.setElement(baseEl);
+      object.setPositionByOrigin(center, 'center', 'center');
+    }
+    object.set("strokeWidth", 0);
+    object.set("stroke", null);
+    object.setCoords();
+    fabricJs.current?.requestRenderAll();
+    applyChanges({ strokeWidth: 0, stroke: "" });
+    setStickerWidth(0);
+    setStickerGlow(0);
+    toast.success("Outline removed, clean cutout restored!");
   };
 
   const handleBlurBackground = () => {
@@ -1102,12 +1141,127 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
           {!isImage && (
             <ColorField label="Fill Color" value={activeItem.fill} onChange={(value) => applyChanges({ fill: value })} />
           )}
-          <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
-            <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Stroke Settings</h4>
-            <ColorField label="Stroke Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
-            <RangeField label="Stroke Width" value={activeItem.strokeWidth} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeWidth: value })} />
-            <RangeField label="Dash Array" value={activeItem.strokeDashArray} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeDashArray: value })} />
-          </div>
+          {isImage ? (
+            <div className='space-y-3 rounded-2xl border border-violet-500/30 bg-violet-600/10 p-3.5'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <h4 className='text-[10px] font-black uppercase tracking-widest text-violet-300'>
+                    ✨ Subject Cutout Outline
+                  </h4>
+                  <p className='text-[9px] text-white/50 mt-0.5 leading-tight'>
+                    Hugs the removed-background subject (Sticker Stroke)
+                  </p>
+                </div>
+              </div>
+
+              {/* Alert if rectangular box border is currently enabled on image */}
+              {activeItem.strokeWidth > 0 && (
+                <div className='rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-center justify-between gap-2 animate-in fade-in'>
+                  <span className='text-[9px] text-amber-200 font-medium leading-tight'>
+                    ⚠️ Rectangular box border active ({activeItem.strokeWidth}px)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const obj = getSelectedObject();
+                      if (obj) {
+                        obj.set("strokeWidth", 0);
+                        obj.set("stroke", null);
+                        obj.setCoords();
+                        fabricJs.current?.requestRenderAll();
+                      }
+                      applyChanges({ strokeWidth: 0, stroke: "" });
+                      toast.success("Removed rectangular box border!");
+                    }}
+                    className='shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 text-[9px] font-bold text-amber-200 hover:bg-amber-500/30 transition'
+                  >
+                    Clear Box Border
+                  </button>
+                </div>
+              )}
+
+              <RangeField
+                label="Outline Width"
+                value={stickerWidth}
+                min={0}
+                max={30}
+                step={1}
+                onChange={(v) => setStickerWidth(v)}
+              />
+
+              <div className='space-y-1.5'>
+                <div className='text-[9px] font-black uppercase tracking-widest text-white/40'>Outline Color</div>
+                <div className='flex items-center gap-2'>
+                  <input
+                    type="color"
+                    value={stickerColor}
+                    onChange={(e) => setStickerColor(e.target.value)}
+                    className='h-8 w-12 rounded-lg bg-transparent cursor-pointer border border-white/10 shrink-0'
+                  />
+                  <div className='flex gap-1.5 flex-wrap'>
+                    {["#ffffff", "#ffd700", "#00f0ff", "#2563eb", "#ef4444", "#22c55e", "#a855f7"].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setStickerColor(c)}
+                        className={`h-7 w-7 rounded-lg border transition hover:scale-110 ${stickerColor === c ? 'border-white scale-105 shadow-md shadow-white/20' : 'border-white/20'}`}
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <RangeField
+                label="Neon Rim Glow Blur"
+                value={stickerGlow}
+                min={0}
+                max={50}
+                step={1}
+                onChange={(v) => setStickerGlow(v)}
+              />
+
+              <div className='grid grid-cols-2 gap-2 pt-1'>
+                <button
+                  type="button"
+                  disabled={stickerApplying}
+                  onClick={() => handleApplySticker()}
+                  className='w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50'
+                >
+                  {stickerApplying ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  <span>{stickerApplying ? "Applying..." : "Apply Subject Stroke"}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={stickerApplying}
+                  onClick={handleResetSticker}
+                  className='w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition'
+                >
+                  <RotateCcw size={13} />
+                  <span>Remove Stroke</span>
+                </button>
+              </div>
+
+              {/* Advanced: Outer Box Frame */}
+              <details className='mt-2 rounded-xl border border-white/5 bg-black/20 p-2 text-white/40'>
+                <summary className='text-[9px] font-bold uppercase tracking-wider cursor-pointer hover:text-white/70 select-none'>
+                  Outer Box Frame (Rectangular Border)
+                </summary>
+                <div className='mt-2 space-y-3 pt-2 border-t border-white/5'>
+                  <ColorField label="Frame Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
+                  <RangeField label="Frame Width" value={activeItem.strokeWidth} min={0} max={30} step={1} onChange={(value) => applyChanges({ strokeWidth: value })} />
+                </div>
+              </details>
+            </div>
+          ) : (
+            <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
+              <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Stroke Settings</h4>
+              <ColorField label="Stroke Color" value={activeItem.stroke} onChange={(value) => applyChanges({ stroke: value })} />
+              <RangeField label="Stroke Width" value={activeItem.strokeWidth} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeWidth: value })} />
+              <RangeField label="Dash Array" value={activeItem.strokeDashArray} min={0} max={50} step={1} onChange={(value) => applyChanges({ strokeDashArray: value })} />
+            </div>
+          )}
           <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
             <div className='flex items-center justify-between mb-2'>
               <h4 className='text-[10px] font-bold uppercase tracking-widest text-white/40'>Gradient</h4>
@@ -1476,15 +1630,52 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                   step={1} 
                   onChange={(v) => setStickerGlow(v)} 
                 />
-                <button
-                  type="button"
-                  disabled={stickerApplying}
-                  onClick={handleApplySticker}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50"
-                >
-                  {stickerApplying ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  <span>{stickerApplying ? "Generating Outline..." : "Apply Sticker Outline"}</span>
-                </button>
+                {/* Alert if rectangular box border is currently enabled on image */}
+                {activeItem.strokeWidth > 0 && (
+                  <div className='rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-center justify-between gap-2 animate-in fade-in'>
+                    <span className='text-[9px] text-amber-200 font-medium leading-tight'>
+                      ⚠️ Rectangular box border active ({activeItem.strokeWidth}px)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const obj = getSelectedObject();
+                        if (obj) {
+                          obj.set("strokeWidth", 0);
+                          obj.set("stroke", null);
+                          obj.setCoords();
+                          fabricJs.current?.requestRenderAll();
+                        }
+                        applyChanges({ strokeWidth: 0, stroke: "" });
+                        toast.success("Removed rectangular box border!");
+                      }}
+                      className='shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 text-[9px] font-bold text-amber-200 hover:bg-amber-500/30 transition'
+                    >
+                      Clear Box Border
+                    </button>
+                  </div>
+                )}
+
+                <div className='grid grid-cols-2 gap-2 pt-1'>
+                  <button
+                    type="button"
+                    disabled={stickerApplying}
+                    onClick={() => handleApplySticker()}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition disabled:opacity-50"
+                  >
+                    {stickerApplying ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    <span>{stickerApplying ? "Applying..." : "Apply Subject Stroke"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={stickerApplying}
+                    onClick={handleResetSticker}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white transition"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Remove Stroke</span>
+                  </button>
+                </div>
               </div>
 
               {/* Creator 1-Click Color Grading Presets */}
