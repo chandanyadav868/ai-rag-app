@@ -276,27 +276,72 @@ self.onmessage = async (event) => {
             let outHeight = processImg.height;
             let channels = 4;
 
+            // Check if processImg has existing transparent cutout (e.g., from prior RMBG or PNG alpha)
+            let hasExistingAlpha = false;
+            let origAlpha: Uint8Array | null = null;
+            if (processImg.channels === 4) {
+                const totalPx = processImg.width * processImg.height;
+                origAlpha = new Uint8Array(totalPx);
+                const pData = processImg.data;
+                let transparentCount = 0;
+                for (let i = 0; i < totalPx; i++) {
+                    const a = pData[i * 4 + 3];
+                    origAlpha[i] = a;
+                    if (a < 220) {
+                        transparentCount++;
+                    }
+                }
+                // If more than 0.5% of pixels are transparent, image already has a cutout
+                if (transparentCount > (totalPx * 0.005)) {
+                    hasExistingAlpha = true;
+                }
+            }
+
             if (isPromptMode) {
-                // Text-prompted selective object isolation using CLIPSeg
+                // Text-prompted selective object isolation using CLIPSeg + Neural Matting Fusion
                 const clipsegModelId = payload.modelId || 'Xenova/clipseg-rd64-refined';
                 self.postMessage({ status: 'processing', message: `Isolating "${prompt}" with AI...` });
                 
                 const { model, processor, tokenizer } = await getCLIPSeg(clipsegModelId);
 
-                // Tokenize text prompt into input_ids and attention_mask
-                const text_inputs = tokenizer(prompt.trim());
-                // Process image into pixel_values
+                // Process image into pixel_values once
                 const image_inputs = await processor(processImg);
 
-                // Execute model with both visual and linguistic inputs
-                const { logits } = await model({
-                    ...image_inputs,
-                    input_ids: text_inputs.input_ids,
-                    attention_mask: text_inputs.attention_mask
-                });
+                // Support compound prompts like "face and hair" or "dog, cat"
+                // Split conjunctions so individual concepts are strongly activated
+                const rawPrompt = prompt.trim();
+                const subParts = rawPrompt
+                    .split(/\s+and\s+|,|\+/i)
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0);
+                
+                // Queries to evaluate: combined prompt plus individual components
+                const queries = Array.from(new Set([rawPrompt, ...subParts]));
 
-                // logits has dims [352, 352] - apply sigmoid to get probabilities
-                const probs = logits.sigmoid().data; // Float32Array
+                // Run forward pass for each query and take pixel-wise maximum probability
+                let combinedProbs: Float32Array | null = null;
+
+                for (const query of queries) {
+                    const text_inputs = tokenizer(query);
+                    const { logits } = await model({
+                        ...image_inputs,
+                        input_ids: text_inputs.input_ids,
+                        attention_mask: text_inputs.attention_mask
+                    });
+                    const p = logits.sigmoid().data; // Float32Array [352*352]
+
+                    if (!combinedProbs) {
+                        combinedProbs = new Float32Array(p);
+                    } else {
+                        for (let i = 0; i < combinedProbs.length; i++) {
+                            if (p[i] > combinedProbs[i]) {
+                                combinedProbs[i] = p[i];
+                            }
+                        }
+                    }
+                }
+
+                const probs = combinedProbs!;
 
                 let minP = Infinity;
                 let maxP = -Infinity;
@@ -309,20 +354,76 @@ self.onmessage = async (event) => {
 
                 const maskBytes = new Uint8Array(probs.length);
                 const activeThreshold = typeof threshold === 'number' ? threshold : 0.35;
+                const transitionWidth = 0.08;
+                const low = activeThreshold;
+                const high = activeThreshold + transitionWidth;
 
                 for (let i = 0; i < probs.length; i++) {
                     const norm = (probs[i] - minP) / range;
-                    if (norm > activeThreshold) {
-                        const alpha = (norm - activeThreshold) / (1 - activeThreshold);
-                        maskBytes[i] = Math.min(255, Math.max(0, Math.round(alpha * 255)));
-                    } else {
+                    if (norm >= high) {
+                        maskBytes[i] = 255;
+                    } else if (norm <= low) {
                         maskBytes[i] = 0;
+                    } else {
+                        const t = (norm - low) / transitionWidth;
+                        const smoothT = t * t * (3 - 2 * t);
+                        maskBytes[i] = Math.round(smoothT * 255);
+                    }
+                }
+
+                // Morphological hole filling on 352x352 mask to eliminate internal facial/patch voids
+                const w = 352;
+                const h = 352;
+                const filledMaskBytes = new Uint8Array(maskBytes);
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        if (maskBytes[idx] === 0) {
+                            let opaqueCount = 0;
+                            if (maskBytes[idx - 1] >= 180) opaqueCount++;
+                            if (maskBytes[idx + 1] >= 180) opaqueCount++;
+                            if (maskBytes[idx - w] >= 180) opaqueCount++;
+                            if (maskBytes[idx + w] >= 180) opaqueCount++;
+                            if (opaqueCount >= 3) {
+                                filledMaskBytes[idx] = 255;
+                            }
+                        }
                     }
                 }
 
                 // Construct RawImage mask at model resolution (352x352) and resize to processImg resolution
-                const maskImg = new RawImage(maskBytes, 352, 352, 1);
+                const maskImg = new RawImage(filledMaskBytes, 352, 352, 1);
                 const resizedMask = await maskImg.resize(outWidth, outHeight);
+
+                // High-precision edge fusion:
+                // 1) If the image already has transparency (from prior RMBG background removal),
+                //    constrain the prompt mask to that transparent cutout so hair/silhouette edges remain pixel-sharp!
+                if (hasExistingAlpha && origAlpha) {
+                    for (let i = 0; i < origAlpha.length; i++) {
+                        const promptAlpha = resizedMask.data[i] / 255;
+                        const existAlpha = origAlpha[i] / 255;
+                        resizedMask.data[i] = Math.round(promptAlpha * existAlpha * 255);
+                    }
+                } else if (payload.useMattingGuide !== false) {
+                    // 2) If the image is a solid background photo, fuse with RMBG-1.4 foreground mask
+                    //    so fine subject contours and hair strands are crisp rather than blurry 352px blobs
+                    try {
+                        const { model: rmbgM, processor: rmbgP } = await getRMBG();
+                        const { pixel_values } = await rmbgP(processImg);
+                        const { output } = await rmbgM({ input: pixel_values });
+                        const tensorMask = output[0].mul(255).to('uint8');
+                        const tensorImage = RawImage.fromTensor(tensorMask);
+                        const rmbgMaskRaw = await tensorImage.resize(outWidth, outHeight);
+
+                        for (let i = 0; i < resizedMask.data.length; i++) {
+                            const rmbgA = rmbgMaskRaw.data[i] / 255;
+                            const clipA = resizedMask.data[i] / 255;
+                            resizedMask.data[i] = Math.round(rmbgA * clipA * 255);
+                        }
+                    } catch (fusionErr) {
+                        console.warn('[Worker] Matting fusion fallback to direct mask:', fusionErr);
+                    }
+                }
 
                 // Insert alpha channel directly into image to produce clean 4-channel RGBA cutout
                 const cutout = processImg.putAlpha(resizedMask);

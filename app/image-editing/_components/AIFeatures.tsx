@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BrainCircuit, Loader2, Sparkles, Zap, Check } from 'lucide-react';
+import { BrainCircuit, Loader2, Sparkles, Zap, Check, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBackgroundRemoval } from '../_hooks/useBackgroundRemoval';
 import { FabricImage } from 'fabric';
@@ -21,6 +21,9 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [objectPrompt, setObjectPrompt] = React.useState('');
 
+  const [threshold, setThreshold] = React.useState(0.35);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
   const selectedObject = editor.fabricJs.current?.getActiveObject();
   const isImage = selectedObject?.type === 'image';
 
@@ -39,7 +42,8 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
         const src = (selectedObject as FabricImage).getSrc();
         const result = await removeBackground(src, {
           mode: 'prompt',
-          prompt: objectPrompt.trim()
+          prompt: objectPrompt.trim(),
+          threshold: threshold
         });
         
         if (result) {
@@ -159,10 +163,34 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
             Keep only a specific subject (e.g. dog, person, watch) and remove the rest.
           </p>
 
+          {/* Quick Suggestion Chips */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {[
+              { label: 'Face & Hair', prompt: 'face and hair' },
+              { label: 'Head', prompt: 'head' },
+              { label: 'Person', prompt: 'person' },
+              { label: 'Clothes', prompt: 'clothes' },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                disabled={!isImage || isProcessing}
+                onClick={() => setObjectPrompt(chip.prompt)}
+                className={`text-[10px] px-2 py-0.5 rounded-md border transition-all ${
+                  objectPrompt.toLowerCase() === chip.prompt.toLowerCase()
+                    ? 'bg-violet-600/30 border-violet-500 text-violet-200'
+                    : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="e.g. dog, cat, person..."
+              placeholder="e.g. face and hair, dog, watch..."
               value={objectPrompt}
               onChange={(e) => setObjectPrompt(e.target.value)}
               disabled={!isImage || isProcessing}
@@ -178,6 +206,45 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
             >
               {isProcessing ? <Loader2 size={14} className="animate-spin" /> : 'Isolate'}
             </button>
+          </div>
+
+          {/* Precision Settings Toggle */}
+          <div className="mt-3 pt-2.5 border-t border-white/5">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between w-full text-[10px] font-semibold text-white/50 hover:text-white/80 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal size={12} />
+                Detection Sensitivity
+              </span>
+              <span className="text-[10px] text-violet-400 font-mono">
+                {Math.round((1 - threshold) * 100)}%
+              </span>
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-2.5 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-[9px] text-white/40">
+                  <span>Broader (catches beard & edges)</span>
+                  <span>Strict Core</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.20"
+                  max="0.55"
+                  step="0.05"
+                  value={threshold}
+                  onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                  disabled={!isImage || isProcessing}
+                  className="w-full accent-violet-500 h-1 bg-white/10 rounded-lg cursor-pointer"
+                />
+                <p className="text-[9px] text-white/40 leading-relaxed">
+                  💡 Tip: For razor-sharp portrait cutouts, click <strong>Remove Background</strong> first, then isolate <strong>face and hair</strong>.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
