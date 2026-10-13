@@ -1,4 +1,3 @@
-"use server"
 
 import { ObjectProps } from "@/utils/util";
 import { GoogleGenAI, createPartFromUri, createUserContent, Modality, ContentListUnion } from "@google/genai"
@@ -8,8 +7,6 @@ export interface GeminaAiFunProps {
   text: string;
   chatPdf?: ObjectProps
 }
-
-console.log("Gen ai:- ", process.env.GOOGLE_GEMINA_API);
 
 // set up googlegenai with api for backend talk (lazy proxy to avoid build/load time crashes)
 export const getGenAi = () => {

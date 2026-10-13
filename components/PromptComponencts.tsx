@@ -3,7 +3,6 @@ import Button from '@/components/Button';
 import SelectSpecial from '@/components/SelectSpecial';
 import Textarea from '@/components/Textarea'
 import { aspectRatioImage, ImageModels } from '@/constant';
-import { GeminaAiFunProps } from '@/Gemina_Api/genAi';
 import { Modality, createUserContent, createPartFromUri, Type } from '@google/genai';
 import { Bot, BrushCleaning, CheckCircleIcon, CloudUpload, Info, Loader2, Settings, X } from 'lucide-react';
 import React, { useRef, useState } from 'react'
@@ -15,7 +14,6 @@ import ErrorComponents from './ErrorComponents';
 import InfoComponent from './InfoComponent';
 import { useRouter } from 'next/navigation';
 import { ApiEndpoint } from '@/app/(main)/classApi/apiClasses';
-import { set } from 'mongoose';
 
 interface ErrorPropsGeminaProps {
     error: {
