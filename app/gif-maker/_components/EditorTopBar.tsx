@@ -14,6 +14,7 @@ import {
   Play,
   Plus,
   Redo2,
+  Save,
   Sliders,
   Square,
   Undo2,
@@ -98,6 +99,23 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
               </span>
               <Edit3 size={12} className="opacity-0 transition group-hover:opacity-100 text-white/50" />
             </button>
+          )}
+
+          {/* Real-time Auto-Save Status Indicator */}
+          {editor.saveStatus === 'saving' ? (
+            <div className="hidden lg:flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20">
+              <Loader2 size={10} className="animate-spin" />
+              <span>Saving...</span>
+            </div>
+          ) : editor.saveStatus === 'unsaved' ? (
+            <div className="hidden lg:flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-white/40 border border-white/10">
+              <span>Unsaved</span>
+            </div>
+          ) : (
+            <div className="hidden lg:flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+              <Check size={10} />
+              <span>Saved</span>
+            </div>
           )}
 
           {/* Canvas Dimensions Pill */}
@@ -194,6 +212,21 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
             <Layers size={14} />
           </button>
         </div>
+
+        {/* Manual Save Button */}
+        <button
+          onClick={() => editor.saveProject()}
+          disabled={editor.saveStatus === 'saving'}
+          className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10 hover:border-white/20 active:scale-95"
+          title="Save project"
+        >
+          {editor.saveStatus === 'saving' ? (
+            <Loader2 size={13} className="animate-spin text-cyan-400" />
+          ) : (
+            <Save size={13} className="text-cyan-400" />
+          )}
+          <span>Save</span>
+        </button>
 
         {/* Preview Play/Stop Modal Button */}
         <button

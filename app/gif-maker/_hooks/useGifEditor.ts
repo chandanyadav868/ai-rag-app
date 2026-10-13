@@ -86,6 +86,8 @@ export function useGifEditor() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [viewportScale, setViewportScale] = useState(1);
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (fabricJs.current) {
@@ -211,6 +213,9 @@ export function useGifEditor() {
   };
 
   const clearHistory = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
     setHistory([]);
     setRedoStack([]);
     currentStateRef.current = null;
@@ -218,6 +223,9 @@ export function useGifEditor() {
 
   useEffect(() => {
     return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
       setHistory([]);
       setRedoStack([]);
       currentStateRef.current = null;
@@ -284,31 +292,52 @@ export function useGifEditor() {
   const [pendingProject, setPendingProject] = useState<any | null>(null);
 
   useEffect(() => {
-    const savedMetadata = localStorage.getItem('gif_projects_metadata');
-    let projectsList = [];
-    if (savedMetadata) {
-      projectsList = JSON.parse(savedMetadata);
-      setRecentProjects(projectsList);
-    }
+    const initProjects = async () => {
+      const savedMetadata = localStorage.getItem('gif_projects_metadata');
+      let projectsList: any[] = [];
+      if (savedMetadata) {
+        try {
+          projectsList = JSON.parse(savedMetadata);
+          setRecentProjects(projectsList);
+        } catch {}
+      }
 
-    // Check for URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const w = params.get('width');
-    const h = params.get('height');
-    const pid = params.get('projectId');
+      // Check for URL parameters
+      const params = new URLSearchParams(window.location.search);
+      const w = params.get('width');
+      const h = params.get('height');
+      const pid = params.get('projectId');
 
-    if (w && h) {
-      createNewProject(Number(w), Number(h));
-    } else if (pid) {
-      const metadata = projectsList.find((p: any) => p.id === pid);
-      if (metadata) {
-        const projectData = localStorage.getItem(`gif_project_data_${pid}`);
-        if (projectData) {
-          setPendingProject({ id: pid, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
-          setView("editor");
+      if (w && h) {
+        createNewProject(Number(w), Number(h));
+      } else {
+        const targetPid = pid || localStorage.getItem('gif_last_active_project_id');
+        if (targetPid) {
+          setCurrentProjectId(targetPid);
+          let parsed: any = await getProjectData(targetPid);
+          if (!parsed) {
+            const projectData = localStorage.getItem(`gif_project_data_${targetPid}`);
+            if (projectData) {
+              try { parsed = JSON.parse(projectData); } catch (e) {}
+            }
+          }
+          const metadata = projectsList.find((p: any) => p.id === targetPid);
+          if (parsed) {
+            setPendingProject({ 
+              id: targetPid, 
+              data: parsed, 
+              width: metadata?.width || 400, 
+              height: metadata?.height || 400 
+            });
+            setView("editor");
+            if (!pid && typeof window !== "undefined") {
+              window.history.replaceState(null, '', `?projectId=${targetPid}`);
+            }
+          }
         }
       }
-    }
+    };
+    initProjects();
 
     const savedAssets = localStorage.getItem('polish_ai_assets');
     if (savedAssets) {
@@ -374,18 +403,29 @@ export function useGifEditor() {
 
   const saveProject = async (projectName?: string, silent: boolean = false) => {
     if (!fabricJs.current) return;
+    if (!silent) setSaveStatus('saving');
 
     // 1. Persist all canvas images and cutouts to IndexedDB before saving!
     await persistCanvasImageAssets();
 
-    const id = currentProjectId || uuidv4();
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const urlPid = urlParams?.get('projectId');
+    const id = currentProjectId || urlPid || uuidv4();
     const thumbnail = fabricJs.current.toDataURL({
       format: 'webp',
       quality: 0.5,
-      multiplier: 200 / canvasDimensions.width
+      multiplier: Math.min(1, 200 / canvasDimensions.width)
     });
 
-    const projectData = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
+    const canvasObjects = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
+    const projectData = {
+      ...canvasObjects,
+      frames,
+      frameDelay,
+      loopCount,
+      layerTracks,
+    };
+
     const metadata = {
       id,
       name: projectName || (recentProjects.find(p => p.id === id)?.name) || `Project ${recentProjects.length + 1}`,
@@ -404,15 +444,42 @@ export function useGifEditor() {
     }
     const updatedMetadata = [metadata, ...recentProjects.filter(p => p.id !== id)].slice(0, 50);
     localStorage.setItem('gif_projects_metadata', JSON.stringify(updatedMetadata));
+    localStorage.setItem('gif_last_active_project_id', id);
     setRecentProjects(updatedMetadata);
     setCurrentProjectId(id);
+    setSaveStatus('saved');
+
+    if (typeof window !== 'undefined') {
+      const curPid = new URLSearchParams(window.location.search).get('projectId');
+      if (curPid !== id) {
+        window.history.replaceState(null, '', `?projectId=${id}`);
+      }
+    }
+
     if (!silent) {
       toast.success("Project saved successfully!");
     }
   };
 
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    setSaveStatus('unsaved');
+    autoSaveTimerRef.current = setTimeout(() => {
+      setSaveStatus('saving');
+      saveProject(undefined, true).catch((e) => {
+        console.error("Auto-save failed:", e);
+        setSaveStatus('unsaved');
+      });
+    }, 1200);
+  };
+
   const loadProject = async (id: string) => {
     clearHistory();
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
 
     let parsed: any = await getProjectData(id);
     if (!parsed) {
@@ -422,9 +489,17 @@ export function useGifEditor() {
       }
     }
     const metadata = recentProjects.find(p => p.id === id);
-    if (parsed && metadata) {
-      setPendingProject({ id, data: parsed, width: metadata.width, height: metadata.height });
+    if (parsed) {
+      setPendingProject({ 
+        id, 
+        data: parsed, 
+        width: metadata?.width || 400, 
+        height: metadata?.height || 400 
+      });
       setView("editor");
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, '', `?projectId=${id}`);
+      }
     }
   };
 
@@ -464,6 +539,19 @@ export function useGifEditor() {
           await fabricJs.current?.loadFromJSON(rehydratedData);
           setCurrentProjectId(id);
           clearHistory();
+
+          if (data.frames && Array.isArray(data.frames)) {
+            setFrames(data.frames);
+          }
+          if (data.frameDelay) {
+            setFrameDelay(data.frameDelay);
+          }
+          if (data.loopCount !== undefined) {
+            setLoopCount(data.loopCount);
+          }
+          if (data.layerTracks && Array.isArray(data.layerTracks)) {
+            setLayerTracks(data.layerTracks);
+          }
 
           // Rebuild layers state from loaded objects
           const objects = fabricJs.current.getObjects();
@@ -652,11 +740,13 @@ export function useGifEditor() {
     const json = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     if (!currentStateRef.current) {
       currentStateRef.current = json;
+      scheduleAutoSave();
       return;
     }
     setHistory((prev) => [currentStateRef.current, ...prev].slice(0, 10));
     currentStateRef.current = json;
     setRedoStack([]);
+    scheduleAutoSave();
   };
 
   const undo = async () => {
@@ -680,6 +770,7 @@ export function useGifEditor() {
     syncCanvasToState();
 
     isHistoryAction.current = false;
+    scheduleAutoSave();
   };
 
   const redo = async () => {
@@ -703,6 +794,7 @@ export function useGifEditor() {
     syncCanvasToState();
 
     isHistoryAction.current = false;
+    scheduleAutoSave();
   };
 
   const addAsset = (src: string, name: string) => {
@@ -1579,17 +1671,20 @@ export function useGifEditor() {
     }
     
     setFrames((prev) => [...prev, dataUrl]);
+    scheduleAutoSave();
     toast.success("Frame added!");
   };
 
   const removeFrame = (index: number) => {
     setFrames((prev) => prev.filter((_, i) => i !== index));
     if (frames.length <= 1) setIsPlaying(false);
+    scheduleAutoSave();
   };
 
   const clearFrames = () => {
     setFrames([]);
     setIsPlaying(false);
+    scheduleAutoSave();
   };
 
   const duplicateFrame = (index: number) => {
@@ -1599,6 +1694,7 @@ export function useGifEditor() {
       copy.splice(index + 1, 0, copy[index]);
       return copy;
     });
+    scheduleAutoSave();
     toast.success("Frame duplicated!");
   };
 
@@ -1610,6 +1706,7 @@ export function useGifEditor() {
       copy.splice(toIndex, 0, moved);
       return copy;
     });
+    scheduleAutoSave();
   };
 
   const updateActiveFrameFromCanvas = () => {
@@ -1637,10 +1734,12 @@ export function useGifEditor() {
         copy[activeFrameIndex] = dataUrl;
         return copy;
       });
+      scheduleAutoSave();
       toast.success(`Updated Frame #${activeFrameIndex + 1} from canvas!`);
     } else {
       setFrames((prev) => [...prev, dataUrl]);
       setActiveFrameIndex(frames.length);
+      scheduleAutoSave();
       toast.success("Captured new frame to timeline!");
     }
   };
@@ -2683,5 +2782,7 @@ export function useGifEditor() {
     isGeneratingTransition,
     applyTransition,
     clearHistory,
+    saveStatus,
+    scheduleAutoSave,
   };
 }
