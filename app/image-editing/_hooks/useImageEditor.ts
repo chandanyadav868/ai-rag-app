@@ -115,11 +115,29 @@ export function useImageEditor() {
     const latestPages = [...pagesRef.current];
     const currentIndex = activePageIndexRef.current;
     
+    // Compute current layers directly from actual canvas objects so it's NEVER stale or desynced
+    const currentLayers: any[] = fabricJs.current.getObjects().map((obj: any) => ({
+      id: obj.get("id"),
+      type: obj.type === "i-text" || obj.type === "textbox" ? "text" : (obj.type === "image" ? "image" : "shape"),
+      left: obj.get("left") ?? 0,
+      top: obj.get("top") ?? 0,
+      width: Math.round(obj.getScaledWidth()),
+      height: Math.round(obj.getScaledHeight()),
+      angle: obj.get("angle") ?? 0,
+      fill: obj.get("fill"),
+      order: obj.get("order") ?? 0,
+      src: obj.get("src"),
+      layerlock: obj.get("layerlock"),
+      hideLayer: !obj.get("visible"),
+      skewX: obj.get("skewX") ?? 0,
+      skewY: obj.get("skewY") ?? 0,
+    }));
+
     if (latestPages[currentIndex]) {
       latestPages[currentIndex] = {
         ...latestPages[currentIndex],
         data: currentData,
-        layers: [...state],
+        layers: currentLayers,
         width: canvasDimensions.width,
         height: canvasDimensions.height,
         viewportScale: viewportScale
@@ -239,6 +257,7 @@ export function useImageEditor() {
       } else {
         const targetPid = pid || localStorage.getItem('polish_ai_last_active_project_id');
         if (targetPid) {
+          setCurrentProjectId(targetPid);
           let parsed: any = await getProjectData(targetPid);
           if (!parsed) {
             const projectDataRaw = localStorage.getItem(`polish_ai_project_data_${targetPid}`);
@@ -272,6 +291,9 @@ export function useImageEditor() {
               });
             }
             setView("editor");
+            if (!pid && typeof window !== "undefined") {
+              window.history.replaceState(null, '', `?projectId=${targetPid}`);
+            }
           }
         }
       }
@@ -585,7 +607,9 @@ export function useImageEditor() {
       }
     }
 
-    const id = currentProjectId || uuidv4();
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const urlPid = urlParams?.get('projectId');
+    const id = currentProjectId || urlPid || uuidv4();
     const thumbnail = fabricJs.current.toDataURL({
       format: 'webp',
       quality: 0.5,
@@ -626,6 +650,12 @@ export function useImageEditor() {
     setCurrentProjectId(id);
     setPages(latestPages);
     setSaveStatus('saved');
+    if (typeof window !== 'undefined') {
+      const curPid = new URLSearchParams(window.location.search).get('projectId');
+      if (curPid !== id) {
+        window.history.replaceState(null, '', `?projectId=${id}`);
+      }
+    }
     if (!silent) {
       toast.success("Project saved successfully!");
     }
@@ -732,29 +762,36 @@ export function useImageEditor() {
         if (isNew) {
           fabricJs.current?.clear();
           if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
-          setCurrentProjectId(null);
+          if (id) setCurrentProjectId(id);
           setState([]);
-        } else if (data) {
-          try {
-            const rehydratedData = await rehydrateCanvasData(data);
-            await fabricJs.current?.loadFromJSON(rehydratedData);
-            setCurrentProjectId(id);
-            
-            // Force render after load
-            fabricJs.current?.requestRenderAll();
+        } else {
+          if (id) setCurrentProjectId(id);
+          if (data && data.objects && data.objects.length > 0) {
+            try {
+              const rehydratedData = await rehydrateCanvasData(data);
+              await fabricJs.current?.loadFromJSON(rehydratedData);
+              
+              // Force render after load
+              fabricJs.current?.requestRenderAll();
 
-            // Rebuild layers state and re-attach listeners
-            const objects = fabricJs.current?.getObjects() || [];
-            objects.forEach((obj: any) => {
-              attachTransformListeners(obj);
-              obj.setCoords();
-            });
-            
-            // Synchronize state from the loaded canvas
-            syncCanvasToState();
-          } catch (loadErr) {
-            console.error("Error loading project from JSON:", loadErr);
-            toast.error("Notice: Canvas loaded with fallback assets.");
+              // Rebuild layers state and re-attach listeners
+              const objects = fabricJs.current?.getObjects() || [];
+              objects.forEach((obj: any) => {
+                attachTransformListeners(obj);
+                obj.setCoords();
+              });
+              
+              // Synchronize state from the loaded canvas
+              syncCanvasToState();
+            } catch (loadErr) {
+              console.error("Error loading project from JSON:", loadErr);
+              toast.error("Notice: Canvas loaded with fallback assets.");
+            }
+          } else {
+            // Empty page/canvas
+            fabricJs.current?.clear();
+            if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
+            setState([]);
           }
         }
 
@@ -1224,13 +1261,19 @@ export function useImageEditor() {
 
     const deletingObj = (event: KeyboardEvent) => {
       if (!fabricJs.current || aiEditRef.current) return;
-      if (event.key === "Delete") {
-        fabricJs.current.getActiveObjects().forEach((object) => {
-          const id = object.get("id");
-          if (id) {
-            deleteLayer(id);
-          }
-        });
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement) return;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        const activeObjects = fabricJs.current.getActiveObjects();
+        if (activeObjects.length > 0) {
+          activeObjects.forEach((object) => {
+            fabricJs.current?.remove(object);
+          });
+          fabricJs.current.discardActiveObject();
+          fabricJs.current.requestRenderAll();
+          syncCanvasToState();
+          saveHistory();
+        }
       }
       if (event.key === "Escape") {
         deselectAll();
@@ -1734,8 +1777,13 @@ export function useImageEditor() {
     setState((prev) => prev.filter((item) => item.id !== layerId));
     if (target) {
       fabricJs.current?.remove(target);
-      renderCanvas();
+      if (fabricJs.current?.getActiveObject() === target) {
+        fabricJs.current?.discardActiveObject();
+      }
+      fabricJs.current?.requestRenderAll();
     }
+    syncCanvasToState();
+    saveHistory();
   };
 
   const copyLayer = async (layerId: string) => {

@@ -43,9 +43,21 @@ export function EditorTopBar({ editor, onOpenExport, onOpenResize }: EditorTopBa
 
   // Sync title from recent projects or current project
   useEffect(() => {
-    if (editor.currentProjectId) {
-      const p = editor.recentProjects.find((item) => item.id === editor.currentProjectId);
-      if (p?.name) setProjectTitle(p.name);
+    const pid = editor.currentProjectId || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('projectId') : null);
+    if (pid) {
+      const p = editor.recentProjects.find((item) => item.id === pid);
+      if (p?.name) {
+        setProjectTitle(p.name);
+      } else {
+        try {
+          const raw = localStorage.getItem('polish_ai_projects_metadata');
+          if (raw) {
+            const list = JSON.parse(raw);
+            const found = list.find((item: any) => item.id === pid);
+            if (found?.name) setProjectTitle(found.name);
+          }
+        } catch {}
+      }
     }
   }, [editor.currentProjectId, editor.recentProjects]);
 
