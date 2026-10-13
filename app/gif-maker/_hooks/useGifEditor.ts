@@ -921,11 +921,49 @@ export function useGifEditor() {
       setSomethingDrop(true);
     };
 
-    const dropImage = (event: DragEvent) => {
+    const dragLeaveImage = (event: DragEvent) => {
+      if (!event.relatedTarget || (event as any).clientX <= 0 || (event as any).clientY <= 0) {
+        setSomethingDrop(false);
+      }
+    };
+
+    const dropImage = async (event: DragEvent) => {
       event.preventDefault();
-      if (!event.dataTransfer) return;
-      droppingFile(event.dataTransfer.files);
       setSomethingDrop(false);
+      if (!event.dataTransfer) return;
+
+      if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        droppingFile(event.dataTransfer.files);
+        return;
+      }
+
+      // Check for image URL from other websites / tabs
+      const uriList = event.dataTransfer.getData("text/uri-list");
+      const textPlain = event.dataTransfer.getData("text/plain");
+      const html = event.dataTransfer.getData("text/html");
+
+      let candidateUrl = "";
+      if (html) {
+        const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+        if (match && match[1]) {
+          candidateUrl = match[1];
+        }
+      }
+
+      if (!candidateUrl && uriList) {
+        const firstLine = uriList.split("\n")[0]?.trim();
+        if (firstLine && /^https?:\/\//i.test(firstLine)) {
+          candidateUrl = firstLine;
+        }
+      }
+
+      if (!candidateUrl && textPlain && /^https?:\/\//i.test(textPlain.trim())) {
+        candidateUrl = textPlain.trim();
+      }
+
+      if (candidateUrl) {
+        await addImageToCanvas(candidateUrl);
+      }
     };
 
     const deletingObj = (event: KeyboardEvent) => {
@@ -1077,6 +1115,7 @@ export function useGifEditor() {
     canvasElement.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvasElement.addEventListener("touchend", handleTouchEnd);
     window.addEventListener("dragover", dropOverImage);
+    window.addEventListener("dragleave", dragLeaveImage);
     window.addEventListener("drop", dropImage);
     window.addEventListener("keydown", deletingObj);
 
@@ -1100,6 +1139,7 @@ export function useGifEditor() {
 
     return () => {
       window.removeEventListener("dragover", dropOverImage);
+      window.removeEventListener("dragleave", dragLeaveImage);
       window.removeEventListener("drop", dropImage);
       window.removeEventListener("keydown", deletingObj);
       window.removeEventListener("paste", handlePaste);

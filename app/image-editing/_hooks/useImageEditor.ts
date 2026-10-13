@@ -1311,11 +1311,43 @@ export function useImageEditor() {
       }
     };
 
-    const dropImage = (event: DragEvent) => {
+    const dropImage = async (event: DragEvent) => {
       event.preventDefault();
-      if (!event.dataTransfer) return;
-      droppingFile(event.dataTransfer.files);
       setSomethingDrop(false);
+      if (!event.dataTransfer) return;
+
+      if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        droppingFile(event.dataTransfer.files);
+        return;
+      }
+
+      // Check for image URL from other websites / tabs
+      const uriList = event.dataTransfer.getData("text/uri-list");
+      const textPlain = event.dataTransfer.getData("text/plain");
+      const html = event.dataTransfer.getData("text/html");
+
+      let candidateUrl = "";
+      if (html) {
+        const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+        if (match && match[1]) {
+          candidateUrl = match[1];
+        }
+      }
+
+      if (!candidateUrl && uriList) {
+        const firstLine = uriList.split("\n")[0]?.trim();
+        if (firstLine && /^https?:\/\//i.test(firstLine)) {
+          candidateUrl = firstLine;
+        }
+      }
+
+      if (!candidateUrl && textPlain && /^https?:\/\//i.test(textPlain.trim())) {
+        candidateUrl = textPlain.trim();
+      }
+
+      if (candidateUrl) {
+        await addImageToCanvas(candidateUrl);
+      }
     };
 
     const deletingObj = (event: KeyboardEvent) => {
