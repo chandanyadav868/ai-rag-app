@@ -1,10 +1,11 @@
 "use client";
 
 import React from 'react';
-import { BrainCircuit, Loader2, Sparkles, Zap, Check, SlidersHorizontal } from 'lucide-react';
+import { BrainCircuit, Loader2, Sparkles, Zap, Check, SlidersHorizontal, BoxSelect, Crop } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBackgroundRemoval } from '../_hooks/useBackgroundRemoval';
 import { FabricImage } from 'fabric';
+import { fitFabricImageToContent } from '@/lib/image-effects';
 
 interface AIFeaturesProps {
   editor: any;
@@ -47,20 +48,28 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
         });
         
         if (result) {
-            const imgElement = new Image();
-            imgElement.crossOrigin = "anonymous";
-            imgElement.onload = () => {
+            const didFit = await fitFabricImageToContent(selectedObject, editor.fabricJs.current, result);
+            if (!didFit) {
+                const imgElement = new Image();
+                imgElement.crossOrigin = "anonymous";
+                imgElement.onload = () => {
+                    const imgObj = selectedObject as FabricImage;
+                    imgObj.setElement(imgElement);
+                    (imgObj as any)._cleanCutoutElement = imgElement;
+                    (imgObj as any)._cleanCutoutSrc = result;
+                    imgObj.set("strokeWidth", 0);
+                    imgObj.set("stroke", null);
+                    editor.fabricJs.current?.requestRenderAll();
+                    editor.saveHistory();
+                };
+                imgElement.src = result;
+            } else {
                 const imgObj = selectedObject as FabricImage;
-                imgObj.setElement(imgElement);
-                (imgObj as any)._cleanCutoutElement = imgElement;
-                (imgObj as any)._cleanCutoutSrc = result;
                 imgObj.set("strokeWidth", 0);
                 imgObj.set("stroke", null);
-                editor.fabricJs.current?.requestRenderAll();
                 editor.saveHistory();
-                toast.success(`Isolated "${objectPrompt}"!`);
-            };
-            imgElement.src = result;
+            }
+            toast.success(`Isolated "${objectPrompt}" and fitted bounding box!`);
         }
     } catch (err) {
         console.error("AI Feature Error:", err);
@@ -69,6 +78,29 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
         setIsProcessing(false);
     }
   };
+
+  const handleFitBoundingBox = async () => {
+    if (!selectedObject || !isImage) {
+      toast.error("Please select an image first.");
+      return;
+    }
+    try {
+      setIsProcessing(true);
+      const didFit = await fitFabricImageToContent(selectedObject, editor.fabricJs.current);
+      if (didFit) {
+        editor.saveHistory();
+        toast.success("Bounding box fitted tightly to visible content!");
+      } else {
+        toast.info("Bounding box is already tightly fitted to content.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fit bounding box.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const isShape = selectedObject?.type === 'rect' || selectedObject?.type === 'triangle' || selectedObject?.type === 'circle' || selectedObject?.type === 'shape';
 
   const handleRemoveBackground = async () => {
@@ -83,21 +115,28 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
         const result = await removeBackground(src);
         
         if (result) {
-            // Replace image source
-            const imgElement = new Image();
-            imgElement.crossOrigin = "anonymous";
-            imgElement.onload = () => {
+            const didFit = await fitFabricImageToContent(selectedObject, editor.fabricJs.current, result);
+            if (!didFit) {
+                const imgElement = new Image();
+                imgElement.crossOrigin = "anonymous";
+                imgElement.onload = () => {
+                    const imgObj = selectedObject as FabricImage;
+                    imgObj.setElement(imgElement);
+                    (imgObj as any)._cleanCutoutElement = imgElement;
+                    (imgObj as any)._cleanCutoutSrc = result;
+                    imgObj.set("strokeWidth", 0);
+                    imgObj.set("stroke", null);
+                    editor.fabricJs.current?.requestRenderAll();
+                    editor.saveHistory();
+                };
+                imgElement.src = result;
+            } else {
                 const imgObj = selectedObject as FabricImage;
-                imgObj.setElement(imgElement);
-                (imgObj as any)._cleanCutoutElement = imgElement;
-                (imgObj as any)._cleanCutoutSrc = result;
                 imgObj.set("strokeWidth", 0);
                 imgObj.set("stroke", null);
-                editor.fabricJs.current?.requestRenderAll();
                 editor.saveHistory();
-                toast.success("Background removed! Use 'Subject Outline' in Styles or Effects to add a contour stroke.");
-            };
-            imgElement.src = result;
+            }
+            toast.success("Background removed & bounding box trimmed!");
         }
     } catch (err) {
         console.error("AI Feature Error:", err);
@@ -246,6 +285,33 @@ export function AIFeatures({ editor }: AIFeaturesProps) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Auto-Fit Bounding Box Tool */}
+        <div className={`p-4 rounded-3xl border transition-all ${isImage ? 'bg-cyan-950/20 border-cyan-500/20' : 'bg-white/5 border-white/5 opacity-50'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300">
+                <BoxSelect size={14} />
+              </span>
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Fit Bounding Box</span>
+            </div>
+            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider bg-cyan-500/10 px-2 py-0.5 rounded-md">
+              Auto-Crop
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
+            Shrink the selection box to tightly hug the visible subject and eliminate empty transparent space.
+          </p>
+          <button
+            type="button"
+            disabled={!isImage || isProcessing}
+            onClick={handleFitBoundingBox}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600/30 to-blue-600/30 hover:from-cyan-600/50 hover:to-blue-600/50 border border-cyan-500/30 text-cyan-200 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-cyan-600/10"
+          >
+            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Crop size={14} />}
+            Auto-Fit Bounding Box to Content
+          </button>
         </div>
 
         {!isImage && (

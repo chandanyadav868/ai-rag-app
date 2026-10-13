@@ -25,6 +25,8 @@ import {
   Check,
   PenTool,
   RotateCcw,
+  Crop,
+  BoxSelect,
 } from 'lucide-react';
 import {
   Canvas,
@@ -49,7 +51,7 @@ import { createPortal } from 'react-dom';
 import { loadGoogleFont } from '@/lib/googleFonts';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
-import { generateStickerCutout, THUMBNAIL_COLOR_PRESETS } from '@/lib/image-effects';
+import { generateStickerCutout, THUMBNAIL_COLOR_PRESETS, fitFabricImageToContent } from '@/lib/image-effects';
 
 // Enhance FabricObject._renderBackground to natively support rounded corners (rx / rxTL/TR/BL/BR)
 if (typeof window !== "undefined" && FabricObject && FabricObject.prototype) {
@@ -1116,6 +1118,40 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
             <RangeField label="Skew Y" value={activeItem.skewY} min={-80} max={80} step={1} onChange={(v) => applyChanges({ skewY: v })} />
           </div>
 
+          {isImage && (
+            <div className='rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-2'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-1.5'>
+                  <BoxSelect size={14} className='text-cyan-400' />
+                  <span className='text-[10px] font-bold uppercase tracking-wider text-white'>Bounding Box Fit</span>
+                </div>
+                <span className='text-[9px] text-cyan-300 font-bold uppercase bg-cyan-500/10 px-2 py-0.5 rounded'>Auto-Trim</span>
+              </div>
+              <p className='text-[10px] text-white/50 leading-relaxed'>
+                Fit selection box tightly around the visible cutout and remove large transparent margins.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const obj = getSelectedObject();
+                  if (obj && obj instanceof FabricImage) {
+                    const didFit = await fitFabricImageToContent(obj, fabricJs.current);
+                    if (didFit) {
+                      toast.success("Bounding box fitted tightly to visible content!");
+                      applyChanges({});
+                    } else {
+                      toast.info("Bounding box is already tightly fitted to content.");
+                    }
+                  }
+                }}
+                className='w-full flex items-center justify-center gap-2 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/30 py-2 px-3 text-[11px] font-bold text-cyan-200 transition'
+              >
+                <Crop size={13} />
+                Fit Bounding Box to Subject
+              </button>
+            </div>
+          )}
+
           {(isShape || isImage || isText) && (
             <div className='space-y-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3'>
               <div className='flex items-center justify-between'>
@@ -1775,6 +1811,26 @@ function ToolBox({ selectedId, fabricJs, state, setState, activeTool, brushType,
                     <span className="truncate">Remove</span>
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const obj = getSelectedObject();
+                    if (obj && obj instanceof FabricImage) {
+                      const didFit = await fitFabricImageToContent(obj, fabricJs.current);
+                      if (didFit) {
+                        toast.success("Bounding box fitted tightly around outline!");
+                        applyChanges({});
+                      } else {
+                        toast.info("Bounding box is already tightly fitted.");
+                      }
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2 px-2 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white transition"
+                >
+                  <Crop size={12} />
+                  Fit Bounding Box to Outline
+                </button>
               </div>
 
               {/* Creator 1-Click Color Grading Presets */}
