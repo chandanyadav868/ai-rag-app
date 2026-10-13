@@ -26,6 +26,20 @@ import {
 } from 'fabric';
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { loadGoogleFont } from '@/lib/googleFonts';
+import { 
+  storeLocalAsset, 
+  getLocalAsset, 
+  storeProjectData, 
+  getProjectData, 
+  storeDataUrlAsAsset, 
+  storeElementAsAsset 
+} from '@/lib/persistent-storage';
+
+const SERIALIZE_PROPERTIES = [
+  'id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 
+  'visible', 'src', 'clipPath', 'filters', 'radius', 'rx', 'ry', 'assetId',
+  'stroke', 'strokeWidth', 'fill', 'opacity', 'angle', 'scaleX', 'scaleY'
+];
 
 type PanelTab = "Layer" | "Property" | "Assets" | "AI Features" | "Animate" | "Transition";
 type EditorTool = "select" | "image" | "text" | "rectangle" | "triangle" | "circle" | "freeDrawing" | "polyline" | "pen" | "directSelect";
@@ -96,6 +110,7 @@ export function useGifEditor() {
   const [assetSaveLayerId, setAssetSaveLayerId] = useState<string | null>(null);
   const [assetSaveToPublic, setAssetSaveToPublic] = useState(false);
   const isHistoryAction = useRef(false);
+  const currentStateRef = useRef<any>(null);
 
   // GIF specific state
   const [frames, setFrames] = useState<string[]>([]);
@@ -131,6 +146,83 @@ export function useGifEditor() {
   useEffect(() => {
     aiEditRef_val.current = aiEdit;
   }, [aiEdit]);
+
+  const FALLBACK_TRANSPARENT_PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+  const rehydrateCanvasData = async (data: any) => {
+    if (!data || !data.objects) return data;
+    
+    const rehydrateObjects = async (objs: any[]) => {
+      for (const obj of objs) {
+        if (obj.type === 'image' || obj.src) {
+          let resolved = false;
+          if (obj.assetId) {
+            const storedAsset = await getLocalAsset(obj.assetId);
+            if (storedAsset) {
+              obj.src = URL.createObjectURL(storedAsset.blob);
+              resolved = true;
+            }
+          }
+          if (!resolved && obj.src && typeof obj.src === 'string' && obj.src.startsWith('blob:')) {
+            console.warn("Encountered expired blob URL without stored asset, using safe fallback:", obj.src);
+            obj.src = FALLBACK_TRANSPARENT_PIXEL;
+          }
+        }
+        if (obj.objects && Array.isArray(obj.objects)) {
+          await rehydrateObjects(obj.objects);
+        }
+      }
+    };
+
+    await rehydrateObjects(data.objects);
+    return data;
+  };
+
+  const persistCanvasImageAssets = async () => {
+    if (!fabricJs.current) return;
+    const canvas = fabricJs.current;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if (obj.type === 'image') {
+        const isDirtyOrCutout = Boolean(
+          (obj as any)._cleanCutoutElement || 
+          (obj as any)._isDirtyAsset || 
+          (obj as any)._cleanCutoutSrc
+        );
+        let currentAssetId = (obj as any).assetId;
+        let hasAsset = (!isDirtyOrCutout && currentAssetId) ? await getLocalAsset(currentAssetId) : null;
+        if (!hasAsset) {
+          const el = (obj as any).getElement?.() || (obj as any)._element;
+          if (el) {
+            const assetName = isDirtyOrCutout ? `cutout_${Date.now()}` : ((obj as any).name || `img_${Date.now()}`);
+            const newAssetId = await storeElementAsAsset(el, assetName);
+            if (newAssetId) {
+              (obj as any).assetId = newAssetId;
+              obj.set('assetId', newAssetId);
+            }
+            if ((obj as any)._cleanCutoutSrc) {
+              obj.set('src', (obj as any)._cleanCutoutSrc);
+            }
+            (obj as any)._isDirtyAsset = false;
+          }
+        }
+      }
+    }
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    setRedoStack([]);
+    currentStateRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      setHistory([]);
+      setRedoStack([]);
+      currentStateRef.current = null;
+    };
+  }, []);
 
   const aiEditRef = useRef(aiEdit);
   // High-precision smooth requestAnimationFrame GIF playback loop (jitter-free)
@@ -280,8 +372,11 @@ export function useGifEditor() {
     localStorage.setItem('polish_ai_assets', JSON.stringify(assets));
   }, [assets]);
 
-  const saveProject = async (projectName?: string) => {
+  const saveProject = async (projectName?: string, silent: boolean = false) => {
     if (!fabricJs.current) return;
+
+    // 1. Persist all canvas images and cutouts to IndexedDB before saving!
+    await persistCanvasImageAssets();
 
     const id = currentProjectId || uuidv4();
     const thumbnail = fabricJs.current.toDataURL({
@@ -290,8 +385,7 @@ export function useGifEditor() {
       multiplier: 200 / canvasDimensions.width
     });
 
-    // Ensure custom properties like 'id' are included
-    const projectData = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY']);
+    const projectData = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const metadata = {
       id,
       name: projectName || (recentProjects.find(p => p.id === id)?.name) || `Project ${recentProjects.length + 1}`,
@@ -301,23 +395,41 @@ export function useGifEditor() {
       lastEdited: Date.now(),
     };
 
-    localStorage.setItem(`gif_project_data_${id}`, JSON.stringify(projectData));
+    // Store in IndexedDB (full persistent data) AND fallback to localStorage
+    await storeProjectData(id, projectData);
+    try {
+      localStorage.setItem(`gif_project_data_${id}`, JSON.stringify(projectData));
+    } catch (e) {
+      console.warn("Project data safely persisted in IndexedDB", e);
+    }
     const updatedMetadata = [metadata, ...recentProjects.filter(p => p.id !== id)].slice(0, 50);
     localStorage.setItem('gif_projects_metadata', JSON.stringify(updatedMetadata));
     setRecentProjects(updatedMetadata);
     setCurrentProjectId(id);
+    if (!silent) {
+      toast.success("Project saved successfully!");
+    }
   };
 
   const loadProject = async (id: string) => {
-    const projectData = localStorage.getItem(`gif_project_data_${id}`);
+    clearHistory();
+
+    let parsed: any = await getProjectData(id);
+    if (!parsed) {
+      const projectData = localStorage.getItem(`gif_project_data_${id}`);
+      if (projectData) {
+        try { parsed = JSON.parse(projectData); } catch (e) {}
+      }
+    }
     const metadata = recentProjects.find(p => p.id === id);
-    if (projectData && metadata) {
-      setPendingProject({ id, data: JSON.parse(projectData), width: metadata.width, height: metadata.height });
+    if (parsed && metadata) {
+      setPendingProject({ id, data: parsed, width: metadata.width, height: metadata.height });
       setView("editor");
     }
   };
 
   const createNewProject = (width: number, height: number) => {
+    clearHistory();
     setPendingProject({ width, height, isNew: true });
     setView("editor");
   };
@@ -346,9 +458,12 @@ export function useGifEditor() {
           fabricJs.current?.clear();
           if (fabricJs.current) fabricJs.current.backgroundColor = "#ffffff";
           setCurrentProjectId(null);
+          clearHistory();
         } else if (data) {
-          await fabricJs.current?.loadFromJSON(data);
+          const rehydratedData = await rehydrateCanvasData(data);
+          await fabricJs.current?.loadFromJSON(rehydratedData);
           setCurrentProjectId(id);
+          clearHistory();
 
           // Rebuild layers state from loaded objects
           const objects = fabricJs.current.getObjects();
@@ -534,8 +649,13 @@ export function useGifEditor() {
 
   const saveHistory = () => {
     if (!fabricJs.current || isHistoryAction.current) return;
-    const json = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
-    setHistory((prev) => [json, ...prev].slice(0, 10));
+    const json = fabricJs.current.toObject(SERIALIZE_PROPERTIES);
+    if (!currentStateRef.current) {
+      currentStateRef.current = json;
+      return;
+    }
+    setHistory((prev) => [currentStateRef.current, ...prev].slice(0, 10));
+    currentStateRef.current = json;
     setRedoStack([]);
   };
 
@@ -543,14 +663,20 @@ export function useGifEditor() {
     if (!fabricJs.current || history.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+    const currentJson = currentStateRef.current || fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const prevJson = history[0];
+    const newHistory = history.slice(1);
 
     await fabricJs.current.loadFromJSON(prevJson);
-    fabricJs.current.renderAll();
+    fabricJs.current.getObjects().forEach((obj) => {
+      attachTransformListeners(obj);
+      obj.setCoords();
+    });
+    fabricJs.current.requestRenderAll();
 
     setRedoStack((prev) => [currentJson, ...prev].slice(0, 10));
-    setHistory((prev) => prev.slice(1));
+    setHistory(newHistory);
+    currentStateRef.current = prevJson;
     syncCanvasToState();
 
     isHistoryAction.current = false;
@@ -560,14 +686,20 @@ export function useGifEditor() {
     if (!fabricJs.current || redoStack.length === 0 || isHistoryAction.current) return;
     isHistoryAction.current = true;
 
-    const currentJson = fabricJs.current.toObject(['id', 'selectable', 'name', 'order', 'layerlock', 'originX', 'originY', 'visible', 'src']);
+    const currentJson = currentStateRef.current || fabricJs.current.toObject(SERIALIZE_PROPERTIES);
     const nextJson = redoStack[0];
+    const newRedoStack = redoStack.slice(1);
 
     await fabricJs.current.loadFromJSON(nextJson);
-    fabricJs.current.renderAll();
+    fabricJs.current.getObjects().forEach((obj) => {
+      attachTransformListeners(obj);
+      obj.setCoords();
+    });
+    fabricJs.current.requestRenderAll();
 
     setHistory((prev) => [currentJson, ...prev].slice(0, 10));
-    setRedoStack((prev) => prev.slice(1));
+    setRedoStack(newRedoStack);
+    currentStateRef.current = nextJson;
     syncCanvasToState();
 
     isHistoryAction.current = false;
@@ -1061,15 +1193,109 @@ export function useGifEditor() {
     }
   };
 
-  const applyMask = async (maskDataUrl: string, options: { left: number, top: number, scaleX: number, scaleY: number, angle: number, feather?: number }) => {
+  const applyMask = async (
+    maskDataUrl: string, 
+    options: { 
+      left: number; 
+      top: number; 
+      scaleX: number; 
+      scaleY: number; 
+      angle: number; 
+      feather?: number;
+      isRasterized?: boolean;
+      rasterizedDataUrl?: string;
+      cropCenterDx?: number;
+      cropCenterDy?: number;
+      fitScale?: number;
+      exportMultiplier?: number;
+    }
+  ) => {
     if (!fabricJs.current) return;
-    const activeObject = fabricJs.current.getActiveObject();
+    const canvas = fabricJs.current;
+    const activeObject = canvas.getActiveObject();
     if (!activeObject) {
       toast.error("Please select an element to mask first.");
       return;
     }
 
     try {
+      // If rasterized tight crop is available, replace layer with tight PNG bounding box
+      if (options.isRasterized && options.rasterizedDataUrl) {
+        const rasterizedImg = await FabricImage.fromURL(options.rasterizedDataUrl, { crossOrigin: "anonymous" });
+        const center = activeObject.getCenterPoint();
+
+        const fitScale = options.fitScale || 1;
+        const exportMultiplier = options.exportMultiplier || 2;
+        const cropCenterDx = options.cropCenterDx ?? 0;
+        const cropCenterDy = options.cropCenterDy ?? 0;
+
+        // Calculate offset rotated by activeObject angle
+        const rad = ((activeObject.angle || 0) * Math.PI) / 180;
+        const offsetDx = cropCenterDx / fitScale;
+        const offsetDy = cropCenterDy / fitScale;
+        const rotatedDx = offsetDx * Math.cos(rad) - offsetDy * Math.sin(rad);
+        const rotatedDy = offsetDx * Math.sin(rad) + offsetDy * Math.cos(rad);
+
+        const newLeft = center.x + rotatedDx;
+        const newTop = center.y + rotatedDy;
+
+        // Correct scale on main canvas to preserve 100% native resolution
+        const finalScaleX = (activeObject.scaleX || 1) / (fitScale * exportMultiplier);
+        const finalScaleY = (activeObject.scaleY || 1) / (fitScale * exportMultiplier);
+
+        const layerId = (activeObject as any).id || (activeObject as any).get?.('id');
+        const layerName = (activeObject as any).name || (activeObject as any).get?.('name') || 'Masked Layer';
+
+        rasterizedImg.set({
+          id: layerId,
+          name: layerName,
+          originX: 'center',
+          originY: 'center',
+          left: newLeft,
+          top: newTop,
+          angle: activeObject.angle || 0,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY,
+          objectCaching: false,
+          opacity: activeObject.opacity !== undefined ? activeObject.opacity : 1,
+        });
+
+        // Store new asset in IndexedDB so saving and reloading preserves it
+        try {
+          const newAssetId = await storeDataUrlAsAsset(options.rasterizedDataUrl, `masked_${Date.now()}`);
+          if (newAssetId) {
+            rasterizedImg.set('assetId', newAssetId);
+            (rasterizedImg as any).assetId = newAssetId;
+          }
+        } catch (err) {
+          console.warn("Failed to store masked asset in IndexedDB:", err);
+        }
+
+        (rasterizedImg as any)._cleanCutoutElement = (rasterizedImg as any).getElement?.() || (rasterizedImg as any)._element;
+        (rasterizedImg as any)._cleanCutoutSrc = options.rasterizedDataUrl;
+        (rasterizedImg as any)._isDirtyAsset = true;
+
+        const idx = canvas.getObjects().indexOf(activeObject);
+        canvas.remove(activeObject);
+        canvas.insertAt(idx, rasterizedImg);
+        attachTransformListeners(rasterizedImg);
+        rasterizedImg.setCoords();
+        canvas.setActiveObject(rasterizedImg);
+        canvas.requestRenderAll();
+
+        setState(prev => prev.map(l => l.id === layerId ? {
+          ...l,
+          src: options.rasterizedDataUrl!,
+          width: Math.round(rasterizedImg.getScaledWidth()),
+          height: Math.round(rasterizedImg.getScaledHeight()),
+        } : l));
+
+        saveHistory();
+        toast.success("Mask applied with tight bounding box!");
+        setMaskStudioOpen(false);
+        return;
+      }
+
       const maskImage = await FabricImage.fromURL(maskDataUrl, { crossOrigin: "anonymous" });
       
       // In Fabric, the clipPath is relative to the object's transform.
@@ -1096,7 +1322,7 @@ export function useGifEditor() {
         dirty: true
       });
 
-      fabricJs.current.requestRenderAll();
+      canvas.requestRenderAll();
       saveHistory();
       toast.success("Mask applied successfully!");
       setMaskStudioOpen(false);
@@ -2416,5 +2642,6 @@ export function useGifEditor() {
     setTransitionSteps,
     isGeneratingTransition,
     applyTransition,
+    clearHistory,
   };
 }

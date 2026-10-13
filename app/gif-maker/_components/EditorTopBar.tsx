@@ -58,7 +58,15 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
       {/* Left: Back button, Title, Dimensions & Frame badge */}
       <div className="flex items-center gap-3 min-w-0">
         <button
-          onClick={() => router.push('/gif-home-screen')}
+          onClick={async () => {
+            try {
+              await editor.saveProject(undefined, true);
+            } catch (err) {
+              console.warn("Auto save before exit:", err);
+            }
+            editor.clearHistory?.();
+            router.push('/gif-home-screen');
+          }}
           className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-95 border border-white/5"
           title="Back to GIF Studio Hub"
         >

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GifTimeline } from './GifTimeline';
 import { useGifEditor } from '../_hooks/useGifEditor';
-import { Eye, Edit3, Save, Sparkles, Play, Square } from 'lucide-react';
+import { Eye, Edit3, Save, Sparkles, Play, Square, CloudUpload } from 'lucide-react';
 
 interface EditorCanvasWorkspaceProps {
   editor: ReturnType<typeof useGifEditor>;
@@ -308,10 +308,13 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         </div>
 
         {editor.somethingDrop && (
-          <div className="absolute inset-4 z-20 flex items-center justify-center rounded-[32px] border-2 border-dashed border-cyan-400 bg-cyan-500/10 backdrop-blur-sm sm:inset-6">
-            <div className="rounded-2xl bg-[#081221] px-6 py-5 text-center shadow-2xl border border-cyan-400/30">
-              <div className="text-base font-bold text-white">Drop image to insert as layer</div>
-              <div className="mt-1 text-xs text-cyan-200/70">PNG, JPG, WebP supported for GIF compositing</div>
+          <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-in fade-in duration-200">
+            <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-cyan-400/80 bg-[#0d1322]/95 px-8 py-7 shadow-[0_25px_80px_rgba(0,0,0,0.8)] backdrop-blur-2xl ring-1 ring-white/10 max-w-sm text-center">
+              <div className="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-400/40 text-cyan-400 animate-bounce">
+                <CloudUpload size={28} />
+              </div>
+              <div className="text-base font-black tracking-wide text-white">Drop Image to Add to Canvas</div>
+              <div className="mt-1 text-xs text-white/60">PNG, JPG, WebP supported for GIF compositing</div>
             </div>
           </div>
         )}
