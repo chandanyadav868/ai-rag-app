@@ -87,18 +87,18 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
                 if (e.key === 'Enter') handleTitleSubmit();
                 if (e.key === 'Escape') setIsEditingTitle(false);
               }}
-              className="h-8 rounded-lg border border-cyan-400/50 bg-black/50 px-2.5 text-xs md:text-sm font-semibold text-white outline-none ring-2 ring-cyan-400/20 max-w-[150px] md:max-w-[220px]"
+              className="h-8 rounded-lg border border-cyan-400/50 bg-black/50 px-2 text-xs md:text-sm font-semibold text-white outline-none ring-2 ring-cyan-400/20 max-w-[110px] xs:max-w-[150px] md:max-w-[220px]"
             />
           ) : (
             <button
               onClick={() => setIsEditingTitle(true)}
-              className="group flex items-center gap-1.5 rounded-lg px-2 py-1 text-left transition hover:bg-white/5 max-w-[150px] md:max-w-[220px]"
+              className="group flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-1 text-left transition hover:bg-white/5 max-w-[110px] xs:max-w-[150px] md:max-w-[220px]"
               title="Click to rename project"
             >
               <span className="truncate text-xs md:text-sm font-bold text-white group-hover:text-cyan-300">
                 {projectTitle}
               </span>
-              <Edit3 size={12} className="opacity-0 transition group-hover:opacity-100 text-white/50" />
+              <Edit3 size={11} className="opacity-0 transition group-hover:opacity-100 text-white/50 shrink-0 hidden xs:inline" />
             </button>
           )}
 
@@ -266,18 +266,20 @@ export function EditorTopBar({ editor, onOpenResize }: EditorTopBarProps) {
         <button
           onClick={editor.exportGif}
           disabled={editor.isExportingGif || editor.frames.length === 0}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-500 px-3.5 py-1.5 text-xs font-black text-black shadow-lg shadow-cyan-500/20 transition-all hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 sm:gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-500 px-2.5 sm:px-3.5 py-1.5 text-xs font-black text-black shadow-lg shadow-cyan-500/20 transition-all hover:brightness-110 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
           title="Export high-quality animated GIF"
         >
           {editor.isExportingGif ? (
             <>
-              <Loader2 size={14} className="animate-spin text-black" />
-              <span className="hidden xs:inline">Encoding...</span>
+              <Loader2 size={13} className="animate-spin text-black shrink-0" />
+              <span className="whitespace-nowrap">Encoding...</span>
             </>
           ) : (
             <>
-              <Download size={14} />
-              <span>Export GIF</span>
+              <Download size={13} className="shrink-0" />
+              <span className="whitespace-nowrap">
+                <span className="hidden xs:inline">Export </span>GIF
+              </span>
             </>
           )}
         </button>

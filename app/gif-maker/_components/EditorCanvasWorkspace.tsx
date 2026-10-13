@@ -197,60 +197,66 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
       />
 
       {/* Top Floating Stage Mode Pill */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-2xl bg-[#081221]/90 border border-white/10 px-3.5 py-1.5 backdrop-blur-xl shadow-2xl">
+      <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl bg-[#081221]/95 border border-white/10 px-2 sm:px-3.5 py-1 sm:py-1.5 backdrop-blur-xl shadow-2xl max-w-[calc(100vw-16px)] overflow-x-auto no-scrollbar whitespace-nowrap">
         {editor.isPlaying ? (
-          <div className="flex items-center gap-2 text-xs font-bold text-white">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-            <span className="text-rose-300">Playing Frame #{editor.previewIdx + 1} of {editor.frames.length}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-white whitespace-nowrap">
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+            <span className="text-rose-300">
+              Playing #{editor.previewIdx + 1}
+              <span className="hidden xs:inline"> of {editor.frames.length}</span>
+            </span>
           </div>
         ) : isDisplayingFrame ? (
-          <div className="flex items-center gap-2.5 text-xs font-bold text-white">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span className="text-cyan-300">Frame #{currentFrameIdx + 1} Preview</span>
+          <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs font-bold text-white whitespace-nowrap">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-cyan-400 shrink-0" />
+              <span className="text-cyan-300">Frame #{currentFrameIdx + 1}</span>
             </div>
-            <div className="w-px h-3.5 bg-white/20" />
+            <div className="w-px h-3.5 bg-white/20 shrink-0" />
             <button
               onClick={() => editor.setStageMode('canvas')}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30 shrink-0 active:scale-95"
               title="Switch to interactive canvas layer editing"
             >
-              <Edit3 size={11} />
+              <Edit3 size={11} className="shrink-0" />
               <span>Live Edit</span>
             </button>
             <button
               onClick={editor.updateActiveFrameFromCanvas}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider transition border border-amber-400/30"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider transition border border-amber-400/30 shrink-0 active:scale-95"
               title="Save current canvas state to this frame"
             >
-              <Save size={11} />
+              <Save size={11} className="shrink-0" />
               <span>Update Frame</span>
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-xs font-bold text-white/70">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Interactive Canvas Mode</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-white/70 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 shrink-0" />
+            <span className="hidden sm:inline">Interactive Canvas Mode</span>
+            <span className="sm:hidden text-[10px] font-bold text-white/90">Canvas</span>
 
-            <div className="w-px h-3.5 bg-white/20 mx-0.5" />
+            <div className="w-px h-3.5 bg-white/20 mx-0.5 shrink-0" />
 
             {/* Quick Add Frame buttons directly on Canvas */}
             <button
               onClick={editor.addFrame}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30 active:scale-95"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-black uppercase tracking-wider transition border border-cyan-400/30 active:scale-95 shrink-0"
               title="Capture current canvas artwork as a frame"
             >
-              <Camera size={11} />
-              <span>Capture Frame</span>
+              <Camera size={11} className="shrink-0" />
+              <span>Capture</span>
+              <span className="hidden xs:inline"> Frame</span>
             </button>
 
             <button
               onClick={() => editor.addEmptyFrame?.()}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold tracking-wider transition border border-white/10 active:scale-95"
+              className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold tracking-wider transition border border-white/10 active:scale-95 shrink-0"
               title="Add an empty/blank frame to timeline"
             >
-              <Plus size={11} />
-              <span>+ Empty Frame</span>
+              <Plus size={11} className="shrink-0" />
+              <span>+ Empty</span>
+              <span className="hidden xs:inline"> Frame</span>
             </button>
 
             {editor.frames.length > 0 && (
@@ -259,9 +265,11 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
                   editor.setActiveFrameIndex(0);
                   editor.setStageMode('frame');
                 }}
-                className="ml-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition"
+                className="ml-0.5 sm:ml-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold transition shrink-0"
               >
-                ({editor.frames.length} Frames)
+                ({editor.frames.length}
+                <span className="hidden xs:inline"> Frames</span>
+                <span className="xs:hidden">F</span>)
               </button>
             )}
           </div>
@@ -285,7 +293,7 @@ export function EditorCanvasWorkspace({ editor }: EditorCanvasWorkspaceProps) {
         className={`relative z-10 flex-1 w-full overflow-auto custom-scrollbar select-none ${cursorClass}`}
       >
         {/* Generous padding ensures full top/bottom/left/right scrolling without clipping */}
-        <div className="min-w-max min-h-max p-[40vh_40vw] flex items-center justify-center">
+        <div className="min-w-max min-h-max p-[8vh_6vw] sm:p-[30vh_30vw] flex items-center justify-center">
           <div
             className="relative m-auto shrink-0"
             style={{

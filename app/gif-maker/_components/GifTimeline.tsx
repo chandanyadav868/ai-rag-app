@@ -137,58 +137,58 @@ export function GifTimeline({ editor }: GifTimelineProps) {
 
 
   return (
-    <div className="relative z-20 mt-auto border-t border-white/10 bg-[#081221]/95 backdrop-blur-2xl px-3 py-3 sm:px-6 sm:py-3.5 shrink-0 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] select-none w-full max-w-full min-w-0 overflow-hidden">
+    <div className="relative z-20 mt-auto border-t border-white/10 bg-[#081221]/95 backdrop-blur-2xl px-2 py-2 sm:px-6 sm:py-3.5 shrink-0 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] select-none w-full max-w-full min-w-0 overflow-hidden">
       {/* Top Header: Timeline Transport Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-2.5 border-b border-white/5 w-full min-w-0">
-        <div className="flex items-center gap-2.5">
-          {/* Play / Stop Toggle Button */}
-          <button
-            onClick={() => {
-              if (!editor.isPlaying) {
-                editor.setStageMode('frame');
-              }
-              editor.setIsPlaying(!editor.isPlaying);
-            }}
-            disabled={editor.frames.length === 0}
-            className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition-all shadow-md ${
-              editor.isPlaying
-                ? 'bg-rose-500 text-white shadow-rose-500/25 animate-pulse'
-                : 'bg-gradient-to-br from-cyan-400 to-blue-500 text-black shadow-cyan-500/20 hover:brightness-110 active:scale-95'
-            } disabled:opacity-30 disabled:cursor-not-allowed`}
-            title={editor.isPlaying ? "Stop Loop" : "Play Loop"}
-          >
-            {editor.isPlaying ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
-          </button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 pb-2 border-b border-white/5 w-full min-w-0">
+        {/* Controls Row on Mobile / Left+Center on Desktop */}
+        <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-3 w-full sm:w-auto min-w-0">
+          {/* Play / Stop Toggle Button & Desktop Label */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <button
+              onClick={() => {
+                if (!editor.isPlaying) {
+                  editor.setStageMode('frame');
+                }
+                editor.setIsPlaying(!editor.isPlaying);
+              }}
+              disabled={editor.frames.length === 0}
+              className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl transition-all shadow-md shrink-0 ${
+                editor.isPlaying
+                  ? 'bg-rose-500 text-white shadow-rose-500/25 animate-pulse'
+                  : 'bg-gradient-to-br from-cyan-400 to-blue-500 text-black shadow-cyan-500/20 hover:brightness-110 active:scale-95'
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+              title={editor.isPlaying ? "Stop Loop" : "Play Loop"}
+            >
+              {editor.isPlaying ? <Square size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" className="ml-0.5" />}
+            </button>
 
-          <div className="flex items-center gap-1.5">
-            <Film size={15} className="text-cyan-400" />
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-cyan-200/50">Timeline</div>
-              <div className="text-[11px] font-bold text-white/80">
-                {editor.frames.length === 0
-                  ? "0 Frames"
-                  : editor.isPlaying
-                  ? `Playing Frame #${editor.previewIdx + 1} of ${editor.frames.length}`
-                  : editor.activeFrameIndex !== null
-                  ? `Active Frame #${editor.activeFrameIndex + 1} of ${editor.frames.length}`
-                  : `${editor.frames.length} Frames`}
+            <div className="hidden sm:flex items-center gap-1.5">
+              <Film size={15} className="text-cyan-400" />
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-cyan-200/50">Timeline</div>
+                <div className="text-[11px] font-bold text-white/80 whitespace-nowrap">
+                  {editor.frames.length === 0
+                    ? "0 Frames"
+                    : editor.isPlaying
+                    ? `Playing Frame #${editor.previewIdx + 1} of ${editor.frames.length}`
+                    : editor.activeFrameIndex !== null
+                    ? `Active Frame #${editor.activeFrameIndex + 1} of ${editor.frames.length}`
+                    : `${editor.frames.length} Frames`}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Center: Frame Steppers, Frame Speed & Loop settings */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Frame Steppers (Always visible for easy jumping to Frame #1) */}
+          {/* Steppers */}
           {editor.frames.length > 0 && (
-            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-white/5 p-0.5 sm:p-1 rounded-lg sm:rounded-xl border border-white/10 shrink-0">
               <button
                 onClick={jumpToStart}
-                className="px-2 py-1 rounded-lg text-[10px] font-black text-cyan-300 hover:bg-cyan-400/20 transition flex items-center gap-0.5"
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black text-cyan-300 hover:bg-cyan-400/20 transition flex items-center gap-0.5"
                 title="Jump directly to Frame #1"
               >
-                <ChevronsLeft size={13} />
-                <span>#1</span>
+                <ChevronsLeft size={12} />
+                <span className="hidden xs:inline">#1</span>
               </button>
               <button
                 onClick={() => {
@@ -196,12 +196,12 @@ export function GifTimeline({ editor }: GifTimelineProps) {
                   if (current > 0) handleSelectFrame(current - 1);
                 }}
                 disabled={(editor.activeFrameIndex ?? 0) <= 0}
-                className="p-1 rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-20 transition"
+                className="p-0.5 sm:p-1 rounded-md sm:rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-20 transition"
                 title="Previous Frame"
               >
-                <ChevronLeft size={13} />
+                <ChevronLeft size={12} />
               </button>
-              <span className="text-[10px] font-mono font-bold text-white px-1">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold text-white px-0.5 sm:px-1">
                 {(editor.activeFrameIndex ?? 0) + 1}/{editor.frames.length}
               </span>
               <button
@@ -210,110 +210,113 @@ export function GifTimeline({ editor }: GifTimelineProps) {
                   if (current < editor.frames.length - 1) handleSelectFrame(current + 1);
                 }}
                 disabled={(editor.activeFrameIndex ?? 0) >= editor.frames.length - 1}
-                className="p-1 rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-20 transition"
+                className="p-0.5 sm:p-1 rounded-md sm:rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-20 transition"
                 title="Next Frame"
               >
-                <ChevronRight size={13} />
+                <ChevronRight size={12} />
               </button>
               <button
                 onClick={jumpToEnd}
-                className="px-2 py-1 rounded-lg text-[10px] font-black text-cyan-300 hover:bg-cyan-400/20 transition flex items-center gap-0.5"
+                className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black text-cyan-300 hover:bg-cyan-400/20 transition flex items-center gap-0.5"
                 title="Jump directly to Last Frame"
               >
-                <span>#{editor.frames.length}</span>
-                <ChevronsRight size={13} />
+                <span className="hidden xs:inline">#{editor.frames.length}</span>
+                <ChevronsRight size={12} />
               </button>
             </div>
           )}
 
-          {/* Frame Rate / Delay Dropdown */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/70">
-            <Gauge size={13} className="text-cyan-400" />
-            <select
-              value={editor.frameDelay}
-              onChange={(e) => editor.setFrameDelay(Number(e.target.value))}
-              className="bg-transparent text-[11px] font-bold text-white outline-none cursor-pointer"
-              title="Animation Frame Speed"
-            >
-              {speedOptions.map((opt) => (
-                <option key={opt.delay} value={opt.delay} className="bg-[#09182b] text-white">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Speed & Loop Group */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Frame Rate / Delay Dropdown */}
+            <div className="flex items-center gap-1 rounded-lg sm:rounded-xl border border-white/10 bg-white/5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white/70 shrink-0">
+              <Gauge size={11} className="text-cyan-400 shrink-0" />
+              <select
+                value={editor.frameDelay}
+                onChange={(e) => editor.setFrameDelay(Number(e.target.value))}
+                className="bg-transparent text-[10px] sm:text-[11px] font-bold text-white outline-none cursor-pointer"
+                title="Animation Frame Speed"
+              >
+                {speedOptions.map((opt) => (
+                  <option key={opt.delay} value={opt.delay} className="bg-[#09182b] text-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Loop Setting Button */}
-          <button
-            onClick={() => editor.setLoopCount(editor.loopCount === 0 ? 1 : 0)}
-            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[11px] font-bold transition ${
-              editor.loopCount === 0
-                ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300'
-                : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
-            }`}
-            title="Loop Count Toggle"
-          >
-            <Repeat size={12} />
-            <span>{editor.loopCount === 0 ? 'Loop: ∞' : 'Play: Once'}</span>
-          </button>
+            {/* Loop Setting Button */}
+            <button
+              onClick={() => editor.setLoopCount(editor.loopCount === 0 ? 1 : 0)}
+              className={`flex items-center gap-1 rounded-lg sm:rounded-xl border px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap shrink-0 ${
+                editor.loopCount === 0
+                  ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300'
+                  : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
+              }`}
+              title="Loop Count Toggle"
+            >
+              <Repeat size={11} className="shrink-0" />
+              <span>{editor.loopCount === 0 ? 'Loop: ∞' : '1x'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Right: Capture Canvas Frame, Save to Frame, and Clear */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons Row on Mobile / Right Group on Desktop */}
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto shrink-0 min-w-0 pt-0.5 sm:pt-0">
           {/* If inspecting an active frame, allow 1-click update from canvas */}
           {editor.activeFrameIndex !== null && !editor.isPlaying && editor.frames.length > 0 && (
             <button
               onClick={editor.updateActiveFrameFromCanvas}
-              className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 px-3 py-1.5 text-xs font-bold text-amber-300 transition-all hover:bg-amber-500/25 active:scale-95 shadow-sm shadow-amber-500/10"
+              className="flex items-center gap-1 rounded-lg sm:rounded-xl bg-amber-500/15 border border-amber-400/30 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold text-amber-300 transition-all hover:bg-amber-500/25 active:scale-95 shadow-sm shadow-amber-500/10 whitespace-nowrap shrink-0"
               title={`Save current canvas changes to Frame #${editor.activeFrameIndex + 1}`}
             >
-              <Save size={13} />
-              <span className="hidden xs:inline">Save to #{editor.activeFrameIndex + 1}</span>
+              <Save size={12} className="shrink-0" />
+              <span>Save #{editor.activeFrameIndex + 1}</span>
             </button>
           )}
 
           {/* Capture Canvas Frame */}
           <button
             onClick={editor.addFrame}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-3.5 py-1.5 text-xs font-black text-black transition-all hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-black text-black transition-all hover:brightness-110 active:scale-95 shadow-md shadow-cyan-500/20 whitespace-nowrap"
             title="Capture current canvas as a new frame"
           >
-            <Camera size={14} />
+            <Camera size={13} className="shrink-0" />
             <span>Capture Frame</span>
           </button>
 
           {/* New Add Empty Frame */}
           <button
             onClick={() => editor.addEmptyFrame?.()}
-            className="flex items-center gap-1.5 rounded-xl bg-white/10 border border-white/15 px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-white/20 active:scale-95 shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-white/10 border border-white/15 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold text-white transition-all hover:bg-white/20 active:scale-95 shadow-sm whitespace-nowrap"
             title="Add a new blank/empty canvas frame"
           >
-            <Plus size={14} />
+            <Plus size={13} className="shrink-0" />
             <span>+ Empty Frame</span>
           </button>
 
           {editor.frames.length > 0 && (
             <button
               onClick={editor.clearFrames}
-              className="p-1.5 rounded-xl border border-white/5 bg-white/5 text-white/40 hover:bg-rose-500/15 hover:border-rose-500/30 hover:text-rose-400 transition"
+              className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl border border-white/5 bg-white/5 text-white/40 hover:bg-rose-500/15 hover:border-rose-500/30 hover:text-rose-400 transition shrink-0"
               title="Clear all frames"
             >
-              <Trash2 size={15} />
+              <Trash2 size={13} />
             </button>
           )}
         </div>
       </div>
 
       {/* Frame Filmstrip Track with High-Visibility Scrollbar and Navigation Arrows */}
-      <div className="relative mt-2 w-full min-w-0 overflow-hidden group/filmstrip">
+      <div className="relative mt-1 sm:mt-2 w-full min-w-0 overflow-hidden group/filmstrip">
         {/* Left Quick Jump Arrow */}
         {editor.frames.length > 3 && (
           <button
             onClick={jumpToStart}
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[#081221]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-xl transition active:scale-95"
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#081221]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-xl transition active:scale-95"
             title="Jump to Frame #1"
           >
-            <ChevronsLeft size={14} />
+            <ChevronsLeft size={13} />
           </button>
         )}
 
@@ -321,10 +324,10 @@ export function GifTimeline({ editor }: GifTimelineProps) {
         {editor.frames.length > 3 && (
           <button
             onClick={jumpToEnd}
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[#081221]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-xl transition active:scale-95"
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#081221]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-xl transition active:scale-95"
             title="Jump to Last Frame"
           >
-            <ChevronsRight size={14} />
+            <ChevronsRight size={13} />
           </button>
         )}
 
@@ -333,7 +336,7 @@ export function GifTimeline({ editor }: GifTimelineProps) {
           ref={filmstripRef}
           onWheel={handleFilmstripWheel}
           tabIndex={0}
-          className="flex items-center gap-2 overflow-x-scroll pb-2.5 pt-1 px-8 custom-filmstrip-scrollbar min-h-[88px] w-full min-w-0 outline-none"
+          className="flex items-center gap-2 overflow-x-scroll pb-2 pt-1 px-6 sm:px-8 custom-filmstrip-scrollbar min-h-[72px] sm:min-h-[88px] w-full min-w-0 outline-none"
         >
           {editor.frames.length === 0 ? (
             <div className="flex flex-col sm:flex-row h-auto py-3 px-5 w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-cyan-400/30 bg-cyan-500/[0.04]">
@@ -372,7 +375,7 @@ export function GifTimeline({ editor }: GifTimelineProps) {
                   <div
                     id={`timeline-frame-${idx}`}
                     onClick={() => handleSelectFrame(idx)}
-                    className={`group relative h-16 w-20 sm:h-18 sm:w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
+                    className={`group relative h-14 w-18 sm:h-18 sm:w-24 shrink-0 overflow-hidden rounded-lg sm:rounded-xl border-2 transition-all cursor-pointer ${
                       isActive
                         ? 'border-cyan-400 scale-[1.03] z-10 shadow-lg shadow-cyan-500/35 ring-2 ring-cyan-400/50'
                         : 'border-white/10 hover:border-white/40 bg-black/40'

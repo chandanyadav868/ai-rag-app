@@ -82,12 +82,19 @@ export function useGifEditor() {
   const [transitionType, setTransitionType] = useState<'crossfade' | 'slide-wipe'>('crossfade');
   const [transitionSteps, setTransitionSteps] = useState<number>(4);
   const [isGeneratingTransition, setIsGeneratingTransition] = useState<boolean>(false);
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [viewportScale, setViewportScale] = useState(1);
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setLeftPanelOpen(true);
+      setRightPanelOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (fabricJs.current) {
@@ -2265,18 +2272,32 @@ export function useGifEditor() {
       } catch {}
     }
 
+    const textStr = customProps?.text ?? (customProps ? "HEADLINE" : "Hello");
+    const targetWidth = Math.min(
+      Math.max(160, canvasDimensions.width - 40),
+      customProps?.text && customProps.text.length > 8 ? 340 : 220
+    );
+    // Dynamically adjust font size according to canvas and text length so text never overflows the box
+    const baseFontSize = customProps?.fontSize ?? (customProps ? 36 : 24);
+    const textLen = Math.max(textStr.length, 4);
+    const canvasScaleRatio = Math.min(1, (canvasDimensions.width - 40) / (textLen * (baseFontSize * 0.6)));
+    const safeFontSize = Math.max(16, Math.round(baseFontSize * Math.max(0.7, canvasScaleRatio)));
+
+    const defaultLeft = Math.max(16, Math.round((canvasDimensions.width - targetWidth) / 2));
+    const defaultTop = Math.max(20, Math.round(canvasDimensions.height * 0.12));
+
     const layerId = generateLayerId("text");
     const nextLayer: StateProps = {
-      left: customProps?.left ?? 100,
-      top: customProps?.top ?? 100,
-      fontSize: customProps?.fontSize ?? (customProps ? 36 : 24),
+      left: customProps?.left ?? defaultLeft,
+      top: customProps?.top ?? defaultTop,
+      fontSize: safeFontSize,
       fill: customProps?.fill ?? (customProps ? "#ffffff" : "#000000"),
       fontFamily: customProps?.fontFamily ?? "Arial",
       fontWeight: customProps?.fontWeight ?? (customProps ? "bold" : "normal"),
       stroke: customProps?.stroke ?? (customProps?.strokeWidth ? "#000000" : undefined),
       strokeWidth: customProps?.strokeWidth ?? 0,
       backgroundColor: customProps?.backgroundColor ?? "",
-      width: 0,
+      width: targetWidth,
       height: 0,
       angle: customProps?.angle ?? 0,
       id: layerId,
@@ -2285,11 +2306,11 @@ export function useGifEditor() {
       scale: 1,
     };
 
-    const textbox = new Textbox(customProps?.text ?? (customProps ? "HEADLINE" : "Hello"), {
+    const textbox = new Textbox(textStr, {
       editable: true,
       left: nextLayer.left,
       top: nextLayer.top,
-      width: customProps?.text && customProps.text.length > 8 ? 360 : 220,
+      width: targetWidth,
       fill: (nextLayer.fill as string) || "#ffffff",
       fontSize: nextLayer.fontSize,
       fontFamily: nextLayer.fontFamily,
@@ -2299,6 +2320,7 @@ export function useGifEditor() {
       paintFirst: (customProps?.paintFirst as any) || (nextLayer.strokeWidth ? "stroke" : "fill"),
       backgroundColor: nextLayer.backgroundColor || undefined,
       angle: nextLayer.angle,
+      textAlign: customProps?.textAlign || "center",
       originX: "left",
       originY: "top",
     });
