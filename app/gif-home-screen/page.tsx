@@ -24,9 +24,11 @@ import {
   Flame, 
   SlidersHorizontal,
   Compass,
-  ArrowRight
+  ArrowRight,
+  Video
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -251,7 +253,15 @@ export default function GifHomeScreen() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              href="/video-to-gif"
+              className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-violet-500/20 to-cyan-500/20 hover:from-violet-500/30 hover:to-cyan-500/30 text-cyan-300 border border-cyan-400/40 font-black text-sm tracking-wider uppercase shadow-xl transition-all hover:scale-105 active:scale-95"
+            >
+              <Video size={18} />
+              <span>Video to GIF</span>
+            </Link>
+
             <button 
               onClick={() => handleCreate(customSize.width, customSize.height)}
               className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-black text-sm tracking-wider uppercase shadow-xl shadow-cyan-500/25 transition-all hover:scale-105 active:scale-95"

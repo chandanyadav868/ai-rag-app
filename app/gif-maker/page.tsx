@@ -16,9 +16,10 @@ import { MaskStudio } from './_components/MaskStudio';
 function ProGifMaker() {
   const editor = useGifEditor();
 
-  // Seamless Creative Pipeline: Import design handed off from /image-editing
+  // Seamless Creative Pipeline: Import design handed off from /image-editing or /video-to-gif
   useEffect(() => {
     try {
+      // 1. Single design frame from Image Editing
       const importedFrame = sessionStorage.getItem('polish_ai_imported_gif_frame');
       if (importedFrame) {
         sessionStorage.removeItem('polish_ai_imported_gif_frame');
@@ -30,10 +31,29 @@ function ProGifMaker() {
           }, 400);
         }, 300);
       }
+
+      // 2. Video frames from Video to GIF Converter
+      const importedVideoData = sessionStorage.getItem('polish_ai_imported_video_frames');
+      if (importedVideoData) {
+        sessionStorage.removeItem('polish_ai_imported_video_frames');
+        const parsed = JSON.parse(importedVideoData);
+        if (parsed.frames && Array.isArray(parsed.frames) && parsed.frames.length > 0) {
+          setTimeout(() => {
+            editor.setFrames(parsed.frames);
+            if (parsed.frameDelay) editor.setFrameDelay(parsed.frameDelay);
+            if (parsed.width && parsed.height) {
+              editor.updateCanvasDimensions(parsed.width, parsed.height);
+            }
+            editor.setActiveFrameIndex(0);
+            editor.setStageMode('frame');
+            toast.success(`Imported ${parsed.frames.length} frames from Video to GIF Converter!`);
+          }, 350);
+        }
+      }
     } catch (e) {
       console.error("Failed to load imported frame:", e);
     }
-  }, [editor.insertImageFromUrl, editor.addFrame]);
+  }, [editor.insertImageFromUrl, editor.addFrame, editor.setFrames, editor.setFrameDelay, editor.updateCanvasDimensions, editor.setActiveFrameIndex, editor.setStageMode]);
   
   return (
     <div id="gifMakerContainer" className="flex flex-col h-screen w-screen overflow-hidden bg-[#07111f] text-white select-none">

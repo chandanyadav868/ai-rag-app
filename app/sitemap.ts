@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     '',
     '/gif-maker',
+    '/video-to-gif',
     '/image-editing',
     '/image-bg-removal',
     '/image-home-screen',
