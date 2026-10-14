@@ -213,19 +213,21 @@ export function useVideoToGif() {
   // Overlay management methods
   const addTextOverlay = (preset?: Partial<OverlayElement>) => {
     const id = 'text_' + Math.random().toString(36).substring(2, 9);
+    // Stagger position away from center play button (e.g. top banner 22% or bottom banner 78%)
+    const defaultY = overlays.some((o) => o.y < 40) ? 78 : 22;
     const newOverlay: OverlayElement = {
       id,
       type: 'text',
-      x: 50,
-      y: 50,
-      scale: 1.0,
-      rotation: 0,
+      x: preset?.x ?? 50,
+      y: preset?.y ?? defaultY,
+      scale: preset?.scale ?? 1.0,
+      rotation: preset?.rotation ?? 0,
       text: preset?.text || 'NEW TEXT',
       fontFamily: preset?.fontFamily || 'Anton',
       fontSize: preset?.fontSize || 28,
       fill: preset?.fill || '#ffffff',
       stroke: preset?.stroke !== undefined ? preset.stroke : '#000000',
-      strokeWidth: preset?.strokeWidth !== undefined ? preset.strokeWidth : 4,
+      strokeWidth: preset?.strokeWidth !== undefined ? preset.strokeWidth : 2,
       backgroundColor: preset?.backgroundColor || 'transparent',
       backgroundPadding: preset?.backgroundPadding || 6,
       ...preset,
@@ -237,11 +239,14 @@ export function useVideoToGif() {
 
   const addImageOverlay = (src: string, name?: string) => {
     const id = 'img_' + Math.random().toString(36).substring(2, 9);
+    // Position sticker away from center play button (e.g. upper right 75%, 28% or lower right 75%, 72%)
+    const defaultX = overlays.length % 2 === 0 ? 75 : 25;
+    const defaultY = overlays.length % 4 < 2 ? 28 : 72;
     const newOverlay: OverlayElement = {
       id,
       type: 'image',
-      x: 50,
-      y: 50,
+      x: defaultX,
+      y: defaultY,
       scale: 1.0,
       rotation: 0,
       src,

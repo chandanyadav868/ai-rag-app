@@ -32,7 +32,8 @@ import {
   storeProjectData, 
   getProjectData, 
   storeDataUrlAsAsset, 
-  storeElementAsAsset 
+  storeElementAsAsset,
+  getAllLocalAssets
 } from '@/lib/persistent-storage';
 
 const SERIALIZE_PROPERTIES = [
@@ -362,6 +363,23 @@ export function useGifEditor() {
         }).catch(err => console.error("Font loading error:", err));
       });
     }
+
+    // Load persistent assets from IndexedDB
+    const loadPersistentAssets = async () => {
+      try {
+        const storedAssets = await getAllLocalAssets();
+        setAssets(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newAssets = storedAssets
+            .filter(a => !existingIds.has(a.id))
+            .map(a => ({ id: a.id, src: URL.createObjectURL(a.blob), name: a.name }));
+          return [...prev, ...newAssets];
+        });
+      } catch (e) {
+        console.error("Failed to load persistent assets in GIF editor:", e);
+      }
+    };
+    loadPersistentAssets();
 
     // Load fonts from Appwrite
     const loadPublicFonts = async () => {

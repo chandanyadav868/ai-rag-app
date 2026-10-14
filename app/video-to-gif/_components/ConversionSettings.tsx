@@ -8,8 +8,6 @@ import {
   Type,
   Loader2,
   Sparkles,
-  ChevronDown,
-  XCircle,
   Sticker,
   Plus,
   Trash2,
@@ -17,12 +15,11 @@ import {
   Upload,
   Palette,
   Sliders,
-  Flame,
-  AlertCircle,
-  HelpCircle,
-  RotateCw,
+  Check,
+  XCircle,
 } from 'lucide-react';
-import { useVideoToGif, OverlayElement } from '../_hooks/useVideoToGif';
+import { useVideoToGif } from '../_hooks/useVideoToGif';
+import { getAllLocalAssets, storeLocalAsset } from '@/lib/persistent-storage';
 import { toast } from 'sonner';
 
 interface ConversionSettingsProps {
@@ -35,71 +32,71 @@ interface SavedAsset {
   name: string;
 }
 
-// Built-in viral stickers with SVG data URLs
+// Built-in high-definition pure vector stickers with explicit dimensions & viewBox
 const BUILTIN_STICKERS = [
   {
     name: 'Red Arrow',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 38 L55 38 L55 18 L95 50 L55 82 L55 62 L10 62 Z" fill="#ef4444" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"/></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><path d="M15 45 L65 45 L65 20 L108 60 L65 100 L65 75 L15 75 Z" fill="#ef4444" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/></svg>'
     )}`,
   },
   {
     name: 'VS Battle',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 70"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><rect x="4" y="4" width="112" height="62" rx="14" fill="url(#g)" stroke="#ffffff" stroke-width="4"/><text x="60" y="48" font-family="sans-serif" font-weight="900" font-style="italic" font-size="38" fill="#ffffff" text-anchor="middle">VS</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="140" height="70" viewBox="0 0 140 70"><defs><linearGradient id="vsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><rect x="5" y="5" width="130" height="60" rx="14" fill="url(#vsg)" stroke="#ffffff" stroke-width="5"/><text x="70" y="47" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-style="italic" font-size="38" fill="#ffffff" text-anchor="middle">VS</text></svg>'
     )}`,
   },
   {
     name: 'DISS',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 65"><rect x="4" y="4" width="122" height="57" rx="12" fill="#000000" stroke="#f43f5e" stroke-width="4"/><text x="65" y="44" font-family="sans-serif" font-weight="900" font-size="32" fill="#f43f5e" text-anchor="middle">DISS</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="140" height="70" viewBox="0 0 140 70"><rect x="5" y="5" width="130" height="60" rx="14" fill="#000000" stroke="#f43f5e" stroke-width="5"/><text x="70" y="47" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="34" fill="#f43f5e" text-anchor="middle">DISS</text></svg>'
     )}`,
   },
   {
-    name: 'Fire 🔥',
+    name: 'Fire',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">🔥</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><defs><linearGradient id="fireg" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#ef4444"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient></defs><path d="M50 5 C50 5 62 25 55 40 C60 30 72 38 72 52 C72 75 55 95 38 85 C25 76 25 58 35 48 C38 45 40 40 38 35 C32 45 20 60 25 75 C18 68 15 55 22 42 C30 25 50 5 50 5 Z" fill="url(#fireg)" stroke="#ffffff" stroke-width="3"/></svg>'
     )}`,
   },
   {
-    name: 'Alert 🚨',
+    name: 'Alert',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">🚨</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><polygon points="50,10 92,85 8,85" fill="#facc15" stroke="#000000" stroke-width="6" stroke-linejoin="round"/><rect x="46" y="38" width="8" height="24" rx="3" fill="#000000"/><circle cx="50" cy="72" r="5" fill="#000000"/></svg>'
     )}`,
   },
   {
-    name: 'Shock ⚡',
+    name: 'Shock',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">⚡</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><polygon points="55,5 20,55 48,55 35,95 85,42 55,42" fill="#facc15" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/></svg>'
     )}`,
   },
   {
-    name: '100% 💯',
+    name: '100%',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">💯</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#dc2626" stroke="#ffffff" stroke-width="5"/><text x="50" y="60" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="34" fill="#ffffff" text-anchor="middle">100</text><line x1="22" y1="72" x2="78" y2="72" stroke="#ffffff" stroke-width="4"/></svg>'
     )}`,
   },
   {
-    name: 'Target 🎯',
+    name: 'Target',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">🎯</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#ef4444" stroke="#ffffff" stroke-width="4"/><circle cx="50" cy="50" r="32" fill="#ffffff"/><circle cx="50" cy="50" r="20" fill="#ef4444"/><circle cx="50" cy="50" r="8" fill="#ffffff"/></svg>'
     )}`,
   },
   {
-    name: 'Crown 👑',
+    name: 'Crown',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">👑</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><polygon points="12,78 22,30 42,55 50,20 58,55 78,30 88,78" fill="#facc15" stroke="#b45309" stroke-width="4" stroke-linejoin="round"/><rect x="12" y="78" width="76" height="12" rx="3" fill="#eab308" stroke="#b45309" stroke-width="3"/></svg>'
     )}`,
   },
   {
-    name: 'Boom 💥',
+    name: 'Boom',
     src: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="75" font-size="70" text-anchor="middle">💥</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80"><polygon points="10,40 25,18 45,28 60,8 75,28 95,18 110,40 100,58 112,72 88,68 75,80 60,68 45,80 32,68 8,72 20,58" fill="#f97316" stroke="#ffffff" stroke-width="4"/><text x="60" y="49" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle">BOOM!</text></svg>'
     )}`,
   },
 ];
 
-// Viral Typography Presets (English & Hindi)
+// Clean viral typography presets with balanced stroke widths
 const TYPOGRAPHY_PRESETS = [
   {
     label: '🇮🇳 Hindi Breaking News',
@@ -109,8 +106,8 @@ const TYPOGRAPHY_PRESETS = [
     fontSize: 32,
     fill: '#ffffff',
     stroke: '#000000',
-    strokeWidth: 4,
-    backgroundColor: '#dc2626', // Red banner
+    strokeWidth: 2.5,
+    backgroundColor: '#dc2626',
   },
   {
     label: '⚡ Viral Yellow Hook',
@@ -120,7 +117,7 @@ const TYPOGRAPHY_PRESETS = [
     fontSize: 30,
     fill: '#facc15',
     stroke: '#000000',
-    strokeWidth: 5,
+    strokeWidth: 2.5,
     backgroundColor: 'transparent',
   },
   {
@@ -130,8 +127,8 @@ const TYPOGRAPHY_PRESETS = [
     fontFamily: 'Bebas Neue',
     fontSize: 28,
     fill: '#ffffff',
-    stroke: '#b91c1c',
-    strokeWidth: 4,
+    stroke: '#ef4444',
+    strokeWidth: 2,
     backgroundColor: '#000000cc',
   },
   {
@@ -142,7 +139,7 @@ const TYPOGRAPHY_PRESETS = [
     fontSize: 28,
     fill: '#ffffff',
     stroke: '#000000',
-    strokeWidth: 4,
+    strokeWidth: 2.5,
     backgroundColor: 'transparent',
   },
   {
@@ -153,7 +150,7 @@ const TYPOGRAPHY_PRESETS = [
     fontSize: 24,
     fill: '#22d3ee',
     stroke: '#000000',
-    strokeWidth: 2,
+    strokeWidth: 1.5,
     backgroundColor: '#0f172acc',
   },
   {
@@ -164,20 +161,19 @@ const TYPOGRAPHY_PRESETS = [
     fontSize: 30,
     fill: '#ffffff',
     stroke: '#000000',
-    strokeWidth: 4,
+    strokeWidth: 2,
     backgroundColor: '#b91c1c',
   },
 ];
 
-// Available fonts (including Google Hindi & Headline fonts)
 const AVAILABLE_FONTS = [
   'Anton',
   'Bebas Neue',
-  'Mukta', // Hindi supported
+  'Mukta',
   'Poppins',
   'Oswald',
-  'Hind', // Hindi supported
-  'Rozha One', // Hindi headline
+  'Hind',
+  'Rozha One',
   'Arial',
   'Impact',
 ];
@@ -214,26 +210,90 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
   const isConverting = conversionStage === 'extracting' || conversionStage === 'encoding';
   const estimatedFrames = Math.max(1, Math.round((selectedDuration / speed) * fps));
 
-  // Load saved assets from localStorage (shared with /gif-maker & /image-editing)
+  // Load saved assets from IndexedDB (persistent-storage), localStorage, and Appwrite
   useEffect(() => {
-    try {
-      const rawAssets = localStorage.getItem('polish_ai_assets');
-      if (rawAssets) {
-        setSavedAssets(JSON.parse(rawAssets));
+    let isMounted = true;
+
+    const loadAllAssets = async () => {
+      const combined: SavedAsset[] = [];
+      const seenIds = new Set<string>();
+
+      // 1. Load from IndexedDB (stores the 68 assets from Image Editing!)
+      try {
+        const storedLocal = await getAllLocalAssets();
+        for (const item of storedLocal) {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            combined.push({
+              id: item.id,
+              src: URL.createObjectURL(item.blob),
+              name: item.name || 'Saved Asset',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load IndexedDB assets:', err);
       }
 
-      const rawFonts = localStorage.getItem('polish_ai_custom_fonts');
-      if (rawFonts) {
-        const fonts = JSON.parse(rawFonts);
-        setCustomFonts(fonts.map((f: any) => f.name || f));
+      // 2. Load from localStorage (polish_ai_assets)
+      try {
+        const rawAssets = localStorage.getItem('polish_ai_assets');
+        if (rawAssets) {
+          const parsed: SavedAsset[] = JSON.parse(rawAssets);
+          for (const item of parsed) {
+            if (!seenIds.has(item.id) && !seenIds.has(item.src)) {
+              seenIds.add(item.id);
+              combined.push(item);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load localStorage assets:', err);
       }
-    } catch (e) {
-      console.warn('Could not load assets or fonts from localStorage', e);
-    }
+
+      // 3. Load from Appwrite (public assets)
+      try {
+        const { appwriteAssets } = await import('@/lib/appwrite-assets');
+        const publicAssets = await appwriteAssets.listAssets();
+        for (const item of publicAssets) {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            combined.push({
+              id: item.id,
+              src: item.url,
+              name: item.name,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load Appwrite public assets:', err);
+      }
+
+      // 4. Load custom fonts
+      try {
+        const rawFonts = localStorage.getItem('polish_ai_custom_fonts');
+        if (rawFonts) {
+          const fonts = JSON.parse(rawFonts);
+          setCustomFonts(fonts.map((f: any) => f.name || f));
+        }
+      } catch (err) {
+        console.warn('Could not load custom fonts:', err);
+      }
+
+      if (isMounted) {
+        setSavedAssets(combined);
+      }
+    };
+
+    loadAllAssets();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Handle uploading custom asset / sticker
-  const handleAssetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle uploading custom asset / sticker and persisting to IndexedDB & localStorage
+  const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -242,33 +302,38 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    try {
+      // 1. Persist to IndexedDB so it's accessible across image-editing, gif-maker, and video-to-gif
+      const storedId = await storeLocalAsset(file, file.name);
+      const blobUrl = URL.createObjectURL(file);
+
       const newAsset: SavedAsset = {
-        id: 'asset_' + Date.now(),
-        src: dataUrl,
+        id: storedId,
+        src: blobUrl,
         name: file.name.replace(/\.[^/.]+$/, ''),
       };
 
-      // Add to state and localStorage
       const updated = [newAsset, ...savedAssets];
       setSavedAssets(updated);
-      try {
-        localStorage.setItem('polish_ai_assets', JSON.stringify(updated));
-      } catch (err) {
-        console.warn('LocalStorage limit reached for assets', err);
-      }
 
-      // Automatically add as overlay to video
-      addImageOverlay(dataUrl, newAsset.name);
-      toast.success('Asset uploaded and added to video!');
-    };
-    reader.readAsDataURL(file);
+      // 2. Also keep in localStorage metadata
+      try {
+        localStorage.setItem(
+          'polish_ai_assets',
+          JSON.stringify(updated.map((a) => ({ id: a.id, src: a.src, name: a.name })))
+        );
+      } catch {}
+
+      // 3. Insert onto video away from center play button
+      addImageOverlay(blobUrl, newAsset.name);
+      toast.success('Sticker uploaded and added to video!');
+    } catch (err) {
+      console.error('Failed to store asset:', err);
+      toast.error('Failed to save asset locally.');
+    }
     e.target.value = '';
   };
 
-  // Currently selected overlay
   const selectedOverlay = overlays.find((o) => o.id === selectedOverlayId);
 
   const fpsOptions = [
@@ -304,6 +369,14 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
     { label: 'Black', color: '#000000' },
   ];
 
+  const strokeSwatches = [
+    { label: 'Black', color: '#000000' },
+    { label: 'White', color: '#ffffff' },
+    { label: 'Red', color: '#ef4444' },
+    { label: 'Yellow', color: '#facc15' },
+    { label: 'None', color: 'transparent' },
+  ];
+
   const backgroundStyles = [
     { label: 'None', value: 'transparent' },
     { label: 'Red Ribbon', value: '#dc2626' },
@@ -316,7 +389,7 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
 
   return (
     <div className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-[#09182b]/80 p-4 sm:p-6 backdrop-blur-2xl shadow-2xl">
-      {/* Top Section Header with Tab Switcher */}
+      {/* Top Header & Tab Switcher */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-400/30 font-black text-xs">
@@ -351,7 +424,7 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
             }`}
           >
             <Sticker size={13} />
-            <span>Stickers & Assets</span>
+            <span>Stickers & Assets ({savedAssets.length})</span>
           </button>
           <button
             type="button"
@@ -368,7 +441,7 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
         </div>
       </div>
 
-      {/* SELECTED OVERLAY LIVE EDITING TOOLBAR (Renders whenever an overlay is active) */}
+      {/* SELECTED OVERLAY LIVE EDITING TOOLBAR */}
       {selectedOverlay && (
         <div className="flex flex-col gap-3 rounded-2xl border border-cyan-400/40 bg-cyan-950/30 p-3.5 backdrop-blur-md shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center justify-between">
@@ -446,21 +519,60 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
                 </div>
               </div>
 
-              {/* Color Swatches */}
+              {/* Text Color Swatches & Custom Picker */}
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Text Color:</label>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
                   {colorSwatches.map((swatch) => (
                     <button
                       key={swatch.color}
                       type="button"
                       onClick={() => updateOverlay(selectedOverlay.id, { fill: swatch.color })}
-                      className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 active:scale-95 ${
+                      className={`relative h-7 w-7 rounded-full border-2 transition hover:scale-110 active:scale-95 flex items-center justify-center ${
                         selectedOverlay.fill === swatch.color ? 'border-cyan-400 scale-110 shadow-lg' : 'border-white/20'
                       }`}
                       style={{ backgroundColor: swatch.color }}
                       title={swatch.label}
+                    >
+                      {selectedOverlay.fill === swatch.color && (
+                        <Check size={13} className={swatch.color === '#ffffff' || swatch.color === '#facc15' ? 'text-black' : 'text-white'} />
+                      )}
+                    </button>
+                  ))}
+                  {/* Custom Color Input */}
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <input
+                      type="color"
+                      value={selectedOverlay.fill || '#ffffff'}
+                      onChange={(e) => updateOverlay(selectedOverlay.id, { fill: e.target.value })}
+                      className="h-7 w-7 rounded-lg border border-white/20 bg-transparent cursor-pointer p-0"
+                      title="Custom Color"
                     />
+                    <span className="text-[10px] text-white/50 font-mono uppercase">{selectedOverlay.fill || '#fff'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Text Outline / Stroke Control */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Stroke / Outline Color:</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {strokeSwatches.map((swatch) => (
+                    <button
+                      key={swatch.label}
+                      type="button"
+                      onClick={() => updateOverlay(selectedOverlay.id, { 
+                        stroke: swatch.color,
+                        strokeWidth: swatch.color === 'transparent' ? 0 : (selectedOverlay.strokeWidth || 2)
+                      })}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                        selectedOverlay.stroke === swatch.color
+                          ? 'border-cyan-400 bg-cyan-500/20 text-white shadow-md'
+                          : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {swatch.label}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -516,7 +628,7 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
             </span>
             <button
               type="button"
-              onClick={() => addTextOverlay({ text: 'NEW TEXT', fill: '#ffffff', stroke: '#000000', fontSize: 28 })}
+              onClick={() => addTextOverlay({ text: 'NEW TEXT', fill: '#ffffff', stroke: '#000000', strokeWidth: 2, fontSize: 28 })}
               className="flex items-center gap-1 rounded-xl bg-cyan-500/20 border border-cyan-400/30 px-3 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500 hover:text-black transition active:scale-95 shadow-md"
             >
               <Plus size={13} />
@@ -615,25 +727,25 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
             </div>
           </div>
 
-          {/* Saved Assets from polish_ai_assets (shared with GIF maker / Image editing) */}
+          {/* Saved Assets from App Library (shared across Image Editing, GIF Maker & Video to GIF) */}
           <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
-                Saved Assets in App ({savedAssets.length}):
+                Saved Assets in Your Library ({savedAssets.length}):
               </label>
               {savedAssets.length === 0 && (
-                <span className="text-[10px] text-white/30">None saved yet</span>
+                <span className="text-[10px] text-white/30">Loading library...</span>
               )}
             </div>
 
             {savedAssets.length > 0 ? (
-              <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto no-scrollbar p-1">
+              <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 gap-2.5 max-h-56 overflow-y-auto no-scrollbar p-1">
                 {savedAssets.map((asset) => (
                   <button
                     key={asset.id}
                     type="button"
                     onClick={() => addImageOverlay(asset.src, asset.name)}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/10 bg-white/5 hover:border-cyan-400 hover:bg-cyan-500/10 transition active:scale-95 group"
+                    className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/10 bg-white/5 hover:border-cyan-400 hover:bg-cyan-500/10 transition active:scale-95 group aspect-square"
                     title={`Insert ${asset.name}`}
                   >
                     <img

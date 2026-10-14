@@ -343,10 +343,10 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
               onPointerDown={(e) => handleOverlayPointerDown(ov.id, e)}
               onPointerMove={handleOverlayPointerMove}
               onPointerUp={handleOverlayPointerUp}
-              className={`absolute select-none cursor-grab active:cursor-grabbing transition-shadow z-30 touch-none ${
+              className={`absolute select-none cursor-grab active:cursor-grabbing transition-all z-30 touch-none ${
                 isSelected
-                  ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-black/70 rounded-xl shadow-2xl'
-                  : 'hover:ring-1 hover:ring-white/40 rounded-xl'
+                  ? 'border-2 border-dashed border-cyan-400 bg-cyan-400/10 rounded-xl shadow-2xl'
+                  : 'hover:border hover:border-dashed hover:border-white/40 rounded-xl'
               }`}
               style={{
                 left: `${ov.x}%`,
@@ -358,12 +358,15 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
             >
               {ov.type === 'text' ? (
                 <div
-                  className="px-3 py-1 text-center font-black whitespace-nowrap leading-tight select-none pointer-events-none drop-shadow-md"
+                  className="px-3 py-1.5 text-center font-black whitespace-nowrap leading-tight select-none pointer-events-none drop-shadow-md"
                   style={{
                     fontFamily: `${ov.fontFamily || 'Anton'}, sans-serif`,
                     fontSize: `${ov.fontSize || 28}px`,
                     color: ov.fill || '#ffffff',
-                    WebkitTextStroke: ov.strokeWidth && ov.stroke ? `${ov.strokeWidth}px ${ov.stroke}` : undefined,
+                    paintOrder: 'stroke fill',
+                    WebkitPaintOrder: 'stroke fill',
+                    WebkitTextStroke: ov.strokeWidth && ov.stroke && ov.stroke !== 'transparent' ? `${ov.strokeWidth}px ${ov.stroke}` : undefined,
+                    textShadow: ov.stroke && ov.stroke !== 'transparent' ? `0 2px 8px rgba(0,0,0,0.8)` : undefined,
                     backgroundColor: ov.backgroundColor !== 'transparent' ? ov.backgroundColor : undefined,
                     borderRadius: ov.backgroundColor !== 'transparent' ? '6px' : undefined,
                   }}
@@ -371,29 +374,30 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
                   {ov.text}
                 </div>
               ) : (
-                <img
-                  src={ov.src}
-                  alt={ov.name || 'Sticker'}
-                  draggable={false}
-                  className="max-w-[90px] max-h-[90px] w-auto h-auto object-contain pointer-events-none drop-shadow-xl"
-                />
+                <div className="relative flex items-center justify-center p-1.5 min-w-[64px] min-h-[64px]">
+                  <img
+                    src={ov.src}
+                    alt={ov.name || 'Sticker'}
+                    draggable={false}
+                    className="w-20 h-20 min-w-[56px] min-h-[56px] max-w-[140px] max-h-[140px] object-contain pointer-events-none drop-shadow-xl"
+                  />
+                </div>
               )}
 
-              {/* Quick Actions Bounding Box controls when selected */}
+              {/* Quick Actions Bounding Box controls when selected (counteracting parent scale so button stays crisp 22px) */}
               {isSelected && (
-                <div className="absolute -top-3.5 -right-3.5 flex items-center gap-1 z-40">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeOverlay(ov.id);
-                    }}
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-md hover:bg-rose-500 hover:scale-110 active:scale-95 transition"
-                    title="Delete overlay"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeOverlay(ov.id);
+                  }}
+                  style={{ transform: `scale(${1 / Math.max(0.5, ov.scale)})` }}
+                  className="absolute -top-3 -right-3 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl hover:bg-rose-500 hover:scale-125 active:scale-95 transition z-40"
+                  title="Delete overlay"
+                >
+                  <Trash2 size={12} />
+                </button>
               )}
             </div>
           );

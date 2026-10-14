@@ -5,7 +5,8 @@ import React from 'react'
 const servicesLinks = [
   { name: "Image Editing", link: "/image-home-screen" },
   { name: "Image BG Removal", link: "/image-bg-removal" },
-  { name: "GIF Maker", link: "/gif-home-screen" }
+  { name: "GIF Maker", link: "/gif-home-screen" },
+  { name: "Video to GIF", link: "/video-to-gif" }
 ];
 const companyLinks = [
   { name: "Home", link: "/" },
