@@ -12,6 +12,29 @@ export interface CaptionConfig {
   fontSize: number;
 }
 
+export type OverlayType = 'text' | 'image';
+
+export interface OverlayElement {
+  id: string;
+  type: OverlayType;
+  x: number; // percentage (0 - 100)
+  y: number; // percentage (0 - 100)
+  scale: number; // default 1.0 (0.3 - 3.0)
+  rotation?: number; // degrees
+  // Text specifics:
+  text?: string;
+  fontFamily?: string;
+  fontSize?: number; // base size (default 28)
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  backgroundColor?: string;
+  backgroundPadding?: number;
+  // Image / Sticker specifics:
+  src?: string;
+  name?: string;
+}
+
 export interface VideoMetadata {
   name: string;
   size: number;
@@ -41,7 +64,11 @@ export function useVideoToGif() {
   const [quality, setQuality] = useState<number>(10); // NeuQuant sample (1=best, 10=balanced, 20=fast)
   const [loopCount, setLoopCount] = useState<number>(0); // 0 = infinite
 
-  // Captions (Meme / Banner hooks)
+  // Interactive Drag & Drop Overlays (Stickers, Viral Typography, Badges)
+  const [overlays, setOverlays] = useState<OverlayElement[]>([]);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  // Captions (Legacy Meme / Banner hooks)
   const [captions, setCaptions] = useState<CaptionConfig>({
     topText: '',
     bottomText: '',
@@ -183,6 +210,144 @@ export function useVideoToGif() {
     toast.info('Conversion was cancelled.');
   };
 
+  // Overlay management methods
+  const addTextOverlay = (preset?: Partial<OverlayElement>) => {
+    const id = 'text_' + Math.random().toString(36).substring(2, 9);
+    const newOverlay: OverlayElement = {
+      id,
+      type: 'text',
+      x: 50,
+      y: 50,
+      scale: 1.0,
+      rotation: 0,
+      text: preset?.text || 'NEW TEXT',
+      fontFamily: preset?.fontFamily || 'Anton',
+      fontSize: preset?.fontSize || 28,
+      fill: preset?.fill || '#ffffff',
+      stroke: preset?.stroke !== undefined ? preset.stroke : '#000000',
+      strokeWidth: preset?.strokeWidth !== undefined ? preset.strokeWidth : 4,
+      backgroundColor: preset?.backgroundColor || 'transparent',
+      backgroundPadding: preset?.backgroundPadding || 6,
+      ...preset,
+    };
+    setOverlays((prev) => [...prev, newOverlay]);
+    setSelectedOverlayId(id);
+    return id;
+  };
+
+  const addImageOverlay = (src: string, name?: string) => {
+    const id = 'img_' + Math.random().toString(36).substring(2, 9);
+    const newOverlay: OverlayElement = {
+      id,
+      type: 'image',
+      x: 50,
+      y: 50,
+      scale: 1.0,
+      rotation: 0,
+      src,
+      name: name || 'Sticker',
+    };
+    setOverlays((prev) => [...prev, newOverlay]);
+    setSelectedOverlayId(id);
+    return id;
+  };
+
+  const updateOverlay = (id: string, updates: Partial<OverlayElement>) => {
+    setOverlays((prev) =>
+      prev.map((ov) => (ov.id === id ? { ...ov, ...updates } : ov))
+    );
+  };
+
+  const removeOverlay = (id: string) => {
+    setOverlays((prev) => prev.filter((ov) => ov.id !== id));
+    if (selectedOverlayId === id) {
+      setSelectedOverlayId(null);
+    }
+  };
+
+  const clearOverlays = () => {
+    setOverlays([]);
+    setSelectedOverlayId(null);
+  };
+
+  // Overlay engine to draw all active text & stickers onto the output canvas frame
+  const drawOverlaysOnCanvas = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    items: OverlayElement[],
+    loadedImages: Map<string, HTMLImageElement>
+  ) => {
+    if (!items || items.length === 0) return;
+
+    const scaleRatio = width / 480; // standard base resolution 480px
+
+    for (const ov of items) {
+      const posX = (ov.x / 100) * width;
+      const posY = (ov.y / 100) * height;
+
+      ctx.save();
+      ctx.translate(posX, posY);
+      if (ov.rotation) {
+        ctx.rotate((ov.rotation * Math.PI) / 180);
+      }
+
+      if (ov.type === 'text' && ov.text) {
+        const effectiveFontSize = Math.max(10, Math.round((ov.fontSize || 28) * ov.scale * scaleRatio));
+        ctx.font = `900 ${effectiveFontSize}px "${ov.fontFamily || 'Anton'}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const metrics = ctx.measureText(ov.text);
+        const textWidth = metrics.width;
+        const paddingX = Math.round((ov.backgroundPadding || 8) * scaleRatio);
+        const pillHeight = Math.round(effectiveFontSize * 1.35);
+
+        // Draw background pill / banner if specified
+        if (ov.backgroundColor && ov.backgroundColor !== 'transparent') {
+          ctx.fillStyle = ov.backgroundColor;
+          const rx = -textWidth / 2 - paddingX;
+          const ry = -pillHeight / 2;
+          const rw = textWidth + paddingX * 2;
+          const rh = pillHeight;
+          const radius = Math.min(8, Math.round(6 * scaleRatio));
+
+          ctx.beginPath();
+          if (typeof (ctx as any).roundRect === 'function') {
+            (ctx as any).roundRect(rx, ry, rw, rh, radius);
+          } else {
+            ctx.rect(rx, ry, rw, rh);
+          }
+          ctx.fill();
+        }
+
+        // Draw stroke
+        if (ov.stroke && ov.strokeWidth && ov.strokeWidth > 0) {
+          ctx.strokeStyle = ov.stroke;
+          ctx.lineWidth = Math.max(1, Math.round(ov.strokeWidth * ov.scale * scaleRatio));
+          ctx.lineJoin = 'round';
+          ctx.strokeText(ov.text, 0, 0);
+        }
+
+        // Draw fill text
+        ctx.fillStyle = ov.fill || '#ffffff';
+        ctx.fillText(ov.text, 0, 0);
+      } else if (ov.type === 'image' && ov.src) {
+        const img = loadedImages.get(ov.id);
+        if (img && img.naturalWidth && img.naturalHeight) {
+          const baseW = Math.min(width * 0.28, 90);
+          const aspect = img.naturalWidth / img.naturalHeight;
+          const renderW = baseW * ov.scale * scaleRatio;
+          const renderH = renderW / aspect;
+
+          ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
+        }
+      }
+
+      ctx.restore();
+    }
+  };
+
   // Convert Video to Animated GIF
   const convertToGif = async () => {
     if (!videoUrl || !videoMeta) {
@@ -225,6 +390,24 @@ export function useVideoToGif() {
         workerVideo.onerror = () => reject(new Error('Failed to load video stream for extraction'));
       });
 
+      // Preload image overlays once so encoding is fast and non-blocking
+      const loadedOverlayImages = new Map<string, HTMLImageElement>();
+      for (const ov of overlays) {
+        if (ov.type === 'image' && ov.src) {
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = ov.src;
+            await new Promise((res) => {
+              img.onload = () => res(null);
+              img.onerror = () => res(null);
+              setTimeout(() => res(null), 1500); // timeout safeguard
+            });
+            loadedOverlayImages.set(ov.id, img);
+          } catch {}
+        }
+      }
+
       // Import gif.js dynamically
       // @ts-ignore
       const GIF = (await import('gif.js')).default;
@@ -260,6 +443,11 @@ export function useVideoToGif() {
         // Apply any meme text overlay
         if (captions.topText || captions.bottomText) {
           drawCaptionsOnCanvas(ctx, outWidth, outHeight, captions);
+        }
+
+        // Apply interactive overlays (stickers, viral text, banners)
+        if (overlays.length > 0) {
+          drawOverlaysOnCanvas(ctx, outWidth, outHeight, overlays, loadedOverlayImages);
         }
 
         // Add frame to gif encoder
@@ -380,9 +568,20 @@ export function useVideoToGif() {
     loopCount,
     setLoopCount,
 
-    // Captions
+    // Captions (Legacy)
     captions,
     setCaptions,
+
+    // Interactive Overlays (Stickers & Typography)
+    overlays,
+    setOverlays,
+    selectedOverlayId,
+    setSelectedOverlayId,
+    addTextOverlay,
+    addImageOverlay,
+    updateOverlay,
+    removeOverlay,
+    clearOverlays,
 
     // Execution & Progress
     conversionStage,

@@ -11,6 +11,8 @@ import {
   Clock,
   Sparkles,
   GripVertical,
+  Trash2,
+  Move,
 } from 'lucide-react';
 import { useVideoToGif } from '../_hooks/useVideoToGif';
 
@@ -21,8 +23,17 @@ interface VideoTrimmerProps {
 export function VideoTrimmer({ engine }: VideoTrimmerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Timeline dragging state & safeguards
   const [activeDrag, setActiveDrag] = useState<'start' | 'end' | 'window' | null>(null);
   const dragStartRef = useRef<{ clientX: number; startTime: number; endTime: number }>({ clientX: 0, startTime: 0, endTime: 0 });
+  const didDragRef = useRef(false);
+  const lastPointerUpTimeRef = useRef(0);
+
+  // Overlay pointer dragging state
+  const [activeOverlayDrag, setActiveOverlayDrag] = useState<string | null>(null);
+  const overlayDragStartRef = useRef<{ clientX: number; clientY: number; startX: number; startY: number }>({ clientX: 0, clientY: 0, startX: 50, startY: 50 });
 
   const {
     videoUrl,
@@ -37,6 +48,11 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
     setEndTime,
     selectedDuration,
     fps,
+    overlays,
+    selectedOverlayId,
+    setSelectedOverlayId,
+    updateOverlay,
+    removeOverlay,
   } = engine;
 
   // Sync internal video ref with engine
@@ -140,6 +156,7 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setActiveDrag(type);
+    didDragRef.current = false;
     dragStartRef.current = {
       clientX: e.clientX,
       startTime: startTime,
@@ -149,6 +166,10 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!activeDrag || !trackRef.current) return;
+    if (Math.abs(e.clientX - dragStartRef.current.clientX) > 2) {
+      didDragRef.current = true;
+    }
+
     const currentT = getTimeFromPointer(e.clientX);
 
     if (activeDrag === 'start') {
@@ -196,12 +217,20 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {}
+      lastPointerUpTimeRef.current = Date.now();
       setActiveDrag(null);
+      setTimeout(() => {
+        didDragRef.current = false;
+      }, 250);
     }
   };
 
   const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (activeDrag) return;
+    // If user just dragged the handle or window, prevent accidental snap/shrink
+    if (activeDrag || didDragRef.current || (Date.now() - lastPointerUpTimeRef.current < 350)) {
+      return;
+    }
+
     const clickedTime = getTimeFromPointer(e.clientX);
     const distToStart = Math.abs(clickedTime - startTime);
     const distToEnd = Math.abs(clickedTime - endTime);
@@ -219,12 +248,65 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
     }
   };
 
+  // Interactive Overlay dragging logic
+  const handleOverlayPointerDown = (id: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedOverlayId(id);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setActiveOverlayDrag(id);
+
+    const targetOverlay = overlays.find((o) => o.id === id);
+    if (targetOverlay) {
+      overlayDragStartRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        startX: targetOverlay.x,
+        startY: targetOverlay.y,
+      };
+    }
+  };
+
+  const handleOverlayPointerMove = (e: React.PointerEvent) => {
+    if (!activeOverlayDrag || !videoContainerRef.current) return;
+    const rect = videoContainerRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const deltaX = ((e.clientX - overlayDragStartRef.current.clientX) / rect.width) * 100;
+    const deltaY = ((e.clientY - overlayDragStartRef.current.clientY) / rect.height) * 100;
+
+    const newX = Math.max(5, Math.min(95, overlayDragStartRef.current.startX + deltaX));
+    const newY = Math.max(5, Math.min(95, overlayDragStartRef.current.startY + deltaY));
+
+    updateOverlay(activeOverlayDrag, {
+      x: Number(newX.toFixed(1)),
+      y: Number(newY.toFixed(1)),
+    });
+  };
+
+  const handleOverlayPointerUp = (e: React.PointerEvent) => {
+    if (activeOverlayDrag) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+      setActiveOverlayDrag(null);
+    }
+  };
+
   if (!videoUrl) return null;
 
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-[#09182b]/80 p-4 sm:p-6 backdrop-blur-2xl shadow-2xl">
-      {/* Video Viewport Container */}
-      <div className="relative mx-auto flex w-full max-w-3xl items-center justify-center overflow-hidden rounded-2xl bg-black/60 border border-white/5 shadow-inner">
+      {/* Video Viewport Container with Interactive Overlays Layer */}
+      <div
+        ref={videoContainerRef}
+        onClick={(e) => {
+          if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'VIDEO') {
+            setSelectedOverlayId(null);
+          }
+        }}
+        className="relative mx-auto flex w-full max-w-3xl items-center justify-center overflow-hidden rounded-2xl bg-black/60 border border-white/5 shadow-inner select-none touch-none min-h-[220px]"
+      >
         <video
           ref={videoRef}
           src={videoUrl}
@@ -239,7 +321,7 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
         {!isPlaying && (
           <button
             onClick={togglePlay}
-            className="absolute flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/90 text-black shadow-xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
+            className="absolute z-20 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/90 text-black shadow-xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
             title="Play trimmed video preview"
           >
             <Play size={24} fill="currentColor" className="ml-1" />
@@ -247,15 +329,80 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
         )}
 
         {/* Selected Duration floating badge */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-xl bg-black/80 px-2.5 py-1 text-[11px] font-bold text-cyan-300 border border-cyan-400/30 backdrop-blur-md shadow-lg">
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-xl bg-black/80 px-2.5 py-1 text-[11px] font-bold text-cyan-300 border border-cyan-400/30 backdrop-blur-md shadow-lg pointer-events-none">
           <Clock size={12} className="text-cyan-400" />
           <span>Clip: {selectedDuration.toFixed(1)}s</span>
         </div>
+
+        {/* Direct Draggable Overlays Layer on top of video */}
+        {overlays.map((ov) => {
+          const isSelected = selectedOverlayId === ov.id;
+          return (
+            <div
+              key={ov.id}
+              onPointerDown={(e) => handleOverlayPointerDown(ov.id, e)}
+              onPointerMove={handleOverlayPointerMove}
+              onPointerUp={handleOverlayPointerUp}
+              className={`absolute select-none cursor-grab active:cursor-grabbing transition-shadow z-30 touch-none ${
+                isSelected
+                  ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-black/70 rounded-xl shadow-2xl'
+                  : 'hover:ring-1 hover:ring-white/40 rounded-xl'
+              }`}
+              style={{
+                left: `${ov.x}%`,
+                top: `${ov.y}%`,
+                transform: `translate(-50%, -50%) scale(${ov.scale}) rotate(${ov.rotation || 0}deg)`,
+                transformOrigin: 'center center',
+              }}
+              title="Click and drag to position anywhere on video"
+            >
+              {ov.type === 'text' ? (
+                <div
+                  className="px-3 py-1 text-center font-black whitespace-nowrap leading-tight select-none pointer-events-none drop-shadow-md"
+                  style={{
+                    fontFamily: `${ov.fontFamily || 'Anton'}, sans-serif`,
+                    fontSize: `${ov.fontSize || 28}px`,
+                    color: ov.fill || '#ffffff',
+                    WebkitTextStroke: ov.strokeWidth && ov.stroke ? `${ov.strokeWidth}px ${ov.stroke}` : undefined,
+                    backgroundColor: ov.backgroundColor !== 'transparent' ? ov.backgroundColor : undefined,
+                    borderRadius: ov.backgroundColor !== 'transparent' ? '6px' : undefined,
+                  }}
+                >
+                  {ov.text}
+                </div>
+              ) : (
+                <img
+                  src={ov.src}
+                  alt={ov.name || 'Sticker'}
+                  draggable={false}
+                  className="max-w-[90px] max-h-[90px] w-auto h-auto object-contain pointer-events-none drop-shadow-xl"
+                />
+              )}
+
+              {/* Quick Actions Bounding Box controls when selected */}
+              {isSelected && (
+                <div className="absolute -top-3.5 -right-3.5 flex items-center gap-1 z-40">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeOverlay(ov.id);
+                    }}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-md hover:bg-rose-500 hover:scale-110 active:scale-95 transition"
+                    title="Delete overlay"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Dual Trimming Timeline Track */}
       <div className="flex flex-col gap-2 pt-2">
-        <div className="flex items-center justify-between text-xs font-bold text-white/70">
+        <div className="flex items-center justify-between text-xs font-bold text-white/70 mb-3">
           <span className="flex items-center gap-1.5 text-cyan-300">
             <Scissors size={14} />
             <span>Trim Clip Range (Drag Left or Right Handle)</span>
@@ -270,10 +417,11 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
         <div
           ref={trackRef}
           onClick={handleTrackClick}
-          className="relative h-12 w-full select-none rounded-xl bg-white/5 border border-white/10 p-1 flex items-center cursor-pointer"
+          className="relative h-12 w-full select-none rounded-xl bg-white/5 border border-white/10 p-1 flex items-center cursor-pointer mt-4"
         >
           {/* Active Trimmed Region Highlight (Draggable Window) */}
           <div
+            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => handlePointerDown('window', e)}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -299,6 +447,7 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
 
           {/* Left / Start Trim Handle (Interactive Draggable Pin) */}
           <div
+            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => handlePointerDown('start', e)}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -320,6 +469,7 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
 
           {/* Right / End Trim Handle (Interactive Draggable Pin) */}
           <div
+            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => handlePointerDown('end', e)}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
