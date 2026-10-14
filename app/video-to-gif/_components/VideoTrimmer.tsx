@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   Play,
   Pause,
@@ -10,6 +10,7 @@ import {
   Scissors,
   Clock,
   Sparkles,
+  GripVertical,
 } from 'lucide-react';
 import { useVideoToGif } from '../_hooks/useVideoToGif';
 
@@ -19,6 +20,10 @@ interface VideoTrimmerProps {
 
 export function VideoTrimmer({ engine }: VideoTrimmerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeDrag, setActiveDrag] = useState<'start' | 'end' | 'window' | null>(null);
+  const dragStartRef = useRef<{ clientX: number; startTime: number; endTime: number }>({ clientX: 0, startTime: 0, endTime: 0 });
+
   const {
     videoUrl,
     videoMeta,
@@ -122,6 +127,98 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
   const playheadPercent = Math.min(100, Math.max(0, (currentTime / duration) * 100));
   const estimatedFrames = Math.max(1, Math.round(selectedDuration * fps));
 
+  // Pointer-based dual handle dragging
+  const getTimeFromPointer = (clientX: number): number => {
+    if (!trackRef.current) return 0;
+    const rect = trackRef.current.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Number((ratio * duration).toFixed(2));
+  };
+
+  const handlePointerDown = (type: 'start' | 'end' | 'window', e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setActiveDrag(type);
+    dragStartRef.current = {
+      clientX: e.clientX,
+      startTime: startTime,
+      endTime: endTime,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!activeDrag || !trackRef.current) return;
+    const currentT = getTimeFromPointer(e.clientX);
+
+    if (activeDrag === 'start') {
+      const newStart = Math.max(0, Math.min(currentT, endTime - 0.2));
+      setStartTime(Number(newStart.toFixed(2)));
+      if (videoRef.current) {
+        videoRef.current.currentTime = newStart;
+        setCurrentTime(newStart);
+      }
+    } else if (activeDrag === 'end') {
+      const newEnd = Math.min(duration, Math.max(currentT, startTime + 0.2));
+      setEndTime(Number(newEnd.toFixed(2)));
+      if (videoRef.current) {
+        videoRef.current.currentTime = newEnd;
+        setCurrentTime(newEnd);
+      }
+    } else if (activeDrag === 'window') {
+      const deltaX = e.clientX - dragStartRef.current.clientX;
+      const rect = trackRef.current.getBoundingClientRect();
+      const deltaTime = (deltaX / rect.width) * duration;
+      const clipLen = dragStartRef.current.endTime - dragStartRef.current.startTime;
+
+      let newStart = dragStartRef.current.startTime + deltaTime;
+      let newEnd = dragStartRef.current.endTime + deltaTime;
+
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = clipLen;
+      } else if (newEnd > duration) {
+        newEnd = duration;
+        newStart = duration - clipLen;
+      }
+
+      setStartTime(Number(newStart.toFixed(2)));
+      setEndTime(Number(newEnd.toFixed(2)));
+      if (videoRef.current) {
+        videoRef.current.currentTime = newStart;
+        setCurrentTime(newStart);
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activeDrag) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+      setActiveDrag(null);
+    }
+  };
+
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeDrag) return;
+    const clickedTime = getTimeFromPointer(e.clientX);
+    const distToStart = Math.abs(clickedTime - startTime);
+    const distToEnd = Math.abs(clickedTime - endTime);
+
+    if (clickedTime < startTime) {
+      handleStartChange(clickedTime);
+    } else if (clickedTime > endTime) {
+      handleEndChange(clickedTime);
+    } else {
+      if (distToStart < distToEnd) {
+        handleStartChange(clickedTime);
+      } else {
+        handleEndChange(clickedTime);
+      }
+    }
+  };
+
   if (!videoUrl) return null;
 
   return (
@@ -161,7 +258,7 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
         <div className="flex items-center justify-between text-xs font-bold text-white/70">
           <span className="flex items-center gap-1.5 text-cyan-300">
             <Scissors size={14} />
-            <span>Trim Clip Range</span>
+            <span>Trim Clip Range (Drag Left or Right Handle)</span>
           </span>
           <span className="flex items-center gap-1 text-[11px] text-white/50">
             <Sparkles size={11} className="text-amber-400" />
@@ -170,62 +267,76 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
         </div>
 
         {/* Visual Timeline Bar with Range and Scrubber */}
-        <div className="relative h-10 w-full select-none rounded-xl bg-white/5 border border-white/10 p-1 flex items-center overflow-hidden group">
-          {/* Active Trimmed Region Highlight */}
+        <div
+          ref={trackRef}
+          onClick={handleTrackClick}
+          className="relative h-12 w-full select-none rounded-xl bg-white/5 border border-white/10 p-1 flex items-center cursor-pointer"
+        >
+          {/* Active Trimmed Region Highlight (Draggable Window) */}
           <div
-            className="absolute top-1 bottom-1 rounded-lg bg-gradient-to-r from-cyan-500/30 via-cyan-400/40 to-blue-500/30 border-y-2 border-cyan-400/60 shadow-lg pointer-events-none"
+            onPointerDown={(e) => handlePointerDown('window', e)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="absolute top-1 bottom-1 rounded-lg bg-gradient-to-r from-cyan-500/25 via-cyan-400/35 to-blue-500/25 border-y-2 border-cyan-400/60 shadow-lg cursor-grab active:cursor-grabbing z-20 flex items-center justify-center group/window"
             style={{
               left: `${startPercent}%`,
-              width: `${Math.max(2, endPercent - startPercent)}%`,
+              width: `${Math.max(1, endPercent - startPercent)}%`,
             }}
-          />
+            title="Drag middle window to slide entire clip range"
+          >
+            <span className="opacity-0 group-hover/window:opacity-100 transition text-[8px] font-black text-cyan-200 uppercase tracking-wider select-none pointer-events-none">
+              ↔ Move Range
+            </span>
+          </div>
 
           {/* Current Playhead Indicator */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-10 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.8)]"
+            className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-25 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.8)]"
             style={{ left: `${playheadPercent}%` }}
           >
             <div className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-500" />
           </div>
 
-          {/* Left / Start Trim Handle */}
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            step={0.05}
-            value={startTime}
-            onChange={(e) => handleStartChange(parseFloat(e.target.value))}
-            className="absolute inset-0 w-full opacity-0 cursor-ew-resize z-20 pointer-events-auto"
-            title="Drag to adjust Start Time"
-          />
-
-          {/* Right / End Trim Handle */}
-          <input
-            type="range"
-            min={0}
-            max={duration}
-            step={0.05}
-            value={endTime}
-            onChange={(e) => handleEndChange(parseFloat(e.target.value))}
-            className="absolute inset-0 w-full opacity-0 cursor-ew-resize z-20 pointer-events-auto"
-            title="Drag to adjust End Time"
-          />
-
-          {/* Start Marker Pin */}
+          {/* Left / Start Trim Handle (Interactive Draggable Pin) */}
           <div
-            className="absolute top-0 bottom-0 w-3 rounded-l-md bg-cyan-400 text-black flex items-center justify-center font-black text-[9px] pointer-events-none z-10 shadow-md"
+            onPointerDown={(e) => handlePointerDown('start', e)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="absolute top-0 bottom-0 z-30 flex items-center justify-center -translate-x-full cursor-ew-resize group/handleLeft touch-none"
             style={{ left: `${startPercent}%` }}
+            title="Drag to adjust Start Time"
           >
-            |
+            <div className={`flex flex-col items-center justify-center h-full w-5 sm:w-6 bg-gradient-to-r from-cyan-500 to-cyan-400 text-black rounded-l-xl shadow-xl border-y border-l border-cyan-300 transition-all ${
+              activeDrag === 'start' ? 'ring-2 ring-cyan-300 brightness-125' : 'group-hover/handleLeft:brightness-110'
+            }`}>
+              <GripVertical size={13} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-tighter leading-none mt-0.5">IN</span>
+            </div>
+            {/* Floating Timestamp Tag */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-black/90 px-1.5 py-0.5 text-[9px] font-mono font-bold text-cyan-300 border border-cyan-400/40 pointer-events-none whitespace-nowrap shadow-md">
+              {formatTime(startTime)}
+            </div>
           </div>
 
-          {/* End Marker Pin */}
+          {/* Right / End Trim Handle (Interactive Draggable Pin) */}
           <div
-            className="absolute top-0 bottom-0 w-3 rounded-r-md bg-cyan-400 text-black flex items-center justify-center font-black text-[9px] pointer-events-none z-10 shadow-md -translate-x-full"
+            onPointerDown={(e) => handlePointerDown('end', e)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="absolute top-0 bottom-0 z-30 flex items-center justify-center cursor-ew-resize group/handleRight touch-none"
             style={{ left: `${endPercent}%` }}
+            title="Drag to adjust End Time"
           >
-            |
+            <div className={`flex flex-col items-center justify-center h-full w-5 sm:w-6 bg-gradient-to-r from-cyan-400 to-blue-500 text-black rounded-r-xl shadow-xl border-y border-r border-cyan-300 transition-all ${
+              activeDrag === 'end' ? 'ring-2 ring-cyan-300 brightness-125' : 'group-hover/handleRight:brightness-110'
+            }`}>
+              <GripVertical size={13} className="opacity-80" />
+              <span className="text-[7px] font-black uppercase tracking-tighter leading-none mt-0.5">OUT</span>
+            </div>
+            {/* Floating Timestamp Tag */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-black/90 px-1.5 py-0.5 text-[9px] font-mono font-bold text-cyan-300 border border-cyan-400/40 pointer-events-none whitespace-nowrap shadow-md">
+              {formatTime(endTime)}
+            </div>
           </div>
         </div>
 
