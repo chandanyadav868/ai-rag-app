@@ -17,6 +17,7 @@ import {
   Sliders,
   Check,
   XCircle,
+  RotateCw,
 } from 'lucide-react';
 import { useVideoToGif } from '../_hooks/useVideoToGif';
 import { getAllLocalAssets, storeLocalAsset } from '@/lib/persistent-storage';
@@ -218,7 +219,26 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
       const combined: SavedAsset[] = [];
       const seenIds = new Set<string>();
 
-      // 1. Load from IndexedDB (stores the 68 assets from Image Editing!)
+      // 1. Immediately load from localStorage (0ms latency)
+      try {
+        const rawAssets = localStorage.getItem('polish_ai_assets');
+        if (rawAssets) {
+          const parsed: SavedAsset[] = JSON.parse(rawAssets);
+          for (const item of parsed) {
+            if (!seenIds.has(item.id) && !seenIds.has(item.src)) {
+              seenIds.add(item.id);
+              combined.push(item);
+            }
+          }
+          if (isMounted && combined.length > 0) {
+            setSavedAssets([...combined]);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load localStorage assets:', err);
+      }
+
+      // 2. Load from IndexedDB (stores the 68 assets from Image Editing!)
       try {
         const storedLocal = await getAllLocalAssets();
         for (const item of storedLocal) {
@@ -231,30 +251,19 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
             });
           }
         }
+        if (isMounted) {
+          setSavedAssets([...combined]);
+        }
       } catch (err) {
         console.warn('Could not load IndexedDB assets:', err);
       }
 
-      // 2. Load from localStorage (polish_ai_assets)
-      try {
-        const rawAssets = localStorage.getItem('polish_ai_assets');
-        if (rawAssets) {
-          const parsed: SavedAsset[] = JSON.parse(rawAssets);
-          for (const item of parsed) {
-            if (!seenIds.has(item.id) && !seenIds.has(item.src)) {
-              seenIds.add(item.id);
-              combined.push(item);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Could not load localStorage assets:', err);
-      }
-
-      // 3. Load from Appwrite (public assets)
+      // 3. Load from Appwrite (public assets) with timeout safeguard
       try {
         const { appwriteAssets } = await import('@/lib/appwrite-assets');
-        const publicAssets = await appwriteAssets.listAssets();
+        const pubPromise = appwriteAssets.listAssets();
+        const timeoutPromise = new Promise<any[]>((res) => setTimeout(() => res([]), 2500));
+        const publicAssets = await Promise.race([pubPromise, timeoutPromise]);
         for (const item of publicAssets) {
           if (!seenIds.has(item.id)) {
             seenIds.add(item.id);
@@ -264,6 +273,9 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
               name: item.name,
             });
           }
+        }
+        if (isMounted) {
+          setSavedAssets([...combined]);
         }
       } catch (err) {
         console.warn('Could not load Appwrite public assets:', err);
@@ -278,10 +290,6 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
         }
       } catch (err) {
         console.warn('Could not load custom fonts:', err);
-      }
-
-      if (isMounted) {
-        setSavedAssets(combined);
       }
     };
 
@@ -401,42 +409,45 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 rounded-xl bg-white/5 p-1 border border-white/10">
+        <div className="flex items-center gap-1 rounded-xl bg-white/5 p-1 border border-white/10 w-full sm:w-auto justify-between sm:justify-start">
           <button
             type="button"
             onClick={() => setActiveTab('typography')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               activeTab === 'typography'
                 ? 'bg-cyan-500 text-black shadow-md'
                 : 'text-white/60 hover:text-white'
             }`}
           >
             <Type size={13} />
-            <span>Viral Fonts</span>
+            <span className="hidden xs:inline">Viral Fonts</span>
+            <span className="xs:hidden">Fonts</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('stickers')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               activeTab === 'stickers'
                 ? 'bg-cyan-500 text-black shadow-md'
                 : 'text-white/60 hover:text-white'
             }`}
           >
             <Sticker size={13} />
-            <span>Stickers & Assets ({savedAssets.length})</span>
+            <span className="hidden xs:inline">Stickers & Assets ({savedAssets.length})</span>
+            <span className="xs:hidden">Stickers ({savedAssets.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition ${
               activeTab === 'settings'
                 ? 'bg-cyan-500 text-black shadow-md'
                 : 'text-white/60 hover:text-white'
             }`}
           >
             <Gauge size={13} />
-            <span>GIF Settings</span>
+            <span className="hidden xs:inline">GIF Settings</span>
+            <span className="xs:hidden">Settings</span>
           </button>
         </div>
       </div>
@@ -597,23 +608,133 @@ export function ConversionSettings({ engine }: ConversionSettingsProps) {
                   ))}
                 </div>
               </div>
+
+              {/* Rotation Angle Slider & Quick Angle Presets */}
+              <div className="flex flex-col gap-1.5 pt-1.5 border-t border-white/5">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-white/50">
+                  <span className="flex items-center gap-1 text-cyan-300">
+                    <RotateCw size={11} />
+                    <span>Rotation Angle:</span>
+                  </span>
+                  <span className="font-mono text-cyan-400 font-bold">{selectedOverlay.rotation || 0}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={selectedOverlay.rotation || 0}
+                  onChange={(e) => updateOverlay(selectedOverlay.id, { rotation: parseInt(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) - 15 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate -15 degrees"
+                  >
+                    -15°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: 0 })}
+                    className="flex-1 py-1 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500 hover:text-black transition"
+                    title="Reset rotation to 0"
+                  >
+                    0°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) + 15 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate +15 degrees"
+                  >
+                    +15°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) + 90 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate 90 degrees"
+                  >
+                    +90°
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             /* Selected Image Overlay Controls */
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs text-white/70">
-                <span>Sticker Size / Scale:</span>
-                <span className="font-bold text-cyan-400">{Math.round((selectedOverlay.scale || 1) * 100)}%</span>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-xs text-white/70">
+                  <span>Sticker Size / Scale:</span>
+                  <span className="font-bold text-cyan-400">{Math.round((selectedOverlay.scale || 1) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="3.0"
+                  step="0.05"
+                  value={selectedOverlay.scale || 1}
+                  onChange={(e) => updateOverlay(selectedOverlay.id, { scale: parseFloat(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.4"
-                max="3.0"
-                step="0.05"
-                value={selectedOverlay.scale || 1}
-                onChange={(e) => updateOverlay(selectedOverlay.id, { scale: parseFloat(e.target.value) })}
-                className="w-full accent-cyan-400 cursor-pointer"
-              />
+
+              {/* Rotation Angle Slider & Quick Angle Presets for Sticker */}
+              <div className="flex flex-col gap-1.5 pt-1.5 border-t border-white/5">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-white/50">
+                  <span className="flex items-center gap-1 text-cyan-300">
+                    <RotateCw size={11} />
+                    <span>Rotation Angle:</span>
+                  </span>
+                  <span className="font-mono text-cyan-400 font-bold">{selectedOverlay.rotation || 0}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={selectedOverlay.rotation || 0}
+                  onChange={(e) => updateOverlay(selectedOverlay.id, { rotation: parseInt(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) - 15 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate -15 degrees"
+                  >
+                    -15°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: 0 })}
+                    className="flex-1 py-1 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500 hover:text-black transition"
+                    title="Reset rotation to 0"
+                  >
+                    0°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) + 15 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate +15 degrees"
+                  >
+                    +15°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateOverlay(selectedOverlay.id, { rotation: ((selectedOverlay.rotation || 0) + 90 + 180) % 360 - 180 })}
+                    className="flex-1 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition"
+                    title="Rotate 90 degrees"
+                  >
+                    +90°
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

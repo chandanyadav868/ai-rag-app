@@ -13,6 +13,7 @@ import {
   GripVertical,
   Trash2,
   Move,
+  RotateCw,
 } from 'lucide-react';
 import { useVideoToGif } from '../_hooks/useVideoToGif';
 
@@ -31,9 +32,11 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
   const didDragRef = useRef(false);
   const lastPointerUpTimeRef = useRef(0);
 
-  // Overlay pointer dragging state
+  // Overlay pointer dragging & rotation state
   const [activeOverlayDrag, setActiveOverlayDrag] = useState<string | null>(null);
   const overlayDragStartRef = useRef<{ clientX: number; clientY: number; startX: number; startY: number }>({ clientX: 0, clientY: 0, startX: 50, startY: 50 });
+  const [activeRotateId, setActiveRotateId] = useState<string | null>(null);
+  const rotateStartRef = useRef<{ centerX: number; centerY: number }>({ centerX: 0, centerY: 0 });
 
   const {
     videoUrl,
@@ -293,6 +296,55 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
     }
   };
 
+  // Interactive Rotation Handle Logic
+  const handleRotatePointerDown = (id: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedOverlayId(id);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setActiveRotateId(id);
+
+    const targetOverlay = overlays.find((o) => o.id === id);
+    if (targetOverlay && videoContainerRef.current) {
+      const containerRect = videoContainerRef.current.getBoundingClientRect();
+      const centerX = containerRect.left + (targetOverlay.x / 100) * containerRect.width;
+      const centerY = containerRect.top + (targetOverlay.y / 100) * containerRect.height;
+      rotateStartRef.current = {
+        centerX,
+        centerY,
+      };
+    }
+  };
+
+  const handleRotatePointerMove = (e: React.PointerEvent) => {
+    if (!activeRotateId) return;
+    const { centerX, centerY } = rotateStartRef.current;
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    const radians = Math.atan2(dy, dx);
+    let degrees = Math.round((radians * 180) / Math.PI) + 90; // offset so straight-up pointer is 0 deg
+    if (degrees > 180) degrees -= 360;
+    if (degrees < -180) degrees += 360;
+
+    // Snap to cardinal angles if close (0, 45, 90, -45, -90)
+    if (Math.abs(degrees) < 4) degrees = 0;
+    else if (Math.abs(degrees - 90) < 4) degrees = 90;
+    else if (Math.abs(degrees + 90) < 4) degrees = -90;
+    else if (Math.abs(degrees - 45) < 4) degrees = 45;
+    else if (Math.abs(degrees + 45) < 4) degrees = -45;
+
+    updateOverlay(activeRotateId, { rotation: degrees });
+  };
+
+  const handleRotatePointerUp = (e: React.PointerEvent) => {
+    if (activeRotateId) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+      setActiveRotateId(null);
+    }
+  };
+
   if (!videoUrl) return null;
 
   return (
@@ -386,18 +438,36 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
 
               {/* Quick Actions Bounding Box controls when selected (counteracting parent scale so button stays crisp 22px) */}
               {isSelected && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeOverlay(ov.id);
-                  }}
-                  style={{ transform: `scale(${1 / Math.max(0.5, ov.scale)})` }}
-                  className="absolute -top-3 -right-3 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl hover:bg-rose-500 hover:scale-125 active:scale-95 transition z-40"
-                  title="Delete overlay"
-                >
-                  <Trash2 size={12} />
-                </button>
+                <>
+                  {/* Interactive Rotation Pin on top of element */}
+                  <div
+                    onPointerDown={(e) => handleRotatePointerDown(ov.id, e)}
+                    onPointerMove={handleRotatePointerMove}
+                    onPointerUp={handleRotatePointerUp}
+                    style={{ transform: `scale(${1 / Math.max(0.5, ov.scale)})` }}
+                    className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing z-40 touch-none group/rot"
+                    title="Drag to rotate element freely"
+                  >
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400 text-black shadow-xl hover:scale-125 transition">
+                      <RotateCw size={12} className="stroke-[2.5]" />
+                    </div>
+                    <div className="w-0.5 h-2 bg-cyan-400/80" />
+                  </div>
+
+                  {/* Corner Delete Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeOverlay(ov.id);
+                    }}
+                    style={{ transform: `scale(${1 / Math.max(0.5, ov.scale)})` }}
+                    className="absolute -top-3 -right-3 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl hover:bg-rose-500 hover:scale-125 active:scale-95 transition z-40"
+                    title="Delete overlay"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </>
               )}
             </div>
           );
@@ -406,10 +476,10 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
 
       {/* Dual Trimming Timeline Track */}
       <div className="flex flex-col gap-2 pt-2">
-        <div className="flex items-center justify-between text-xs font-bold text-white/70 mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-bold text-white/70 mb-3">
           <span className="flex items-center gap-1.5 text-cyan-300">
             <Scissors size={14} />
-            <span>Trim Clip Range (Drag Left or Right Handle)</span>
+            <span>Trim Clip Range</span>
           </span>
           <span className="flex items-center gap-1 text-[11px] text-white/50">
             <Sparkles size={11} className="text-amber-400" />
@@ -494,34 +564,38 @@ export function VideoTrimmer({ engine }: VideoTrimmerProps) {
           </div>
         </div>
 
-        {/* Start / End Timestamp Quick Inputs */}
-        <div className="flex items-center justify-between text-xs pt-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Start:</span>
-            <input
-              type="number"
-              step="0.1"
-              min={0}
-              max={endTime - 0.2}
-              value={Number(startTime.toFixed(2))}
-              onChange={(e) => handleStartChange(parseFloat(e.target.value) || 0)}
-              className="w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs font-mono font-bold text-white outline-none focus:border-cyan-400"
-            />
-            <span className="text-[11px] text-white/40">({formatTime(startTime)})</span>
+        {/* Start / End Timestamp Quick Inputs (Responsive 2-column grid that never collides) */}
+        <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+          <div className="flex items-center justify-between gap-1 rounded-xl bg-white/[0.04] p-1.5 sm:p-2 border border-white/10">
+            <span className="text-[10px] sm:text-[11px] font-bold text-cyan-400 uppercase tracking-wider shrink-0">Start:</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                min={0}
+                max={endTime - 0.2}
+                value={Number(startTime.toFixed(2))}
+                onChange={(e) => handleStartChange(parseFloat(e.target.value) || 0)}
+                className="w-13 sm:w-16 rounded-lg border border-white/15 bg-black/50 px-1.5 py-1 text-xs font-mono font-bold text-white outline-none focus:border-cyan-400"
+              />
+              <span className="text-[10px] sm:text-[11px] text-white/50 font-mono hidden xs:inline">({formatTime(startTime)})</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">End:</span>
-            <input
-              type="number"
-              step="0.1"
-              min={startTime + 0.2}
-              max={duration}
-              value={Number(endTime.toFixed(2))}
-              onChange={(e) => handleEndChange(parseFloat(e.target.value) || duration)}
-              className="w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs font-mono font-bold text-white outline-none focus:border-cyan-400"
-            />
-            <span className="text-[11px] text-white/40">({formatTime(endTime)})</span>
+          <div className="flex items-center justify-between gap-1 rounded-xl bg-white/[0.04] p-1.5 sm:p-2 border border-white/10">
+            <span className="text-[10px] sm:text-[11px] font-bold text-cyan-400 uppercase tracking-wider shrink-0">End:</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                min={startTime + 0.2}
+                max={duration}
+                value={Number(endTime.toFixed(2))}
+                onChange={(e) => handleEndChange(parseFloat(e.target.value) || duration)}
+                className="w-13 sm:w-16 rounded-lg border border-white/15 bg-black/50 px-1.5 py-1 text-xs font-mono font-bold text-white outline-none focus:border-cyan-400"
+              />
+              <span className="text-[10px] sm:text-[11px] text-white/50 font-mono hidden xs:inline">({formatTime(endTime)})</span>
+            </div>
           </div>
         </div>
       </div>
