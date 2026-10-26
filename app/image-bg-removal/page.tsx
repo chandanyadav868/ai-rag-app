@@ -27,8 +27,10 @@ import {
   ZoomOut,
   Maximize2,
   Archive,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Crop
 } from 'lucide-react';
+import ImageCropModal from './_components/ImageCropModal';
 import { toast } from 'sonner';
 import { useBackgroundRemoval } from '../image-editing/_hooks/useBackgroundRemoval';
 import Header from '@/components/Header';
@@ -105,7 +107,8 @@ export default function ImageBgRemovalPage() {
     deviceType,
     lastDurationMs,
     removeBackground,
-    loadModel
+    loadModel,
+    resetEngine
   } = useBackgroundRemoval();
 
   const [images, setImages] = useState<ProcessedImage[]>([]);
@@ -127,6 +130,7 @@ export default function ImageBgRemovalPage() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
@@ -242,6 +246,32 @@ export default function ImageBgRemovalPage() {
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, [addImages]);
+
+  // Handle applied crop
+  const handleApplyCrop = (
+    croppedOriginalUrl: string,
+    croppedProcessedUrl: string | null,
+    shouldReprocess: boolean
+  ) => {
+    if (!activeImage) return;
+    const targetId = activeImage.id;
+
+    setImages(prev => prev.map(img => {
+      if (img.id !== targetId) return img;
+      return {
+        ...img,
+        originalUrl: croppedOriginalUrl,
+        processedUrl: croppedProcessedUrl,
+        status: shouldReprocess ? 'idle' : (croppedProcessedUrl ? 'completed' : 'idle')
+      };
+    }));
+
+    if (shouldReprocess) {
+      setTimeout(() => {
+        processImage(targetId);
+      }, 150);
+    }
+  };
 
   // Process a single image
   const processImage = async (targetId: string, customMode?: 'auto' | 'prompt', customPrompt?: string) => {
@@ -552,6 +582,15 @@ export default function ImageBgRemovalPage() {
                 <Zap size={13} />
                 {deviceType === 'webgpu' ? '⚡ WebGPU Active' : '⚙️ WASM Engine'}
               </span>
+              <button
+                type="button"
+                onClick={resetEngine}
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors"
+                title="Clear RAM / GPU memory and refresh AI engine"
+              >
+                <RefreshCw size={11} className="text-cyan-400" />
+                <span>Refresh Engine</span>
+              </button>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               AI Background & Object Isolation Studio
@@ -947,6 +986,16 @@ export default function ImageBgRemovalPage() {
                     Cutout PNG
                   </button>
                   <button
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Crop size={14} className="text-cyan-400" />
+                    Crop Size
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
                     onClick={() => downloadImage(activeImage, true)}
                     disabled={!activeImage.processedUrl || activeBackdrop === 'transparent'}
                     className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
@@ -954,26 +1003,24 @@ export default function ImageBgRemovalPage() {
                     <Download size={14} className="text-emerald-400" />
                     With Backdrop
                   </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={copyToClipboard}
                     disabled={!activeImage.processedUrl}
                     className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                    {copied ? 'Copied!' : 'Copy to Clipboard'}
-                  </button>
-                  <button
-                    onClick={openInEditor}
-                    disabled={!activeImage.processedUrl}
-                    className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                  >
-                    <ExternalLink size={14} />
-                    Open in Canvas
+                    {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
+
+                <button
+                  onClick={openInEditor}
+                  disabled={!activeImage.processedUrl}
+                  className="w-full py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                >
+                  <ExternalLink size={14} />
+                  Open in Canvas Editor
+                </button>
               </div>
 
               {/* Placement 3: Desktop Sidebar Sponsored Unit */}
@@ -1018,8 +1065,18 @@ export default function ImageBgRemovalPage() {
                   </button>
                 </div>
 
-                {/* Zoom & Reset Controls */}
+                {/* Zoom, Crop & Fit Controls */}
                 <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 text-[11px] sm:text-xs font-semibold flex items-center gap-1 sm:gap-1.5 transition-all shadow-sm active:scale-95"
+                    title="Crop & Resize Image"
+                  >
+                    <Crop size={13} className="text-cyan-400" />
+                    <span>Crop Image</span>
+                  </button>
+
                   <div className="flex items-center bg-black/40 rounded-xl border border-white/5 p-0.5">
                     <button
                       onClick={() => setZoomLevel(prev => Math.max(0.6, prev - 0.2))}
@@ -1257,7 +1314,7 @@ export default function ImageBgRemovalPage() {
                     </div>
 
                     {/* Secondary Actions Row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-white/10">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 border-t border-white/10">
                       <button
                         onClick={() => processImage(activeImage.id)}
                         disabled={isProcessing}
@@ -1269,6 +1326,14 @@ export default function ImageBgRemovalPage() {
                           <RefreshCw size={13} className="text-cyan-400" />
                         )}
                         <span>Re-run AI</span>
+                      </button>
+
+                      <button
+                        onClick={() => setIsCropModalOpen(true)}
+                        className="py-2 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        <Crop size={13} className="text-cyan-400" />
+                        <span>Crop Size</span>
                       </button>
 
                       <button
@@ -1292,7 +1357,7 @@ export default function ImageBgRemovalPage() {
                       <button
                         onClick={openInEditor}
                         disabled={!activeImage.processedUrl}
-                        className="py-2 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                        className="py-2 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-medium text-[11px] sm:text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 col-span-2 sm:col-span-1"
                       >
                         <ExternalLink size={13} />
                         <span>Open Canvas</span>
@@ -1417,6 +1482,18 @@ export default function ImageBgRemovalPage() {
                         alt={item.name}
                         className="w-full h-full object-cover"
                       />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImageId(item.id);
+                          setIsCropModalOpen(true);
+                        }}
+                        className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 hover:bg-cyan-500 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                        title="Crop this image"
+                      >
+                        <Crop size={11} />
+                      </button>
                       {item.status === 'completed' && (
                         <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
                           <Check size={10} />
@@ -1493,6 +1570,14 @@ export default function ImageBgRemovalPage() {
           </div>
         </div>
       )}
+
+      {/* Image Cropping Modal */}
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        image={activeImage}
+        onApplyCrop={handleApplyCrop}
+      />
 
       <Footer />
     </div>

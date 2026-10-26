@@ -18,6 +18,18 @@ const subscribers: Set<(data: any) => void> = new Set();
 let isInitialized = false;
 let modelReady = false;
 
+export function terminateGlobalWorker() {
+    if (globalWorker) {
+        try {
+            globalWorker.terminate();
+        } catch {}
+        globalWorker = null;
+        isInitialized = false;
+        modelReady = false;
+        subscribers.clear();
+    }
+}
+
 export function useBackgroundRemoval() {
     const [status, setStatus] = useState<BackgroundRemovalStatus>(modelReady ? 'ready' : 'idle');
     const [progress, setProgress] = useState<string>('');
@@ -112,9 +124,24 @@ export function useBackgroundRemoval() {
         globalWorker.postMessage({ action: 'load', payload: { modelId } });
     }, [initWorker]);
 
+    const resetEngine = useCallback(() => {
+        terminateGlobalWorker();
+        setStatus('idle');
+        setIsModelLoaded(false);
+        setProgress('');
+        setProgressPercent(0);
+        setError(null);
+        const w = initWorker();
+        if (w) {
+            loadModel('briaai/RMBG-1.4');
+        }
+        toast.success("AI Engine memory cleared and refreshed");
+    }, [initWorker, loadModel]);
+
     const removeBackground = useCallback(async (
         imageSrc: string,
-        options: RemoveBackgroundOptions = {}
+        options: RemoveBackgroundOptions = {},
+        isRetry = false
     ): Promise<string | null> => {
         const worker = initWorker();
         if (!worker) {
@@ -133,7 +160,7 @@ export function useBackgroundRemoval() {
         setError(null);
 
         return new Promise((resolve) => {
-            const handleMessage = (event: MessageEvent) => {
+            const handleMessage = async (event: MessageEvent) => {
                 const { status: msgStatus, payload, durationMs } = event.data;
 
                 if (msgStatus === 'complete') {
@@ -141,24 +168,36 @@ export function useBackgroundRemoval() {
                     if (typeof durationMs === 'number') setLastDurationMs(durationMs);
 
                     try {
-                        applyMaskToImage(imageSrc, payload.mask, payload.width, payload.height)
-                            .then((result) => {
-                                setStatus('ready');
-                                resolve(result);
-                            })
-                            .catch((err) => {
-                                console.error("Error applying mask:", err);
-                                setStatus('error');
-                                resolve(null);
-                            });
+                        const result = await applyMaskToImage(imageSrc, payload.mask, payload.width, payload.height);
+                        setStatus('ready');
+                        resolve(result);
                     } catch (err) {
+                        console.error("Error applying mask:", err);
                         setStatus('error');
                         resolve(null);
                     }
                 } else if (msgStatus === 'error') {
                     worker.removeEventListener('message', handleMessage);
+                    
+                    const rawMsg = String(event.data?.message || '');
+                    const isMemoryOrDeviceError = /destroy|webgpu|device|buffer|memory|gl|lost|undefined/i.test(rawMsg);
+                    
+                    // Terminate the crashed worker so the environment is clean
+                    terminateGlobalWorker();
+
+                    if (!isRetry && isMemoryOrDeviceError) {
+                        console.warn('[useBackgroundRemoval] Memory or device hiccup caught. Seamlessly auto-retrying with fresh worker...');
+                        const retryResult = await removeBackground(imageSrc, options, true);
+                        resolve(retryResult);
+                        return;
+                    }
+
                     setStatus('error');
-                    toast.error(event.data.message || "Failed to remove background");
+                    const friendlyMessage = isMemoryOrDeviceError
+                        ? "AI engine refreshed memory limits. Please try again."
+                        : (event.data?.message || "Failed to remove background");
+                    
+                    toast.error(friendlyMessage);
                     resolve(null);
                 }
             };
@@ -217,6 +256,7 @@ export function useBackgroundRemoval() {
         error,
         isProcessing: status === 'processing',
         loadModel,
+        resetEngine,
         removeBackground,
         removeBackgroundFromFrame
     };
